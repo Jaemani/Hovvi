@@ -7,6 +7,7 @@
 - local relay smoke tests for agent registration and forwarding.
 - attach manifest contract for mobile clients.
 - relay heartbeat and stale-device pruning.
+- protocol validation and relay lifecycle integration tests.
 
 ## Next
 

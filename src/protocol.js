@@ -1,3 +1,5 @@
+import { validateMessage } from "./validation.js";
+
 export const PROTOCOL_VERSION = 1;
 
 export function envelope(type, payload = {}) {
@@ -23,6 +25,12 @@ export function parseEnvelope(data) {
   if (!message.type || typeof message.type !== "string") {
     throw new Error("Protocol message requires a string type.");
   }
+  return message;
+}
+
+export function parseAndValidateEnvelope(data) {
+  const message = parseEnvelope(data);
+  validateMessage(message);
   return message;
 }
 

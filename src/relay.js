@@ -1,6 +1,7 @@
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 import WebSocket, { WebSocketServer } from "ws";
-import { envelope, parseEnvelope, serialize } from "./protocol.js";
+import { envelope, parseAndValidateEnvelope, serialize } from "./protocol.js";
 import { createAccessRegistry } from "./registry.js";
 
 export async function runRelay({
@@ -12,11 +13,38 @@ export async function runRelay({
   sweepIntervalMs = 5000,
   maxPayloadBytes = 1024 * 1024,
 }) {
+  const relay = createRelayServer({
+    host,
+    port,
+    token,
+    registryPath,
+    deviceTimeoutMs,
+    sweepIntervalMs,
+    maxPayloadBytes,
+  });
+  await relay.listen();
+  process.stdout.write(`Hovvi relay listening on ${relay.url}\n`);
+}
+
+export function createRelayServer({
+  host = "127.0.0.1",
+  port = 0,
+  token = "dev",
+  registryPath,
+  deviceTimeoutMs = 30000,
+  sweepIntervalMs = 5000,
+  maxPayloadBytes = 1024 * 1024,
+} = {}) {
   const state = createRelayState({ token, registryPath, deviceTimeoutMs });
   const server = http.createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    if (request.url === "/statusz" || request.url === "/metrics.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(relayStatus(state)));
       return;
     }
     response.writeHead(404);
@@ -25,21 +53,58 @@ export async function runRelay({
 
   const wss = new WebSocketServer({ server, maxPayload: maxPayloadBytes });
   wss.on("connection", (ws) => {
+    state.metrics.connectionsAccepted += 1;
     ws.on("message", (data) => handleRelayMessage(state, ws, data));
     ws.on("close", () => unregisterSocket(state, ws));
     ws.on("error", () => unregisterSocket(state, ws));
   });
 
-  await new Promise((resolve) => server.listen(port, host, resolve));
-  const sweep = setInterval(() => sweepStaleAgents(state), sweepIntervalMs);
-  server.on("close", () => clearInterval(sweep));
-  process.stdout.write(`Hovvi relay listening on ws://${host}:${port}\n`);
+  let sweep;
+
+  return {
+    state,
+    server,
+    wss,
+    get url() {
+      const address = server.address();
+      const actualPort = typeof address === "object" && address ? address.port : port;
+      return `ws://${host}:${actualPort}`;
+    },
+    listen() {
+      return new Promise((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(port, host, () => {
+          server.off("error", reject);
+          sweep = setInterval(() => sweepStaleAgents(state), sweepIntervalMs);
+          resolve(this);
+        });
+      });
+    },
+    close() {
+      clearInterval(sweep);
+      for (const ws of wss.clients) ws.close();
+      return new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    },
+  };
 }
 
 export function createRelayState({ token, registryPath, deviceTimeoutMs = 30000 } = {}) {
   return {
     access: createAccessRegistry({ devToken: token, registryPath }),
     deviceTimeoutMs,
+    relayId: randomUUID(),
+    startedAt: new Date().toISOString(),
+    metrics: {
+      connectionsAccepted: 0,
+      messagesReceived: 0,
+      invalidMessages: 0,
+      staleAgentsPruned: 0,
+    },
     sockets: new Map(),
     agents: new Map(),
     clients: new Map(),
@@ -49,10 +114,12 @@ export function createRelayState({ token, registryPath, deviceTimeoutMs = 30000 
 
 export function handleRelayMessage(state, ws, data) {
   let message;
+  state.metrics.messagesReceived += 1;
   try {
-    message = parseEnvelope(data);
+    message = parseAndValidateEnvelope(data);
   } catch (error) {
-    ws.send(serialize(envelope("error", { message: error.message })));
+    state.metrics.invalidMessages += 1;
+    ws.send(serialize(envelope("error", { code: "invalid_message", field: error.field, message: error.message })));
     return;
   }
 
@@ -69,6 +136,8 @@ export function handleRelayMessage(state, ws, data) {
   switch (message.type) {
     case "sessions.update":
       return updateSessions(state, ws, message);
+    case "agent.heartbeat":
+      return agentHeartbeat(state, ws, message);
     case "devices.list":
       return sendDeviceList(state, ws);
     case "forward.open":
@@ -86,6 +155,19 @@ export function handleRelayMessage(state, ws, data) {
     default:
       ws.send(serialize(envelope("error", { message: `unknown message type ${message.type}` })));
   }
+}
+
+export function relayStatus(state) {
+  return {
+    ok: true,
+    relayId: state.relayId,
+    startedAt: state.startedAt,
+    deviceTimeoutMs: state.deviceTimeoutMs,
+    agents: state.agents.size,
+    clients: state.clients.size,
+    streams: state.streams.size,
+    metrics: { ...state.metrics },
+  };
 }
 
 function attachPrepare(state, ws, message) {
@@ -155,6 +237,20 @@ function registerSocket(state, ws, message) {
   ws.send(serialize(envelope("error", { message: "hello role must be agent or client" })));
 }
 
+function agentHeartbeat(state, ws, message) {
+  const meta = state.sockets.get(ws);
+  if (meta?.role !== "agent") return;
+  if (message.deviceId !== meta.device.id) {
+    ws.send(serialize(envelope("error", { code: "device_mismatch", message: "heartbeat deviceId does not match registered agent" })));
+    return;
+  }
+  meta.lastSeenMs = Date.now();
+  meta.lastSeenAt = new Date().toISOString();
+  if (message.capabilities) {
+    meta.device.capabilities = message.capabilities;
+  }
+}
+
 function updateSessions(state, ws, message) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "agent") return;
@@ -183,6 +279,7 @@ export function sweepStaleAgents(state, now = Date.now()) {
     agent.ws.close(1001, "stale agent");
     unregisterSocket(state, agent.ws);
   }
+  state.metrics.staleAgentsPruned += stale.length;
   return stale.length;
 }
 

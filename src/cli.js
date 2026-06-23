@@ -32,7 +32,7 @@ Usage:
   hovvi doctor [--json] [--network]
   hovvi login [--client-id <github-oauth-client-id>]
   hovvi relay [--host 127.0.0.1] [--port 8787] [--token <token>] [--device-timeout-ms 30000]
-  hovvi up [--relay ws://127.0.0.1:8787] [--token <token>] [--name <device-name>]
+  hovvi up [--relay ws://127.0.0.1:8787] [--token <token>] [--name <device-name>] [--heartbeat-ms 10000]
   hovvi sessions [--json]
   hovvi attach [session-name]
   hovvi capture [session-name] [--lines 2000]
@@ -179,7 +179,9 @@ async function upCommand(args) {
     "ws://127.0.0.1:8787";
   const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
   const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME || config.device?.name;
-  await runAgent({ relayUrl, token, name });
+  const heartbeatIntervalMs = Number(readOption(args, "--heartbeat-ms") || process.env.HOVVI_HEARTBEAT_MS || 10000);
+  const publishIntervalMs = Number(readOption(args, "--publish-ms") || process.env.HOVVI_PUBLISH_MS || 5000);
+  await runAgent({ relayUrl, token, name, heartbeatIntervalMs, publishIntervalMs });
 }
 
 async function sessionsCommand(args) {

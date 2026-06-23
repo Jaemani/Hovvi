@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRelayState, handleRelayMessage, sweepStaleAgents } from "../src/relay.js";
+import { createRelayState, handleRelayMessage, relayStatus, sweepStaleAgents } from "../src/relay.js";
 import { envelope, serialize } from "../src/protocol.js";
 
 test("relay registers agent and sends device snapshot to client", () => {
@@ -103,6 +103,49 @@ test("relay sweeps stale agents and updates clients", () => {
   assert.equal(state.agents.has("mac-1"), false);
   const snapshots = client.messages.map(JSON.parse).filter((message) => message.type === "devices.snapshot");
   assert.equal(snapshots.at(-1).devices.length, 0);
+});
+
+test("relay handles agent heartbeat without broadcasting session churn", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1", capabilities: [] } })),
+  );
+  const before = state.agents.get("mac-1").lastSeenMs;
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("agent.heartbeat", { deviceId: "mac-1", capabilities: ["tmux.sessions"] })),
+  );
+
+  assert.equal(state.agents.get("mac-1").device.capabilities[0], "tmux.sessions");
+  assert.ok(state.agents.get("mac-1").lastSeenMs >= before);
+});
+
+test("relay status reports operational counts", () => {
+  const state = createRelayState({ token: "dev" });
+  const client = fakeSocket();
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+
+  const status = relayStatus(state);
+  assert.equal(status.ok, true);
+  assert.equal(status.clients, 1);
+  assert.equal(status.agents, 0);
+  assert.equal(status.metrics.messagesReceived, 1);
+});
+
+test("relay returns structured invalid message errors", () => {
+  const state = createRelayState({ token: "dev" });
+  const client = fakeSocket();
+  handleRelayMessage(state, client, JSON.stringify({ version: 1, type: "forward.data", streamId: "s", data: "bad!" }));
+
+  const error = client.messages.map(JSON.parse).find((message) => message.type === "error");
+  assert.equal(error.code, "invalid_message");
+  assert.equal(error.field, "data");
+  assert.equal(state.metrics.invalidMessages, 1);
 });
 
 function fakeSocket() {

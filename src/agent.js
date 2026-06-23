@@ -2,16 +2,16 @@ import { connect } from "node:net";
 import { hostname, platform, userInfo } from "node:os";
 import WebSocket from "ws";
 import { getConfig, saveConfig } from "./config.js";
-import { envelope, parseEnvelope, randomId, serialize } from "./protocol.js";
+import { envelope, parseAndValidateEnvelope, randomId, serialize } from "./protocol.js";
 import { buildAttachManifest } from "./attach.js";
 import { ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
 
-export async function runAgent({ relayUrl, token, name }) {
+export async function runAgent({ relayUrl, token, name, publishIntervalMs = 5000, heartbeatIntervalMs = 10000 }) {
   const device = getDevice(name);
   process.stdout.write(`Starting Hovvi agent for ${device.name} (${device.id})\n`);
   for (;;) {
     try {
-      await connectAgent({ relayUrl, token, device });
+      await connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs });
     } catch (error) {
       process.stderr.write(`Agent disconnected: ${error.message}\n`);
       await sleep(2000);
@@ -31,10 +31,11 @@ export function getDevice(name) {
   return config.device;
 }
 
-async function connectAgent({ relayUrl, token, device }) {
+async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs }) {
   const ws = new WebSocket(relayUrl);
   const forwards = new Map();
-  let timer;
+  let publishTimer;
+  let heartbeatTimer;
 
   await new Promise((resolve, reject) => {
     ws.once("open", resolve);
@@ -44,21 +45,34 @@ async function connectAgent({ relayUrl, token, device }) {
   ws.send(serialize(envelope("hello", { role: "agent", token, device })));
   ws.on("message", (data) => handleAgentMessage(ws, forwards, device, data));
   ws.on("close", () => {
-    clearInterval(timer);
+    clearInterval(publishTimer);
+    clearInterval(heartbeatTimer);
     for (const socket of forwards.values()) socket.destroy();
     forwards.clear();
   });
 
+  const heartbeat = () => {
+    ws.send(
+      serialize(
+        envelope("agent.heartbeat", {
+          deviceId: device.id,
+          capabilities: device.capabilities || [],
+        }),
+      ),
+    );
+  };
   const publish = async () => {
     const sessions = await listSessions();
     ws.send(serialize(envelope("sessions.update", { sessions })));
   };
+  heartbeat();
   await publish();
-  timer = setInterval(() => {
+  heartbeatTimer = setInterval(heartbeat, heartbeatIntervalMs);
+  publishTimer = setInterval(() => {
     publish().catch((error) => {
       ws.send(serialize(envelope("error", { message: error.message })));
     });
-  }, 5000);
+  }, publishIntervalMs);
 
   await new Promise((resolve, reject) => {
     ws.once("close", resolve);
@@ -69,7 +83,7 @@ async function connectAgent({ relayUrl, token, device }) {
 function handleAgentMessage(ws, forwards, device, data) {
   let message;
   try {
-    message = parseEnvelope(data);
+    message = parseAndValidateEnvelope(data);
   } catch {
     return;
   }

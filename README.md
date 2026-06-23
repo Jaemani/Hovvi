@@ -108,6 +108,10 @@ Operational defaults:
 - stale agents are removed after `--device-timeout-ms` (default `30000`)
 - stale sweeps run every `--sweep-interval-ms` (default `5000`)
 - WebSocket payloads are capped by `--max-payload-bytes` (default `1048576`)
+- `/healthz` returns basic liveness
+- `/statusz` and `/metrics.json` return relay id, uptime inputs, connected agent/client counts, stream counts, and counters
+
+Relay protocol inputs are schema-validated before routing to an agent. Invalid messages return structured `error` envelopes with `code`, `field`, and `message`.
 
 ## Product Direction
 
@@ -133,6 +137,8 @@ git push --follow-tags
 ```
 
 The release workflow verifies the tag matches `package.json`, runs checks/tests, performs `npm pack --dry-run`, and publishes with npm provenance. Configure npm Trusted Publishing for `Jaemani/Hovvi` before relying on tag-based release automation.
+
+Do not publish new commits as `0.1.0`; bump the version first.
 
 ## Git Account State on This Mac
 
