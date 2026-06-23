@@ -2,6 +2,13 @@
 
 The iOS app is intentionally not scaffolded as a throwaway UI yet. Hovvi is native-first for mobile because terminal attach, keyboard behavior, background lifecycle, mosh-compatible transport, and future Network Extension work are platform-sensitive.
 
+`HovviMobileCore` is a Swift Package that pins the first native protocol models and JSON coding behavior. Run:
+
+```bash
+swift build
+swift run HovviMobileCoreSmoke
+```
+
 The first native build should consume the relay protocol implemented by the CLI package:
 
 - GitHub OAuth login
