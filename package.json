@@ -1,0 +1,35 @@
+{
+  "name": "hovvi",
+  "version": "0.1.0",
+  "description": "Catch and resume remote development sessions from mobile devices.",
+  "type": "module",
+  "bin": {
+    "hovvi": "./bin/hovvi"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "docs",
+    "packaging"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check bin/hovvi && node --check src/*.js"
+  },
+  "keywords": [
+    "tmux",
+    "mosh",
+    "remote-development",
+    "mobile",
+    "terminal"
+  ],
+  "author": "Jaemani",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
