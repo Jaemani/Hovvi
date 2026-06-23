@@ -19,7 +19,7 @@ hovvi doctor
 hovvi sessions
 hovvi attach main
 hovvi capture main --lines 2000
-hovvi relay --token dev
+hovvi relay --token dev --device-timeout-ms 30000
 hovvi up --relay ws://127.0.0.1:8787 --token dev
 hovvi mobile
 hovvi service install --relay ws://127.0.0.1:8787 --token dev
@@ -31,7 +31,7 @@ hovvi service start
 In terminal 1:
 
 ```bash
-hovvi relay --token dev
+hovvi relay --token dev --device-timeout-ms 30000
 ```
 
 In terminal 2:
@@ -102,6 +102,12 @@ Start the relay with:
 ```bash
 hovvi relay --registry ./registry.json
 ```
+
+Operational defaults:
+
+- stale agents are removed after `--device-timeout-ms` (default `30000`)
+- stale sweeps run every `--sweep-interval-ms` (default `5000`)
+- WebSocket payloads are capped by `--max-payload-bytes` (default `1048576`)
 
 ## Product Direction
 

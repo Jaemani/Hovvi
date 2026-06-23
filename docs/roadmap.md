@@ -6,6 +6,7 @@
 - relay auth registry and device listing.
 - local relay smoke tests for agent registration and forwarding.
 - attach manifest contract for mobile clients.
+- relay heartbeat and stale-device pruning.
 
 ## Next
 

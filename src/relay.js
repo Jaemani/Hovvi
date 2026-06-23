@@ -3,8 +3,16 @@ import WebSocket, { WebSocketServer } from "ws";
 import { envelope, parseEnvelope, serialize } from "./protocol.js";
 import { createAccessRegistry } from "./registry.js";
 
-export async function runRelay({ host = "127.0.0.1", port = 8787, token = "dev", registryPath }) {
-  const state = createRelayState({ token, registryPath });
+export async function runRelay({
+  host = "127.0.0.1",
+  port = 8787,
+  token = "dev",
+  registryPath,
+  deviceTimeoutMs = 30000,
+  sweepIntervalMs = 5000,
+  maxPayloadBytes = 1024 * 1024,
+}) {
+  const state = createRelayState({ token, registryPath, deviceTimeoutMs });
   const server = http.createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -15,7 +23,7 @@ export async function runRelay({ host = "127.0.0.1", port = 8787, token = "dev",
     response.end("not found");
   });
 
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ server, maxPayload: maxPayloadBytes });
   wss.on("connection", (ws) => {
     ws.on("message", (data) => handleRelayMessage(state, ws, data));
     ws.on("close", () => unregisterSocket(state, ws));
@@ -23,12 +31,15 @@ export async function runRelay({ host = "127.0.0.1", port = 8787, token = "dev",
   });
 
   await new Promise((resolve) => server.listen(port, host, resolve));
+  const sweep = setInterval(() => sweepStaleAgents(state), sweepIntervalMs);
+  server.on("close", () => clearInterval(sweep));
   process.stdout.write(`Hovvi relay listening on ws://${host}:${port}\n`);
 }
 
-export function createRelayState({ token, registryPath } = {}) {
+export function createRelayState({ token, registryPath, deviceTimeoutMs = 30000 } = {}) {
   return {
     access: createAccessRegistry({ devToken: token, registryPath }),
+    deviceTimeoutMs,
     sockets: new Map(),
     agents: new Map(),
     clients: new Map(),
@@ -122,7 +133,8 @@ function registerSocket(state, ws, message) {
       ws.send(serialize(envelope("error", { message: "agent hello requires device.id" })));
       return;
     }
-    const meta = { role: "agent", principal, device, sessions: [], ws };
+    const now = Date.now();
+    const meta = { role: "agent", principal, device, sessions: [], ws, lastSeenMs: now };
     state.sockets.set(ws, meta);
     state.agents.set(device.id, meta);
     ws.send(serialize(envelope("hello.ok", { role: "agent", deviceId: device.id })));
@@ -147,6 +159,7 @@ function updateSessions(state, ws, message) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "agent") return;
   meta.sessions = Array.isArray(message.sessions) ? message.sessions : [];
+  meta.lastSeenMs = Date.now();
   meta.lastSeenAt = new Date().toISOString();
   broadcastDeviceList(state);
 }
@@ -159,6 +172,18 @@ function sendDeviceList(state, ws) {
       }),
     ),
   );
+}
+
+export function sweepStaleAgents(state, now = Date.now()) {
+  const stale = [...state.agents.values()].filter((agent) => {
+    if (agent.ws.readyState !== WebSocket.OPEN) return true;
+    return now - (agent.lastSeenMs || 0) > state.deviceTimeoutMs;
+  });
+  for (const agent of stale) {
+    agent.ws.close(1001, "stale agent");
+    unregisterSocket(state, agent.ws);
+  }
+  return stale.length;
 }
 
 function broadcastDeviceList(state) {
