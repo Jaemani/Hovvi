@@ -8,6 +8,7 @@ export async function createClient({ relayUrl, token }) {
   const streams = new Map();
   const deviceWaiters = new Set();
   const attachWaiters = new Map();
+  const scrollbackWaiters = new Map();
   let devices = [];
   let haveDeviceSnapshot = false;
 
@@ -50,6 +51,23 @@ export async function createClient({ relayUrl, token }) {
         waiter.reject(new Error(message.message || "attach prepare failed"));
       } else {
         waiter.resolve(message.manifest);
+      }
+      return;
+    }
+
+    if (message.type === "session.scrollback.ready" || message.type === "session.scrollback.error") {
+      const waiter = scrollbackWaiters.get(message.requestId);
+      if (!waiter) return;
+      scrollbackWaiters.delete(message.requestId);
+      clearTimeout(waiter.timer);
+      if (message.type === "session.scrollback.error") {
+        waiter.reject(new Error(message.message || "scrollback fetch failed"));
+      } else {
+        waiter.resolve({
+          sessionName: message.sessionName,
+          lines: message.lines,
+          text: message.text,
+        });
       }
       return;
     }
@@ -136,6 +154,22 @@ export async function createClient({ relayUrl, token }) {
           reject(new Error("Timed out waiting for attach manifest."));
         }, timeoutMs);
         attachWaiters.set(request.id, { resolve, reject, timer });
+      });
+      ws.send(serialize(request));
+      return promise;
+    },
+    fetchScrollback({ deviceId, sessionName = "main", lines = 2000, timeoutMs = 5000 }) {
+      const request = envelope("session.scrollback.fetch", {
+        deviceId,
+        sessionName,
+        lines,
+      });
+      const promise = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          scrollbackWaiters.delete(request.id);
+          reject(new Error("Timed out waiting for scrollback."));
+        }, timeoutMs);
+        scrollbackWaiters.set(request.id, { resolve, reject, timer });
       });
       ws.send(serialize(request));
       return promise;

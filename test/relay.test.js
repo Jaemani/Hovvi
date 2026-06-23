@@ -86,6 +86,59 @@ test("relay routes attach prepare response back to requesting client", () => {
   assert.equal(response.manifest.sessionName, "main");
 });
 
+test("relay routes scrollback fetch response back to requesting client", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("session.scrollback.fetch", { id: "scroll-1", deviceId: "mac-1", sessionName: "main" })),
+  );
+
+  const forwarded = agent.messages.map(JSON.parse).find((message) => message.type === "session.scrollback.fetch");
+  assert.equal(forwarded.id, "scroll-1");
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(
+      envelope("session.scrollback.ready", {
+        requestId: "scroll-1",
+        sessionName: "main",
+        lines: 10,
+        text: "hello\n",
+      }),
+    ),
+  );
+
+  const response = client.messages.map(JSON.parse).find((message) => message.type === "session.scrollback.ready");
+  assert.equal(response.text, "hello\n");
+});
+
+test("relay returns scrollback offline errors for missing devices", () => {
+  const state = createRelayState({ token: "dev" });
+  const client = fakeSocket();
+
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("session.scrollback.fetch", { id: "scroll-1", deviceId: "offline", sessionName: "main" })),
+  );
+
+  const response = client.messages.map(JSON.parse).find((message) => message.type === "session.scrollback.error");
+  assert.equal(response.requestId, "scroll-1");
+  assert.equal(response.message, "device offline");
+});
+
 test("relay sweeps stale agents and updates clients", () => {
   const state = createRelayState({ token: "dev", deviceTimeoutMs: 1000 });
   const agent = fakeSocket();

@@ -50,6 +50,21 @@ export function validateMessage(message) {
       requireString(message.requestId, "requestId");
       optionalString(message.message, "message");
       return;
+    case "session.scrollback.fetch":
+      requireString(message.deviceId, "deviceId");
+      optionalString(message.sessionName, "sessionName");
+      optionalInteger(message.lines, "lines", { min: 1, max: 50000 });
+      return;
+    case "session.scrollback.ready":
+      requireString(message.requestId, "requestId");
+      optionalString(message.sessionName, "sessionName");
+      requireAnyString(message.text, "text");
+      optionalInteger(message.lines, "lines", { min: 1, max: 50000 });
+      return;
+    case "session.scrollback.error":
+      requireString(message.requestId, "requestId");
+      optionalString(message.message, "message");
+      return;
     case "agent.heartbeat":
       requireString(message.deviceId, "deviceId");
       optionalArray(message.capabilities, "capabilities");
@@ -90,6 +105,12 @@ function optionalArray(value, field) {
 function requireString(value, field) {
   if (typeof value !== "string" || value.length === 0) {
     throw new ValidationError(`${field} must be a non-empty string`, field);
+  }
+}
+
+function requireAnyString(value, field) {
+  if (typeof value !== "string") {
+    throw new ValidationError(`${field} must be a string`, field);
   }
 }
 

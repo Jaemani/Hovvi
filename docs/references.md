@@ -20,3 +20,12 @@ Hovvi should lean on proven terminal and packaging behavior instead of inventing
 - npm Trusted Publishing should replace long-lived automation tokens once release automation is enabled.
   - https://docs.npmjs.com/trusted-publishers/
   - https://docs.npmjs.com/generating-provenance-statements/
+
+## Mobile Platform Boundaries
+
+- Flutter platform channels and Dart FFI are viable bridges to platform-specific code, but Hovvi's terminal path should avoid unnecessary framework boundaries.
+  - https://docs.flutter.dev/platform-integration/platform-channels
+  - https://docs.flutter.dev/platform-integration/bind-native-code
+- iOS background execution and Network Extension behavior are native platform concerns.
+  - https://developer.apple.com/documentation/xcode/configuring-background-execution-modes
+  - https://developer.apple.com/documentation/NetworkExtension

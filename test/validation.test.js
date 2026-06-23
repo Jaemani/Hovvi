@@ -32,3 +32,23 @@ test("parseAndValidateEnvelope validates after parsing", () => {
   );
   assert.equal(message.type, "session.attach.prepare");
 });
+
+test("validateMessage accepts empty scrollback text", () => {
+  assert.doesNotThrow(() =>
+    validateMessage(
+      envelope("session.scrollback.ready", {
+        requestId: "req-1",
+        sessionName: "main",
+        lines: 10,
+        text: "",
+      }),
+    ),
+  );
+});
+
+test("validateMessage rejects oversized scrollback requests", () => {
+  assert.throws(
+    () => validateMessage(envelope("session.scrollback.fetch", { deviceId: "device-1", lines: 1000000 })),
+    ValidationError,
+  );
+});

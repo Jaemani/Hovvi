@@ -1,6 +1,6 @@
 # Hovvi iOS Alpha
 
-The iOS app is intentionally not scaffolded as a throwaway UI yet.
+The iOS app is intentionally not scaffolded as a throwaway UI yet. Hovvi is native-first for mobile because terminal attach, keyboard behavior, background lifecycle, mosh-compatible transport, and future Network Extension work are platform-sensitive.
 
 The first native build should consume the relay protocol implemented by the CLI package:
 
@@ -9,6 +9,8 @@ The first native build should consume the relay protocol implemented by the CLI 
 - session cards from agent `sessions.update`
 - encrypted attach transport
 - native tmux scrollback view backed by `tmux capture-pane`/control mode
+
+Flutter is acceptable for non-terminal app surfaces later, but the iOS alpha should keep the attach path native.
 
 Reference UX:
 

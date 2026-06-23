@@ -22,6 +22,7 @@ hovvi capture main --lines 2000
 hovvi relay --token dev --device-timeout-ms 30000
 hovvi up --relay ws://127.0.0.1:8787 --token dev
 hovvi mobile
+hovvi fetch-scrollback --device <device-id> main --lines 2000
 hovvi service install --relay ws://127.0.0.1:8787 --token dev
 hovvi service start
 ```
@@ -112,6 +113,8 @@ Operational defaults:
 - `/statusz` and `/metrics.json` return relay id, uptime inputs, connected agent/client counts, stream counts, and counters
 
 Relay protocol inputs are schema-validated before routing to an agent. Invalid messages return structured `error` envelopes with `code`, `field`, and `message`.
+
+Mobile clients should use `session.scrollback.fetch` for native scrollback instead of reconstructing history from terminal frames.
 
 ## Product Direction
 

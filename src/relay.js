@@ -147,6 +147,11 @@ export function handleRelayMessage(state, ws, data) {
     case "session.attach.ready":
     case "session.attach.error":
       return attachResponse(state, ws, message);
+    case "session.scrollback.fetch":
+      return routeAgentRequest(state, ws, message, "scrollback-request");
+    case "session.scrollback.ready":
+    case "session.scrollback.error":
+      return routeAgentResponse(state, ws, message);
     case "forward.ready":
     case "forward.error":
     case "forward.data":
@@ -171,13 +176,17 @@ export function relayStatus(state) {
 }
 
 function attachPrepare(state, ws, message) {
+  return routeAgentRequest(state, ws, message, "attach-request");
+}
+
+function routeAgentRequest(state, ws, message, kind) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
   if (!agent) {
     ws.send(
       serialize(
-        envelope("session.attach.error", {
+        envelope(responseErrorType(kind), {
           requestId: message.id,
           message: "device offline",
         }),
@@ -188,17 +197,26 @@ function attachPrepare(state, ws, message) {
   state.streams.set(message.id, {
     clientWs: ws,
     agentWs: agent.ws,
-    kind: "attach-request",
+    kind,
   });
   agent.ws.send(serialize(message));
 }
 
 function attachResponse(state, ws, message) {
+  return routeAgentResponse(state, ws, message);
+}
+
+function routeAgentResponse(state, ws, message) {
   const stream = state.streams.get(message.requestId);
   if (!stream) return;
   const target = ws === stream.clientWs ? stream.agentWs : stream.clientWs;
   if (target.readyState === WebSocket.OPEN) target.send(serialize(message));
   state.streams.delete(message.requestId);
+}
+
+function responseErrorType(kind) {
+  if (kind === "scrollback-request") return "session.scrollback.error";
+  return "session.attach.error";
 }
 
 function registerSocket(state, ws, message) {

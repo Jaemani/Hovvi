@@ -39,6 +39,7 @@ Usage:
   hovvi mobile [--relay wss://relay.example.com]
   hovvi devices [--relay ws://127.0.0.1:8787] [--json]
   hovvi prepare-attach --device <device-id> [session-name] [--json] [--create]
+  hovvi fetch-scrollback --device <device-id> [session-name] [--lines 2000] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
   hovvi token <generate|hash> [token] [--role agent|client|*]
@@ -55,6 +56,8 @@ Commands:
   devices   List devices currently connected to the relay.
   prepare-attach
             Ask a connected agent for a mobile attach manifest.
+  fetch-scrollback
+            Fetch tmux scrollback from a connected agent.
   forward   Open a local TCP tunnel through relay to a registered agent.
   service   Install and manage the macOS launchd agent.
   token     Generate or hash relay access tokens for registry files.
@@ -96,6 +99,8 @@ export async function main(argv) {
       return devicesCommand(rest);
     case "prepare-attach":
       return prepareAttachCommand(rest);
+    case "fetch-scrollback":
+      return fetchScrollbackCommand(rest);
     case "forward":
       return forwardCommand(rest);
     case "service":
@@ -296,6 +301,34 @@ async function prepareAttachCommand(args) {
   for (const method of manifest.methods) {
     process.stdout.write(`${method.name} (${method.status}): ${method.command.join(" ")}\n`);
   }
+}
+
+async function fetchScrollbackCommand(args) {
+  const config = getConfig();
+  const json = readFlag(args, "--json");
+  const deviceId = readOption(args, "--device");
+  if (!deviceId) throw new Error("fetch-scrollback requires --device <device-id>.");
+  const lines = Number(readOption(args, "--lines") || 2000);
+  const relayUrl =
+    readOption(args, "--relay") ||
+    process.env.HOVVI_RELAY_URL ||
+    config.relay?.url ||
+    "ws://127.0.0.1:8787";
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const [sessionName = "main"] = args;
+  const client = await createClient({ relayUrl, token });
+  let result;
+  try {
+    result = await client.fetchScrollback({ deviceId, sessionName, lines });
+  } finally {
+    client.close();
+  }
+  if (json) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+  process.stdout.write(result.text);
+  if (!result.text.endsWith("\n")) process.stdout.write("\n");
 }
 
 async function initCommand(args) {

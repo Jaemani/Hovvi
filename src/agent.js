@@ -4,7 +4,7 @@ import WebSocket from "ws";
 import { getConfig, saveConfig } from "./config.js";
 import { envelope, parseAndValidateEnvelope, randomId, serialize } from "./protocol.js";
 import { buildAttachManifest } from "./attach.js";
-import { ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
+import { captureTmuxScrollback, ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
 
 export async function runAgent({ relayUrl, token, name, publishIntervalMs = 5000, heartbeatIntervalMs = 10000 }) {
   const device = getDevice(name);
@@ -93,12 +93,35 @@ function handleAgentMessage(ws, forwards, device, data) {
       return openForward(ws, forwards, message);
     case "session.attach.prepare":
       return prepareAttach(ws, device, message);
+    case "session.scrollback.fetch":
+      return fetchScrollback(ws, message);
     case "forward.data":
       return writeForward(forwards, message);
     case "forward.end":
       return closeForward(forwards, message.streamId);
     default:
       return;
+  }
+}
+
+async function fetchScrollback(ws, message) {
+  try {
+    const sessionName = message.sessionName || "main";
+    if (!hasTmuxSession(sessionName)) throw new Error(`tmux session not found: ${sessionName}`);
+    const lines = Number(message.lines || 2000);
+    const text = await captureTmuxScrollback(sessionName, lines);
+    ws.send(
+      serialize(
+        envelope("session.scrollback.ready", {
+          requestId: message.id,
+          sessionName,
+          lines,
+          text,
+        }),
+      ),
+    );
+  } catch (error) {
+    ws.send(serialize(envelope("session.scrollback.error", { requestId: message.id, message: error.message })));
   }
 }
 
