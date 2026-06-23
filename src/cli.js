@@ -6,6 +6,16 @@ import { runGithubDeviceLogin } from "./github-auth.js";
 import { runAgent } from "./agent.js";
 import { runRelay } from "./relay.js";
 import {
+  DEFAULT_LABEL,
+  installService,
+  readServiceLogs,
+  restartService,
+  serviceStatus,
+  startService,
+  stopService,
+  uninstallService,
+} from "./service.js";
+import {
   attachTmux,
   captureTmuxScrollback,
   ensureTmuxSession,
@@ -13,6 +23,8 @@ import {
 } from "./sessions.js";
 import { readFlag, readOption, splitFlags } from "./flags.js";
 import { createClient } from "./relay-client.js";
+import { randomId } from "./protocol.js";
+import { hashToken } from "./registry.js";
 
 const HELP = `Hovvi
 
@@ -25,7 +37,10 @@ Usage:
   hovvi attach [session-name]
   hovvi capture [session-name] [--lines 2000]
   hovvi mobile [--relay wss://relay.example.com]
+  hovvi devices [--relay ws://127.0.0.1:8787] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
+  hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
+  hovvi token <generate|hash> [token] [--role agent|client|*]
 
 Commands:
   doctor    Check git, GitHub, SSH, tmux, mosh, and AI coding tools.
@@ -36,7 +51,10 @@ Commands:
   attach    Attach to an existing tmux session, creating one when missing.
   capture   Print tmux scrollback for mobile-style native scroll testing.
   mobile    Print pairing and mobile-client instructions.
+  devices   List devices currently connected to the relay.
   forward   Open a local TCP tunnel through relay to a registered agent.
+  service   Install and manage the macOS launchd agent.
+  token     Generate or hash relay access tokens for registry files.
 `;
 
 export async function main(argv) {
@@ -71,8 +89,14 @@ export async function main(argv) {
       return captureCommand(rest);
     case "mobile":
       return mobileCommand(rest);
+    case "devices":
+      return devicesCommand(rest);
     case "forward":
       return forwardCommand(rest);
+    case "service":
+      return serviceCommand(rest);
+    case "token":
+      return tokenCommand(rest);
     case "init":
       return initCommand(rest);
     default:
@@ -129,16 +153,23 @@ async function loginCommand(args) {
 }
 
 async function relayCommand(args) {
+  const config = getConfig();
   const host = readOption(args, "--host") || process.env.HOVVI_RELAY_HOST || "127.0.0.1";
   const port = Number(readOption(args, "--port") || process.env.HOVVI_RELAY_PORT || 8787);
-  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || "dev";
-  await runRelay({ host, port, token });
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
+  await runRelay({ host, port, token, registryPath });
 }
 
 async function upCommand(args) {
-  const relayUrl = readOption(args, "--relay") || process.env.HOVVI_RELAY_URL || "ws://127.0.0.1:8787";
-  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || "dev";
-  const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME;
+  const config = getConfig();
+  const relayUrl =
+    readOption(args, "--relay") ||
+    process.env.HOVVI_RELAY_URL ||
+    config.relay?.url ||
+    "ws://127.0.0.1:8787";
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME || config.device?.name;
   await runAgent({ relayUrl, token, name });
 }
 
@@ -199,9 +230,121 @@ Mosh compatibility target:
   process.stdout.write(text);
 }
 
+async function devicesCommand(args) {
+  const config = getConfig();
+  const json = readFlag(args, "--json");
+  const relayUrl =
+    readOption(args, "--relay") ||
+    process.env.HOVVI_RELAY_URL ||
+    config.relay?.url ||
+    "ws://127.0.0.1:8787";
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const client = await createClient({ relayUrl, token });
+  const devices = await client.listDevices();
+  client.close();
+  if (json) {
+    process.stdout.write(`${JSON.stringify({ devices }, null, 2)}\n`);
+    return;
+  }
+  if (devices.length === 0) {
+    process.stdout.write("No devices connected.\n");
+    return;
+  }
+  for (const device of devices) {
+    const sessions = device.sessions?.length ?? 0;
+    process.stdout.write(`${device.id} ${device.name || "<unnamed>"} (${sessions} sessions)\n`);
+  }
+}
+
 async function initCommand(args) {
   await doctorCommand(args);
   process.stdout.write("\nNext: run `hovvi relay` in one shell and `hovvi up` in another for local relay testing.\n");
+}
+
+async function serviceCommand(args) {
+  const [action = "status"] = args;
+  const config = getConfig();
+  const relayUrl =
+    readOption(args, "--relay") ||
+    process.env.HOVVI_RELAY_URL ||
+    config.relay?.url ||
+    "ws://127.0.0.1:8787";
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME || config.device?.name;
+  const label = readOption(args, "--label") || config.service?.label || DEFAULT_LABEL;
+
+  switch (action) {
+    case "install": {
+      const print = readFlag(args, "--print");
+      if (!print) {
+        config.relay = { ...(config.relay || {}), url: relayUrl, token };
+        config.service = { ...(config.service || {}), label };
+        if (name) config.device = { ...(config.device || {}), name };
+        saveConfig(config);
+      }
+      const result = installService({ relayUrl, token, name, label, print });
+      process.stdout.write(print ? result.plist : `Installed ${result.label} at ${result.plistPath}\n`);
+      if (!print) process.stdout.write("Run `hovvi service start` to load it.\n");
+      return;
+    }
+    case "start": {
+      const result = startService({ label });
+      process.stdout.write(`Started ${result.label}\n`);
+      return;
+    }
+    case "stop": {
+      stopService({ label });
+      process.stdout.write(`Stopped ${label}\n`);
+      return;
+    }
+    case "restart": {
+      const result = restartService({ label });
+      process.stdout.write(`Restarted ${result.label}\n`);
+      return;
+    }
+    case "status": {
+      const result = serviceStatus({ label });
+      process.stdout.write(`${result.loaded ? "loaded" : "not loaded"} ${label}\n`);
+      if (!result.loaded && result.detail) process.stdout.write(`${result.detail}\n`);
+      return;
+    }
+    case "logs": {
+      const stream = readOption(args, "--stream") || "err";
+      const lines = Number(readOption(args, "--lines") || 80);
+      process.stdout.write(readServiceLogs({ stream, lines }));
+      return;
+    }
+    case "uninstall": {
+      const result = uninstallService({ label });
+      process.stdout.write(`Uninstalled ${result.label} from ${result.plistPath}\n`);
+      return;
+    }
+    default:
+      throw new Error(`Unknown service action: ${action}`);
+  }
+}
+
+async function tokenCommand(args) {
+  const [action = "generate"] = args;
+  const role = readOption(args, "--role") || "*";
+
+  switch (action) {
+    case "generate": {
+      const token = `hovvi_${randomId()}${randomId()}`;
+      const entry = { name: `token-${Date.now()}`, hash: hashToken(token), roles: [role] };
+      process.stdout.write(`${JSON.stringify({ token, registryEntry: entry }, null, 2)}\n`);
+      return;
+    }
+    case "hash": {
+      const token = args[1];
+      if (!token) throw new Error("Usage: hovvi token hash <token> [--role agent|client|*]");
+      const entry = { name: `token-${Date.now()}`, hash: hashToken(token), roles: [role] };
+      process.stdout.write(`${JSON.stringify(entry, null, 2)}\n`);
+      return;
+    }
+    default:
+      throw new Error(`Unknown token action: ${action}`);
+  }
 }
 
 async function forwardCommand(args) {

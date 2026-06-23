@@ -6,7 +6,9 @@ export async function createClient({ relayUrl, token }) {
   const ws = new WebSocket(relayUrl);
   const pending = new Map();
   const streams = new Map();
+  const deviceWaiters = new Set();
   let devices = [];
+  let haveDeviceSnapshot = false;
 
   await new Promise((resolve, reject) => {
     ws.once("open", resolve);
@@ -23,6 +25,9 @@ export async function createClient({ relayUrl, token }) {
 
     if (message.type === "devices.snapshot") {
       devices = message.devices || [];
+      haveDeviceSnapshot = true;
+      for (const waiter of deviceWaiters) waiter.resolve(devices);
+      deviceWaiters.clear();
       return;
     }
 
@@ -66,6 +71,25 @@ export async function createClient({ relayUrl, token }) {
 
   return {
     devices: () => devices,
+    listDevices({ timeoutMs = 3000 } = {}) {
+      if (haveDeviceSnapshot) return Promise.resolve(devices);
+      return new Promise((resolve, reject) => {
+        const waiter = { resolve, reject };
+        const timer = setTimeout(() => {
+          deviceWaiters.delete(waiter);
+          reject(new Error("Timed out waiting for relay device snapshot."));
+        }, timeoutMs);
+        waiter.resolve = (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        };
+        deviceWaiters.add(waiter);
+        ws.send(serialize(envelope("devices.list")));
+      });
+    },
+    close() {
+      ws.close();
+    },
     openForward({ deviceId, remoteHost, remotePort }) {
       const streamId = `str_${randomId()}`;
       const stream = createRelayDuplex({ ws, streamId });

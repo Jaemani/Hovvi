@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Catch and resume remote development sessions from mobile devices.",
   "type": "module",
+  "homepage": "https://github.com/Jaemani/Hovvi#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Jaemani/Hovvi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jaemani/Hovvi/issues"
+  },
   "bin": {
     "hovvi": "./bin/hovvi"
   },
@@ -11,7 +19,8 @@
     "src",
     "README.md",
     "docs",
-    "packaging"
+    "packaging",
+    "LICENSE"
   ],
   "scripts": {
     "test": "node --test",

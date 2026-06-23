@@ -1,9 +1,10 @@
 import http from "node:http";
 import WebSocket, { WebSocketServer } from "ws";
 import { envelope, parseEnvelope, serialize } from "./protocol.js";
+import { createAccessRegistry } from "./registry.js";
 
-export async function runRelay({ host = "127.0.0.1", port = 8787, token = "dev" }) {
-  const state = createRelayState({ token });
+export async function runRelay({ host = "127.0.0.1", port = 8787, token = "dev", registryPath }) {
+  const state = createRelayState({ token, registryPath });
   const server = http.createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -25,9 +26,9 @@ export async function runRelay({ host = "127.0.0.1", port = 8787, token = "dev" 
   process.stdout.write(`Hovvi relay listening on ws://${host}:${port}\n`);
 }
 
-export function createRelayState({ token }) {
+export function createRelayState({ token, registryPath } = {}) {
   return {
-    token,
+    access: createAccessRegistry({ devToken: token, registryPath }),
     sockets: new Map(),
     agents: new Map(),
     clients: new Map(),
@@ -72,7 +73,8 @@ export function handleRelayMessage(state, ws, data) {
 }
 
 function registerSocket(state, ws, message) {
-  if (message.token !== state.token) {
+  const principal = state.access.authenticate({ role: message.role, token: message.token });
+  if (!principal) {
     ws.send(serialize(envelope("error", { message: "invalid relay token" })));
     ws.close(1008, "invalid token");
     return;
@@ -84,7 +86,7 @@ function registerSocket(state, ws, message) {
       ws.send(serialize(envelope("error", { message: "agent hello requires device.id" })));
       return;
     }
-    const meta = { role: "agent", device, sessions: [], ws };
+    const meta = { role: "agent", principal, device, sessions: [], ws };
     state.sockets.set(ws, meta);
     state.agents.set(device.id, meta);
     ws.send(serialize(envelope("hello.ok", { role: "agent", deviceId: device.id })));
@@ -94,7 +96,7 @@ function registerSocket(state, ws, message) {
 
   if (message.role === "client") {
     const clientId = message.clientId || message.id;
-    const meta = { role: "client", clientId, ws };
+    const meta = { role: "client", principal, clientId, ws };
     state.sockets.set(ws, meta);
     state.clients.set(clientId, meta);
     ws.send(serialize(envelope("hello.ok", { role: "client", clientId })));

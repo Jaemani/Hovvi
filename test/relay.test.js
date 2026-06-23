@@ -32,6 +32,29 @@ test("relay rejects invalid token", () => {
   assert.equal(error.message, "invalid relay token");
 });
 
+test("relay accepts registry token for scoped role", () => {
+  const state = createRelayState();
+  state.access.registry.tokens = [
+    {
+      name: "agent-token",
+      hash: "sha256:2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b",
+      roles: ["agent"],
+    },
+  ];
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "secret", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "secret" })));
+
+  assert.equal(state.agents.has("mac-1"), true);
+  assert.equal(client.closed, true);
+});
+
 function fakeSocket() {
   return {
     OPEN: 1,

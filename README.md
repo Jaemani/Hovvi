@@ -22,6 +22,8 @@ hovvi capture main --lines 2000
 hovvi relay --token dev
 hovvi up --relay ws://127.0.0.1:8787 --token dev
 hovvi mobile
+hovvi service install --relay ws://127.0.0.1:8787 --token dev
+hovvi service start
 ```
 
 ## Local Relay Smoke Test
@@ -47,6 +49,60 @@ ssh -p 2222 localhost
 
 This tunnel is not the final mobile terminal UX. It proves the relay and agent can move an encrypted stream without requiring port forwarding, VPN setup, or inbound connectivity to the Mac.
 
+## macOS Agent Service
+
+Install the Mac agent as a LaunchAgent:
+
+```bash
+hovvi service install --relay wss://relay.example.com --token <agent-token> --name "Jaemans Mac"
+hovvi service start
+hovvi service status
+hovvi service logs --stream err --lines 80
+```
+
+Remove it:
+
+```bash
+hovvi service stop
+hovvi service uninstall
+```
+
+`hovvi service install --print` prints the plist without writing it.
+
+## Relay Token Registry
+
+Development can use `--token dev`. A hosted relay should use hashed token entries:
+
+```bash
+hovvi token generate --role agent
+hovvi token generate --role client
+```
+
+Create a registry JSON file:
+
+```json
+{
+  "tokens": [
+    {
+      "name": "mac-agent",
+      "hash": "sha256:...",
+      "roles": ["agent"]
+    },
+    {
+      "name": "mobile-client",
+      "hash": "sha256:...",
+      "roles": ["client"]
+    }
+  ]
+}
+```
+
+Start the relay with:
+
+```bash
+hovvi relay --registry ./registry.json
+```
+
 ## Product Direction
 
 - Name: Hovvi
@@ -59,18 +115,7 @@ This tunnel is not the final mobile terminal UX. It proves the relay and agent c
 
 SSH authentication to GitHub was confirmed as `Jaemani` using `/Users/jaeman/.ssh/id_ed25519`.
 
-Known local gaps:
-
-- `gh` is not logged in.
-- Git author identity currently falls back to a local host email unless `user.email` is configured.
-
-Before the first public commit:
-
-```bash
-gh auth login --hostname github.com
-git config user.name "Jaemani"
-git config user.email "<GitHub verified or noreply email>"
-```
+GitHub CLI is logged in as `Jaemani`, and repo-local Git author identity is configured as `Jaemani <39300288+Jaemani@users.noreply.github.com>`.
 
 ## Docs
 

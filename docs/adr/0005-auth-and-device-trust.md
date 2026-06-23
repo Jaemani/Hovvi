@@ -6,7 +6,7 @@ Accepted
 
 ## Decision
 
-Hovvi starts with GitHub OAuth device flow for CLI login and mobile login. Devices register with stable device ids and relay tokens during development.
+Hovvi starts with GitHub OAuth device flow for CLI login and mobile login. Devices register with stable device ids. Self-hosted and development relays can use hashed registry tokens until the hosted account service issues scoped device credentials.
 
 ## Rationale
 
@@ -15,5 +15,5 @@ The first audience is developers. GitHub identity is expected, easy to explain, 
 ## Consequences
 
 - `hovvi login` requires a GitHub OAuth app client id.
-- Development relay auth uses `HOVVI_RELAY_TOKEN`; production must replace this with scoped, expiring device credentials.
+- Development relay auth can use `HOVVI_RELAY_TOKEN`; hosted relay auth must move to scoped, expiring device credentials.
 - Device revocation and audit trails must exist before a public hosted relay.
