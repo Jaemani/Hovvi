@@ -81,10 +81,14 @@ export function isAiCommand(command = "") {
 
 export async function ensureTmuxSession(sessionName = "main") {
   if (!commandExists("tmux")) throw new Error("tmux is required. Install with `brew install tmux`.");
-  const existing = runText("tmux", ["has-session", "-t", sessionName]);
-  if (existing.ok) return;
+  if (hasTmuxSession(sessionName)) return;
   const created = runText("tmux", ["new-session", "-d", "-s", sessionName]);
   if (!created.ok) throw new Error(created.text || `Failed to create tmux session ${sessionName}.`);
+}
+
+export function hasTmuxSession(sessionName = "main") {
+  if (!commandExists("tmux")) throw new Error("tmux is required. Install with `brew install tmux`.");
+  return runText("tmux", ["has-session", "-t", sessionName]).ok;
 }
 
 export function attachTmux(sessionName = "main") {

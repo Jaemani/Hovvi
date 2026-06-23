@@ -2,10 +2,10 @@
 
 ## Now
 
-- npm package reservation and first public package publish.
 - launchd service command hardening.
 - relay auth registry and device listing.
 - local relay smoke tests for agent registration and forwarding.
+- attach manifest contract for mobile clients.
 
 ## Next
 

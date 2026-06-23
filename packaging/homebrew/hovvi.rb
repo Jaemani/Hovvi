@@ -2,7 +2,7 @@ class Hovvi < Formula
   desc "Catch and resume remote development sessions from mobile devices"
   homepage "https://github.com/Jaemani/Hovvi"
   url "https://registry.npmjs.org/hovvi/-/hovvi-0.1.0.tgz"
-  sha256 "REPLACE_WITH_RELEASE_SHA256"
+  sha256 "021706b10dcd7802ab548e2655caaf299361d53b24eaa2d960375e2557a560ae"
   license "MIT"
 
   depends_on "node"

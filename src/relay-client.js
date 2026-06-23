@@ -7,6 +7,7 @@ export async function createClient({ relayUrl, token }) {
   const pending = new Map();
   const streams = new Map();
   const deviceWaiters = new Set();
+  const attachWaiters = new Map();
   let devices = [];
   let haveDeviceSnapshot = false;
 
@@ -36,6 +37,19 @@ export async function createClient({ relayUrl, token }) {
       if (entry) {
         pending.delete(message.streamId);
         entry.resolve(entry.stream);
+      }
+      return;
+    }
+
+    if (message.type === "session.attach.ready" || message.type === "session.attach.error") {
+      const waiter = attachWaiters.get(message.requestId);
+      if (!waiter) return;
+      attachWaiters.delete(message.requestId);
+      clearTimeout(waiter.timer);
+      if (message.type === "session.attach.error") {
+        waiter.reject(new Error(message.message || "attach prepare failed"));
+      } else {
+        waiter.resolve(message.manifest);
       }
       return;
     }
@@ -107,6 +121,23 @@ export async function createClient({ relayUrl, token }) {
           }),
         ),
       );
+      return promise;
+    },
+    prepareAttach({ deviceId, sessionName = "main", lines = 2000, create = false, timeoutMs = 5000 }) {
+      const request = envelope("session.attach.prepare", {
+        deviceId,
+        sessionName,
+        lines,
+        create,
+      });
+      const promise = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          attachWaiters.delete(request.id);
+          reject(new Error("Timed out waiting for attach manifest."));
+        }, timeoutMs);
+        attachWaiters.set(request.id, { resolve, reject, timer });
+      });
+      ws.send(serialize(request));
       return promise;
     },
   };

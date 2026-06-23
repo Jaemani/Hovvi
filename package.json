@@ -18,13 +18,15 @@
     "bin",
     "src",
     "README.md",
+    "CHANGELOG.md",
     "docs",
     "packaging",
     "LICENSE"
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check bin/hovvi && node --check src/*.js"
+    "check": "node --check bin/hovvi && node --check src/*.js",
+    "prepublishOnly": "npm run check && npm test"
   },
   "keywords": [
     "tmux",

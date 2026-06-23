@@ -62,6 +62,11 @@ export function handleRelayMessage(state, ws, data) {
       return sendDeviceList(state, ws);
     case "forward.open":
       return forwardOpen(state, ws, message);
+    case "session.attach.prepare":
+      return attachPrepare(state, ws, message);
+    case "session.attach.ready":
+    case "session.attach.error":
+      return attachResponse(state, ws, message);
     case "forward.ready":
     case "forward.error":
     case "forward.data":
@@ -70,6 +75,37 @@ export function handleRelayMessage(state, ws, data) {
     default:
       ws.send(serialize(envelope("error", { message: `unknown message type ${message.type}` })));
   }
+}
+
+function attachPrepare(state, ws, message) {
+  const meta = state.sockets.get(ws);
+  if (meta?.role !== "client") return;
+  const agent = state.agents.get(message.deviceId);
+  if (!agent) {
+    ws.send(
+      serialize(
+        envelope("session.attach.error", {
+          requestId: message.id,
+          message: "device offline",
+        }),
+      ),
+    );
+    return;
+  }
+  state.streams.set(message.id, {
+    clientWs: ws,
+    agentWs: agent.ws,
+    kind: "attach-request",
+  });
+  agent.ws.send(serialize(message));
+}
+
+function attachResponse(state, ws, message) {
+  const stream = state.streams.get(message.requestId);
+  if (!stream) return;
+  const target = ws === stream.clientWs ? stream.agentWs : stream.clientWs;
+  if (target.readyState === WebSocket.OPEN) target.send(serialize(message));
+  state.streams.delete(message.requestId);
 }
 
 function registerSocket(state, ws, message) {

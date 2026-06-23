@@ -3,7 +3,8 @@ import { hostname, platform, userInfo } from "node:os";
 import WebSocket from "ws";
 import { getConfig, saveConfig } from "./config.js";
 import { envelope, parseEnvelope, randomId, serialize } from "./protocol.js";
-import { listSessions } from "./sessions.js";
+import { buildAttachManifest } from "./attach.js";
+import { ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
 
 export async function runAgent({ relayUrl, token, name }) {
   const device = getDevice(name);
@@ -41,7 +42,7 @@ async function connectAgent({ relayUrl, token, device }) {
   });
 
   ws.send(serialize(envelope("hello", { role: "agent", token, device })));
-  ws.on("message", (data) => handleAgentMessage(ws, forwards, data));
+  ws.on("message", (data) => handleAgentMessage(ws, forwards, device, data));
   ws.on("close", () => {
     clearInterval(timer);
     for (const socket of forwards.values()) socket.destroy();
@@ -65,7 +66,7 @@ async function connectAgent({ relayUrl, token, device }) {
   });
 }
 
-function handleAgentMessage(ws, forwards, data) {
+function handleAgentMessage(ws, forwards, device, data) {
   let message;
   try {
     message = parseEnvelope(data);
@@ -76,12 +77,33 @@ function handleAgentMessage(ws, forwards, data) {
   switch (message.type) {
     case "forward.open":
       return openForward(ws, forwards, message);
+    case "session.attach.prepare":
+      return prepareAttach(ws, device, message);
     case "forward.data":
       return writeForward(forwards, message);
     case "forward.end":
       return closeForward(forwards, message.streamId);
     default:
       return;
+  }
+}
+
+async function prepareAttach(ws, device, message) {
+  try {
+    const sessionName = message.sessionName || "main";
+    if (message.create) {
+      await ensureTmuxSession(sessionName);
+    } else if (!hasTmuxSession(sessionName)) {
+      throw new Error(`tmux session not found: ${sessionName}`);
+    }
+    const manifest = buildAttachManifest({
+      device,
+      sessionName,
+      lines: Number(message.lines || 2000),
+    });
+    ws.send(serialize(envelope("session.attach.ready", { requestId: message.id, manifest })));
+  } catch (error) {
+    ws.send(serialize(envelope("session.attach.error", { requestId: message.id, message: error.message })));
   }
 }
 

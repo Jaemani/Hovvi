@@ -55,6 +55,37 @@ test("relay accepts registry token for scoped role", () => {
   assert.equal(client.closed, true);
 });
 
+test("relay routes attach prepare response back to requesting client", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("session.attach.prepare", { id: "req-1", deviceId: "mac-1", sessionName: "main", create: true })),
+  );
+
+  const forwarded = agent.messages.map(JSON.parse).find((message) => message.type === "session.attach.prepare");
+  assert.equal(forwarded.id, "req-1");
+  assert.equal(forwarded.create, true);
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("session.attach.ready", { requestId: "req-1", manifest: { sessionName: "main" } })),
+  );
+
+  const response = client.messages.map(JSON.parse).find((message) => message.type === "session.attach.ready");
+  assert.equal(response.manifest.sessionName, "main");
+});
+
 function fakeSocket() {
   return {
     OPEN: 1,

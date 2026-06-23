@@ -38,6 +38,7 @@ Usage:
   hovvi capture [session-name] [--lines 2000]
   hovvi mobile [--relay wss://relay.example.com]
   hovvi devices [--relay ws://127.0.0.1:8787] [--json]
+  hovvi prepare-attach --device <device-id> [session-name] [--json] [--create]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
   hovvi token <generate|hash> [token] [--role agent|client|*]
@@ -52,6 +53,8 @@ Commands:
   capture   Print tmux scrollback for mobile-style native scroll testing.
   mobile    Print pairing and mobile-client instructions.
   devices   List devices currently connected to the relay.
+  prepare-attach
+            Ask a connected agent for a mobile attach manifest.
   forward   Open a local TCP tunnel through relay to a registered agent.
   service   Install and manage the macOS launchd agent.
   token     Generate or hash relay access tokens for registry files.
@@ -91,6 +94,8 @@ export async function main(argv) {
       return mobileCommand(rest);
     case "devices":
       return devicesCommand(rest);
+    case "prepare-attach":
+      return prepareAttachCommand(rest);
     case "forward":
       return forwardCommand(rest);
     case "service":
@@ -106,6 +111,7 @@ export async function main(argv) {
 
 async function doctorCommand(args) {
   const json = readFlag(args, "--json");
+  const create = readFlag(args, "--create");
   const network = readFlag(args, "--network");
   const report = await runDoctor({ network });
 
@@ -253,6 +259,37 @@ async function devicesCommand(args) {
   for (const device of devices) {
     const sessions = device.sessions?.length ?? 0;
     process.stdout.write(`${device.id} ${device.name || "<unnamed>"} (${sessions} sessions)\n`);
+  }
+}
+
+async function prepareAttachCommand(args) {
+  const config = getConfig();
+  const json = readFlag(args, "--json");
+  const create = readFlag(args, "--create");
+  const deviceId = readOption(args, "--device");
+  if (!deviceId) throw new Error("prepare-attach requires --device <device-id>.");
+  const lines = Number(readOption(args, "--lines") || 2000);
+  const relayUrl =
+    readOption(args, "--relay") ||
+    process.env.HOVVI_RELAY_URL ||
+    config.relay?.url ||
+    "ws://127.0.0.1:8787";
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const [sessionName = "main"] = args;
+  const client = await createClient({ relayUrl, token });
+  let manifest;
+  try {
+    manifest = await client.prepareAttach({ deviceId, sessionName, lines, create });
+  } finally {
+    client.close();
+  }
+  if (json) {
+    process.stdout.write(`${JSON.stringify({ manifest }, null, 2)}\n`);
+    return;
+  }
+  process.stdout.write(`${manifest.kind} ${manifest.deviceName || manifest.deviceId}:${manifest.sessionName}\n`);
+  for (const method of manifest.methods) {
+    process.stdout.write(`${method.name} (${method.status}): ${method.command.join(" ")}\n`);
   }
 }
 

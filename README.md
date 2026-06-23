@@ -111,6 +111,23 @@ hovvi relay --registry ./registry.json
 - Connectivity: managed relay first, WireGuard/P2P later.
 - Terminal compatibility: mosh semantics are the compatibility target; tmux native scrollback is handled separately from the live stream.
 
+## Release
+
+`hovvi@0.1.0` is published on npm.
+
+```bash
+npm install -g hovvi
+```
+
+Future releases should be cut from git tags:
+
+```bash
+npm version patch
+git push --follow-tags
+```
+
+The release workflow verifies the tag matches `package.json`, runs checks/tests, performs `npm pack --dry-run`, and publishes with npm provenance. Configure npm Trusted Publishing for `Jaemani/Hovvi` before relying on tag-based release automation.
+
 ## Git Account State on This Mac
 
 SSH authentication to GitHub was confirmed as `Jaemani` using `/Users/jaeman/.ssh/id_ed25519`.
@@ -120,3 +137,4 @@ GitHub CLI is logged in as `Jaemani`, and repo-local Git author identity is conf
 ## Docs
 
 Architecture decisions live in `docs/adr/`.
+Reference material and upstream projects are tracked in `docs/references.md`.
