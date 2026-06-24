@@ -9,6 +9,8 @@ swift build
 swift run HovviMobileCoreSmoke
 ```
 
+The package currently covers flattened relay envelopes, outgoing client message builders, and incoming message dispatch. It does not yet open WebSocket connections or render a terminal.
+
 The first native build should consume the relay protocol implemented by the CLI package:
 
 - GitHub OAuth login

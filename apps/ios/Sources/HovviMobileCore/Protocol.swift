@@ -18,6 +18,8 @@ public struct Envelope<Payload: Codable> {
     }
 }
 
+extension Envelope: Equatable where Payload: Equatable {}
+
 public struct EmptyPayload: Codable, Equatable {
     public init() {}
 }

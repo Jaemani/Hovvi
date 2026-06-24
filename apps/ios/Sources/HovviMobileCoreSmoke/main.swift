@@ -79,6 +79,25 @@ do {
 } catch HovviProtocolError.unexpectedType {
 }
 
+let hello = try OutgoingRelayMessage.hello(token: "dev", clientId: "ios-1")
+let helloObject = try JSONSerialization.jsonObject(with: hello) as? [String: Any]
+try require(helloObject?["type"] as? String == "hello", "hello type should encode")
+try require(helloObject?["role"] as? String == "client", "hello role should encode")
+try require(helloObject?["payload"] == nil, "outgoing relay messages must be flattened")
+
+let scrollbackRequest = try OutgoingRelayMessage.fetchScrollback(deviceId: "dev_1", sessionName: "main", lines: 120)
+let scrollbackObject = try JSONSerialization.jsonObject(with: scrollbackRequest) as? [String: Any]
+try require(scrollbackObject?["type"] as? String == "session.scrollback.fetch", "scrollback type should encode")
+try require(scrollbackObject?["lines"] as? Int == 120, "scrollback lines should encode")
+
+let incoming = try decodeIncomingRelayMessage(from: Data(manifestJson.utf8))
+switch incoming {
+case .attachReady(let envelope):
+    try require(envelope.payload.manifest.sessionName == "main", "incoming attach manifest should dispatch")
+default:
+    throw SmokeError("incoming attach manifest dispatched to wrong case")
+}
+
 print("HovviMobileCore smoke passed")
 
 struct SmokeError: Error, CustomStringConvertible {
