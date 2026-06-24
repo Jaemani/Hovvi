@@ -21,6 +21,8 @@ These APIs run a single receive loop, match responses by relay request id, and s
 
 Use `connect(startReceiveLoop: true)` to eagerly route messages, or call the app-facing APIs after `connect()` and let them start the loop on first use. Manual `receive()` remains available when the loop is not active.
 
+`ScrollbackBuffer` turns `session.scrollback.ready` text into stable `ScrollbackLine` values for native scroll views. It keeps incomplete streamed text as a stable pending line, trims old lines by configured capacity, and resets cleanly when the user switches sessions.
+
 The first native build should consume the relay protocol implemented by the CLI package:
 
 - GitHub OAuth login

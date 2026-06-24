@@ -127,6 +127,26 @@ let incomingScrollback = try decodeIncomingRelayMessage(from: Data(scrollbackJso
 let matchedScrollback = try RelayResponseMatcher.scrollbackResult(requestId: "scroll-1", from: incomingScrollback)
 try require(matchedScrollback?.text == "one\ntwo", "scrollback response matcher should return text")
 
+var scrollbackBuffer = ScrollbackBuffer(
+    result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
+    maxLines: 3
+)
+try require(scrollbackBuffer.lines.count == 2, "scrollback buffer should ignore trailing snapshot newline")
+try require(scrollbackBuffer.visibleLines.map(\.text) == ["one", "two"], "scrollback buffer should expose snapshot lines")
+scrollbackBuffer.appendPlainText("three")
+try require(scrollbackBuffer.pendingText == "three", "scrollback buffer should keep incomplete streaming line pending")
+try require(scrollbackBuffer.visibleLines.map(\.text) == ["one", "two", "three"], "visible lines should include pending text")
+let pendingId = scrollbackBuffer.visibleLines.last?.id
+scrollbackBuffer.appendPlainText(" plus\nfour\nfive\n")
+try require(scrollbackBuffer.lines.map(\.text) == ["three plus", "four", "five"], "scrollback buffer should trim oldest lines")
+try require(scrollbackBuffer.lines.first?.id == pendingId, "pending line id should stay stable when completed")
+scrollbackBuffer.replace(with: ScrollbackResult(sessionName: "other", lines: 1, text: "fresh"))
+try require(scrollbackBuffer.sessionName == "other", "scrollback buffer replace should update session name")
+try require(scrollbackBuffer.lines.map(\.text) == ["fresh"], "scrollback buffer replace should reset content")
+var tinyScrollbackBuffer = ScrollbackBuffer(sessionName: "main", text: "a\nb\n", maxLines: 2)
+tinyScrollbackBuffer.appendPlainText("c")
+try require(tinyScrollbackBuffer.visibleLines.map(\.text) == ["b", "c"], "visible lines should cap pending text")
+
 let relayClient = RelayClient(url: URL(string: "ws://127.0.0.1:8787")!, token: "dev", clientId: "ios-smoke")
 do {
     try await relayClient.fetchScrollback(deviceId: "dev_1", sessionName: "main", lines: 20)
