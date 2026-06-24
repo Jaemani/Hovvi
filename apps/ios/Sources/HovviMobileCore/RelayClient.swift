@@ -218,6 +218,8 @@ public actor RelayClient {
     public func openDatagram(
         deviceId: String,
         label: String? = nil,
+        remoteHost: String? = nil,
+        remotePort: Int? = nil,
         maxDatagramBytes: Int? = nil,
         timeout: Duration = .seconds(5)
     ) async throws -> String {
@@ -225,6 +227,8 @@ public actor RelayClient {
         let request = OutgoingRelayMessage.datagramOpenEnvelope(
             deviceId: deviceId,
             label: label,
+            remoteHost: remoteHost,
+            remotePort: remotePort,
             maxDatagramBytes: maxDatagramBytes
         )
         return try await withRequestWaiter(

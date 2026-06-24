@@ -23,6 +23,8 @@ test("validateMessage accepts supported relay messages", () => {
         channelId: "dg-1",
         deviceId: "device-1",
         label: "mosh",
+        remoteHost: "127.0.0.1",
+        remotePort: 60001,
         maxDatagramBytes: 1200,
       }),
     ),

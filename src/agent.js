@@ -5,6 +5,7 @@ import { getConfig, saveConfig } from "./config.js";
 import { envelope, parseAndValidateEnvelope, randomId, serialize } from "./protocol.js";
 import { buildAttachManifest } from "./attach.js";
 import { captureTmuxScrollback, ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
+import { createUdpDatagramBridge } from "./datagram-udp.js";
 
 export async function runAgent({ relayUrl, token, name, publishIntervalMs = 5000, heartbeatIntervalMs = 10000 }) {
   const device = getDevice(name);
@@ -34,6 +35,7 @@ export function getDevice(name) {
 async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs }) {
   const ws = new WebSocket(relayUrl);
   const forwards = new Map();
+  const datagrams = new Map();
   let publishTimer;
   let heartbeatTimer;
 
@@ -43,12 +45,14 @@ async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartb
   });
 
   ws.send(serialize(envelope("hello", { role: "agent", token, device })));
-  ws.on("message", (data) => handleAgentMessage(ws, forwards, device, data));
+  ws.on("message", (data) => handleAgentMessage(ws, forwards, datagrams, device, data));
   ws.on("close", () => {
     clearInterval(publishTimer);
     clearInterval(heartbeatTimer);
     for (const socket of forwards.values()) socket.destroy();
     forwards.clear();
+    for (const bridge of datagrams.values()) bridge.close();
+    datagrams.clear();
   });
 
   const heartbeat = () => {
@@ -80,7 +84,7 @@ async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartb
   });
 }
 
-function handleAgentMessage(ws, forwards, device, data) {
+function handleAgentMessage(ws, forwards, datagrams, device, data) {
   let message;
   try {
     message = parseAndValidateEnvelope(data);
@@ -91,6 +95,8 @@ function handleAgentMessage(ws, forwards, device, data) {
   switch (message.type) {
     case "forward.open":
       return openForward(ws, forwards, message);
+    case "datagram.open":
+      return openDatagram(ws, datagrams, message);
     case "session.attach.prepare":
       return prepareAttach(ws, device, message);
     case "session.scrollback.fetch":
@@ -99,6 +105,10 @@ function handleAgentMessage(ws, forwards, device, data) {
       return writeForward(forwards, message);
     case "forward.end":
       return closeForward(forwards, message.streamId);
+    case "datagram.data":
+      return writeDatagram(datagrams, message);
+    case "datagram.close":
+      return closeDatagram(datagrams, message.channelId);
     default:
       return;
   }
@@ -185,6 +195,34 @@ function closeForward(forwards, streamId) {
   const socket = forwards.get(streamId);
   if (socket) socket.destroy();
   forwards.delete(streamId);
+}
+
+function openDatagram(ws, datagrams, message) {
+  try {
+    const bridge = createUdpDatagramBridge({
+      channelId: message.channelId,
+      remoteHost: message.remoteHost || "127.0.0.1",
+      remotePort: message.remotePort,
+      send(type, payload) {
+        ws.send(serialize(envelope(type, payload)));
+      },
+    });
+    datagrams.set(message.channelId, bridge);
+  } catch (error) {
+    ws.send(serialize(envelope("datagram.error", { channelId: message.channelId, message: error.message })));
+  }
+}
+
+function writeDatagram(datagrams, message) {
+  const bridge = datagrams.get(message.channelId);
+  if (!bridge) return;
+  bridge.sendData(Buffer.from(message.data || "", "base64"));
+}
+
+function closeDatagram(datagrams, channelId) {
+  const bridge = datagrams.get(channelId);
+  if (bridge) bridge.close();
+  datagrams.delete(channelId);
 }
 
 function sleep(ms) {

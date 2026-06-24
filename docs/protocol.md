@@ -141,6 +141,8 @@ Message-specific fields are added next to those keys.
   "channelId": "dg_1",
   "deviceId": "dev_1",
   "label": "mosh",
+  "remoteHost": "127.0.0.1",
+  "remotePort": 60001,
   "maxDatagramBytes": 1200
 }
 ```

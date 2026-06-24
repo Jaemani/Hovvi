@@ -176,6 +176,8 @@ public enum OutgoingRelayMessage {
         deviceId: String,
         channelId: String = makeDatagramChannelId(),
         label: String? = nil,
+        remoteHost: String? = nil,
+        remotePort: Int? = nil,
         maxDatagramBytes: Int? = nil
     ) -> Envelope<DatagramOpenRequest> {
         Envelope(
@@ -184,6 +186,8 @@ public enum OutgoingRelayMessage {
                 channelId: channelId,
                 deviceId: deviceId,
                 label: label,
+                remoteHost: remoteHost,
+                remotePort: remotePort,
                 maxDatagramBytes: maxDatagramBytes
             )
         )
@@ -193,6 +197,8 @@ public enum OutgoingRelayMessage {
         deviceId: String,
         channelId: String = makeDatagramChannelId(),
         label: String? = nil,
+        remoteHost: String? = nil,
+        remotePort: Int? = nil,
         maxDatagramBytes: Int? = nil
     ) throws -> Data {
         try HovviCoding.encodeEnvelope(
@@ -200,6 +206,8 @@ public enum OutgoingRelayMessage {
                 deviceId: deviceId,
                 channelId: channelId,
                 label: label,
+                remoteHost: remoteHost,
+                remotePort: remotePort,
                 maxDatagramBytes: maxDatagramBytes
             )
         )

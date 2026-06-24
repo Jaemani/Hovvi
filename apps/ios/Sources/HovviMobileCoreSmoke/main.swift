@@ -164,11 +164,14 @@ let datagramOpen = try OutgoingRelayMessage.datagramOpen(
     deviceId: "dev_1",
     channelId: "dg_1",
     label: "mosh",
+    remoteHost: "127.0.0.1",
+    remotePort: 60001,
     maxDatagramBytes: 1200
 )
 let datagramOpenObject = try JSONSerialization.jsonObject(with: datagramOpen) as? [String: Any]
 try require(datagramOpenObject?["type"] as? String == "datagram.open", "datagram open type should encode")
 try require(datagramOpenObject?["channelId"] as? String == "dg_1", "datagram channel id should encode")
+try require(datagramOpenObject?["remotePort"] as? Int == 60001, "datagram remote port should encode")
 try require(datagramOpenObject?["maxDatagramBytes"] as? Int == 1200, "datagram max size should encode")
 
 let datagramData = try OutgoingRelayMessage.datagramData(channelId: "dg_1", bytes: Data("pong".utf8), sequence: 7)

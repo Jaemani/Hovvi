@@ -13,12 +13,13 @@
 - scoped relay credentials with token-redacted auth audit logs.
 - registry-backed token listing and revocation CLI.
 - relay-routed datagram channel primitive for mosh-compatible transport.
+- Mac agent UDP adapter for relay datagram channels.
 
 ## Next
 
 - Hosted relay account service with GitHub OAuth device registration.
 - hosted credential lifecycle UI/API and audit log retention policy.
-- agent-side UDP adapter and mosh-server bootstrap over relay datagrams.
+- mosh-server bootstrap over relay datagrams.
 - iOS alpha shell: GitHub login, device/session list UI, attach transport, and tmux-native scrollback rendering.
 
 ## Later

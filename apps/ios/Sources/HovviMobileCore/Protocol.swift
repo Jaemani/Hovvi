@@ -270,12 +270,23 @@ public struct DatagramOpenRequest: Codable, Equatable, Sendable {
     public let channelId: String
     public let deviceId: String
     public let label: String?
+    public let remoteHost: String?
+    public let remotePort: Int?
     public let maxDatagramBytes: Int?
 
-    public init(channelId: String, deviceId: String, label: String? = nil, maxDatagramBytes: Int? = nil) {
+    public init(
+        channelId: String,
+        deviceId: String,
+        label: String? = nil,
+        remoteHost: String? = nil,
+        remotePort: Int? = nil,
+        maxDatagramBytes: Int? = nil
+    ) {
         self.channelId = channelId
         self.deviceId = deviceId
         self.label = label
+        self.remoteHost = remoteHost
+        self.remotePort = remotePort
         self.maxDatagramBytes = maxDatagramBytes
     }
 }

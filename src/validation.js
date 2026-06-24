@@ -40,6 +40,8 @@ export function validateMessage(message) {
       requireString(message.channelId, "channelId");
       requireString(message.deviceId, "deviceId");
       optionalString(message.label, "label");
+      optionalString(message.remoteHost, "remoteHost");
+      optionalPort(message.remotePort, "remotePort");
       optionalInteger(message.maxDatagramBytes, "maxDatagramBytes", { min: 1, max: 65507 });
       return;
     case "datagram.ready":
