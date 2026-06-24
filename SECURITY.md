@@ -19,3 +19,4 @@ Use GitHub private vulnerability reporting for `Jaemani/Hovvi`, or contact the m
 - Development relay tokens are acceptable for local testing only.
 - Hosted deployments must use scoped, revocable, expiring device credentials before public use.
 - Terminal data should remain encrypted above the relay layer or end-to-end before production hosted relay use.
+- Local config files are written atomically and forced to `0600` because they may contain GitHub or relay tokens.

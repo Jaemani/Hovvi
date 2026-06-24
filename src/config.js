@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -14,6 +14,12 @@ export function getConfig() {
 
 export function saveConfig(config) {
   const path = configPath();
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  const dir = dirname(path);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+
+  const tempPath = join(dir, `.config.${process.pid}.${Date.now()}.tmp`);
+  writeFileSync(tempPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(tempPath, 0o600);
+  renameSync(tempPath, path);
+  chmodSync(path, 0o600);
 }
