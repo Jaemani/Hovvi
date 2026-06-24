@@ -64,14 +64,32 @@ public enum IncomingRelayMessage: Equatable, Sendable {
 }
 
 public enum OutgoingRelayMessage {
+    public static func helloEnvelope(token: String, clientId: String? = nil) -> Envelope<HelloPayload> {
+        Envelope(type: "hello", payload: HelloPayload(token: token, clientId: clientId))
+    }
+
     public static func hello(token: String, clientId: String? = nil) throws -> Data {
-        try HovviCoding.encodeEnvelope(
-            Envelope(type: "hello", payload: HelloPayload(token: token, clientId: clientId))
-        )
+        try HovviCoding.encodeEnvelope(helloEnvelope(token: token, clientId: clientId))
+    }
+
+    public static func devicesListEnvelope() -> Envelope<EmptyPayload> {
+        Envelope(type: "devices.list", payload: EmptyPayload())
     }
 
     public static func devicesList() throws -> Data {
-        try HovviCoding.encodeEnvelope(Envelope(type: "devices.list", payload: EmptyPayload()))
+        try HovviCoding.encodeEnvelope(devicesListEnvelope())
+    }
+
+    public static func prepareAttachEnvelope(
+        deviceId: String,
+        sessionName: String = "main",
+        lines: Int = 2000,
+        create: Bool = false
+    ) -> Envelope<PrepareAttachRequest> {
+        Envelope(
+            type: "session.attach.prepare",
+            payload: PrepareAttachRequest(deviceId: deviceId, sessionName: sessionName, lines: lines, create: create)
+        )
     }
 
     public static func prepareAttach(
@@ -81,19 +99,24 @@ public enum OutgoingRelayMessage {
         create: Bool = false
     ) throws -> Data {
         try HovviCoding.encodeEnvelope(
-            Envelope(
-                type: "session.attach.prepare",
-                payload: PrepareAttachRequest(deviceId: deviceId, sessionName: sessionName, lines: lines, create: create)
-            )
+            prepareAttachEnvelope(deviceId: deviceId, sessionName: sessionName, lines: lines, create: create)
+        )
+    }
+
+    public static func fetchScrollbackEnvelope(
+        deviceId: String,
+        sessionName: String = "main",
+        lines: Int = 2000
+    ) -> Envelope<FetchScrollbackRequest> {
+        Envelope(
+            type: "session.scrollback.fetch",
+            payload: FetchScrollbackRequest(deviceId: deviceId, sessionName: sessionName, lines: lines)
         )
     }
 
     public static func fetchScrollback(deviceId: String, sessionName: String = "main", lines: Int = 2000) throws -> Data {
         try HovviCoding.encodeEnvelope(
-            Envelope(
-                type: "session.scrollback.fetch",
-                payload: FetchScrollbackRequest(deviceId: deviceId, sessionName: sessionName, lines: lines)
-            )
+            fetchScrollbackEnvelope(deviceId: deviceId, sessionName: sessionName, lines: lines)
         )
     }
 }

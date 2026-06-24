@@ -6,6 +6,11 @@ public actor RelayClient {
     public let clientId: String?
 
     private var task: URLSessionWebSocketTask?
+    private var receiveTask: Task<Void, Never>?
+    private var latestDevices: [Device]?
+    private var deviceWaiters: [UUID: ResponseWaiter<[Device]>] = [:]
+    private var attachWaiters: [String: ResponseWaiter<AttachManifest>] = [:]
+    private var scrollbackWaiters: [String: ResponseWaiter<ScrollbackResult>] = [:]
 
     public init(url: URL, token: String, clientId: String? = nil) {
         self.url = url
@@ -13,21 +18,60 @@ public actor RelayClient {
         self.clientId = clientId
     }
 
-    public func connect() async throws {
+    public func connect(startReceiveLoop: Bool = false) async throws {
         guard task == nil else { return }
         let task = URLSession.shared.webSocketTask(with: url)
         task.resume()
         self.task = task
-        try await sendRaw(OutgoingRelayMessage.hello(token: token, clientId: clientId))
+        if startReceiveLoop {
+            startReceiveLoopIfNeeded()
+        }
+        do {
+            try await sendEnvelope(OutgoingRelayMessage.helloEnvelope(token: token, clientId: clientId))
+        } catch {
+            disconnect()
+            throw error
+        }
     }
 
     public func disconnect() {
+        receiveTask?.cancel()
+        receiveTask = nil
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
+        failAll(RelayClientError.notConnected)
+    }
+
+    public func cachedDevices() -> [Device] {
+        latestDevices ?? []
+    }
+
+    public func listDevices(timeout: Duration = .seconds(3)) async throws -> [Device] {
+        try ensureReceiveLoop()
+        let request = OutgoingRelayMessage.devicesListEnvelope()
+        let waiterId = UUID()
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                deviceWaiters[waiterId] = ResponseWaiter(
+                    continuation: continuation,
+                    timeoutTask: makeTimeoutTask(timeout) { await self.timeoutDeviceWaiter(waiterId) }
+                )
+                Task {
+                    do {
+                        try await self.sendEnvelope(request)
+                    } catch {
+                        self.failDeviceWaiter(waiterId, error: error)
+                    }
+                }
+            }
+        } onCancel: {
+            Task { await self.failDeviceWaiter(waiterId, error: CancellationError()) }
+        }
     }
 
     public func requestDevices() async throws {
-        try await sendRaw(OutgoingRelayMessage.devicesList())
+        try await sendEnvelope(OutgoingRelayMessage.devicesListEnvelope())
     }
 
     public func prepareAttach(
@@ -36,8 +80,8 @@ public actor RelayClient {
         lines: Int = 2000,
         create: Bool = false
     ) async throws {
-        try await sendRaw(
-            OutgoingRelayMessage.prepareAttach(
+        try await sendEnvelope(
+            OutgoingRelayMessage.prepareAttachEnvelope(
                 deviceId: deviceId,
                 sessionName: sessionName,
                 lines: lines,
@@ -46,13 +90,64 @@ public actor RelayClient {
         )
     }
 
+    public func prepareAttachManifest(
+        deviceId: String,
+        sessionName: String = "main",
+        lines: Int = 2000,
+        create: Bool = false,
+        timeout: Duration = .seconds(5)
+    ) async throws -> AttachManifest {
+        try ensureReceiveLoop()
+        let request = OutgoingRelayMessage.prepareAttachEnvelope(
+            deviceId: deviceId,
+            sessionName: sessionName,
+            lines: lines,
+            create: create
+        )
+        return try await withRequestWaiter(
+            requestId: request.id,
+            timeout: timeout,
+            register: { attachWaiters[request.id] = $0 },
+            timeoutAction: { await self.failAttachWaiter(request.id, error: RelayClientError.timedOut) },
+            cancel: { await self.failAttachWaiter(request.id, error: CancellationError()) },
+            send: { try await self.sendEnvelope(request) }
+        )
+    }
+
     public func fetchScrollback(deviceId: String, sessionName: String = "main", lines: Int = 2000) async throws {
-        try await sendRaw(
-            OutgoingRelayMessage.fetchScrollback(deviceId: deviceId, sessionName: sessionName, lines: lines)
+        try await sendEnvelope(
+            OutgoingRelayMessage.fetchScrollbackEnvelope(deviceId: deviceId, sessionName: sessionName, lines: lines)
+        )
+    }
+
+    public func fetchScrollbackResult(
+        deviceId: String,
+        sessionName: String = "main",
+        lines: Int = 2000,
+        timeout: Duration = .seconds(5)
+    ) async throws -> ScrollbackResult {
+        try ensureReceiveLoop()
+        let request = OutgoingRelayMessage.fetchScrollbackEnvelope(
+            deviceId: deviceId,
+            sessionName: sessionName,
+            lines: lines
+        )
+        return try await withRequestWaiter(
+            requestId: request.id,
+            timeout: timeout,
+            register: { scrollbackWaiters[request.id] = $0 },
+            timeoutAction: { await self.failScrollbackWaiter(request.id, error: RelayClientError.timedOut) },
+            cancel: { await self.failScrollbackWaiter(request.id, error: CancellationError()) },
+            send: { try await self.sendEnvelope(request) }
         )
     }
 
     public func receive() async throws -> IncomingRelayMessage {
+        guard receiveTask == nil else { throw RelayClientError.receiveLoopActive }
+        return try await receiveFrame()
+    }
+
+    private func receiveFrame() async throws -> IncomingRelayMessage {
         guard let task else { throw RelayClientError.notConnected }
         let message = try await task.receive()
 
@@ -69,6 +164,180 @@ public actor RelayClient {
         }
     }
 
+    private func ensureReceiveLoop() throws {
+        guard task != nil else { throw RelayClientError.notConnected }
+        startReceiveLoopIfNeeded()
+    }
+
+    private func startReceiveLoopIfNeeded() {
+        guard receiveTask == nil else { return }
+        receiveTask = Task { await self.receiveLoop() }
+    }
+
+    private func receiveLoop() async {
+        do {
+            while !Task.isCancelled {
+                route(try await receiveFrame())
+            }
+        } catch {
+            if !Task.isCancelled {
+                task = nil
+                failAll(error)
+            }
+        }
+        receiveTask = nil
+    }
+
+    private func route(_ message: IncomingRelayMessage) {
+        switch message {
+        case .devicesSnapshot:
+            routeDevices(message)
+        case .attachReady(let envelope):
+            resolveAttachWaiter(envelope.payload.requestId, value: envelope.payload.manifest)
+        case .attachError(let envelope):
+            if let requestId = envelope.payload.requestId {
+                failAttachWaiter(requestId, error: RelayClientError.requestFailed(envelope.payload))
+            } else {
+                failAll(RelayClientError.requestFailed(envelope.payload))
+            }
+        case .scrollbackReady(let envelope):
+            resolveScrollbackWaiter(
+                envelope.payload.requestId,
+                value: ScrollbackResult(
+                    sessionName: envelope.payload.sessionName,
+                    lines: envelope.payload.lines,
+                    text: envelope.payload.text
+                )
+            )
+        case .scrollbackError(let envelope):
+            if let requestId = envelope.payload.requestId {
+                failScrollbackWaiter(requestId, error: RelayClientError.requestFailed(envelope.payload))
+            } else {
+                failAll(RelayClientError.requestFailed(envelope.payload))
+            }
+        case .relayError(let envelope):
+            failAll(RelayClientError.requestFailed(envelope.payload))
+        default:
+            break
+        }
+    }
+
+    private func routeDevices(_ message: IncomingRelayMessage) {
+        do {
+            guard let devices = try RelayResponseMatcher.devices(from: message) else { return }
+            latestDevices = devices
+            for waiterId in Array(deviceWaiters.keys) {
+                resolveDeviceWaiter(waiterId, value: devices)
+            }
+        } catch {
+            failAll(error)
+        }
+    }
+
+    private func withRequestWaiter<Value: Sendable>(
+        requestId: String,
+        timeout: Duration,
+        register: (ResponseWaiter<Value>) -> Void,
+        timeoutAction: @escaping @Sendable () async -> Void,
+        cancel: @escaping @Sendable () async -> Void,
+        send: @escaping @Sendable () async throws -> Void
+    ) async throws -> Value {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                register(
+                    ResponseWaiter(
+                        continuation: continuation,
+                        timeoutTask: makeTimeoutTask(timeout, action: timeoutAction)
+                    )
+                )
+                Task {
+                    do {
+                        try await send()
+                    } catch {
+                        self.failRequest(requestId, error: error)
+                    }
+                }
+            }
+        } onCancel: {
+            Task { await cancel() }
+        }
+    }
+
+    private func makeTimeoutTask(_ timeout: Duration, action: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
+        Task {
+            do {
+                try await Task.sleep(for: timeout)
+                await action()
+            } catch {
+            }
+        }
+    }
+
+    private func resolveDeviceWaiter(_ waiterId: UUID, value: [Device]) {
+        guard let waiter = deviceWaiters.removeValue(forKey: waiterId) else { return }
+        resolve(waiter, value: value)
+    }
+
+    private func timeoutDeviceWaiter(_ waiterId: UUID) {
+        failDeviceWaiter(waiterId, error: RelayClientError.timedOut)
+    }
+
+    private func failDeviceWaiter(_ waiterId: UUID, error: Error) {
+        guard let waiter = deviceWaiters.removeValue(forKey: waiterId) else { return }
+        reject(waiter, error: error)
+    }
+
+    private func resolveAttachWaiter(_ requestId: String, value: AttachManifest) {
+        guard let waiter = attachWaiters.removeValue(forKey: requestId) else { return }
+        resolve(waiter, value: value)
+    }
+
+    private func failAttachWaiter(_ requestId: String, error: Error) {
+        guard let waiter = attachWaiters.removeValue(forKey: requestId) else { return }
+        reject(waiter, error: error)
+    }
+
+    private func resolveScrollbackWaiter(_ requestId: String, value: ScrollbackResult) {
+        guard let waiter = scrollbackWaiters.removeValue(forKey: requestId) else { return }
+        resolve(waiter, value: value)
+    }
+
+    private func failScrollbackWaiter(_ requestId: String, error: Error) {
+        guard let waiter = scrollbackWaiters.removeValue(forKey: requestId) else { return }
+        reject(waiter, error: error)
+    }
+
+    private func failRequest(_ requestId: String, error: Error) {
+        failAttachWaiter(requestId, error: error)
+        failScrollbackWaiter(requestId, error: error)
+    }
+
+    private func failAll(_ error: Error) {
+        for waiterId in Array(deviceWaiters.keys) {
+            failDeviceWaiter(waiterId, error: error)
+        }
+        for requestId in Array(attachWaiters.keys) {
+            failAttachWaiter(requestId, error: error)
+        }
+        for requestId in Array(scrollbackWaiters.keys) {
+            failScrollbackWaiter(requestId, error: error)
+        }
+    }
+
+    private func resolve<Value>(_ waiter: ResponseWaiter<Value>, value: Value) {
+        waiter.timeoutTask.cancel()
+        waiter.continuation.resume(returning: value)
+    }
+
+    private func reject<Value>(_ waiter: ResponseWaiter<Value>, error: Error) {
+        waiter.timeoutTask.cancel()
+        waiter.continuation.resume(throwing: error)
+    }
+
+    private func sendEnvelope<Payload: Codable>(_ envelope: Envelope<Payload>) async throws {
+        try await sendRaw(HovviCoding.encodeEnvelope(envelope))
+    }
+
     private func sendRaw(_ data: Data) async throws {
         guard let task else { throw RelayClientError.notConnected }
         try await task.send(.data(data))
@@ -79,4 +348,12 @@ public enum RelayClientError: Error, Equatable, Sendable {
     case notConnected
     case invalidTextFrame
     case unsupportedFrame
+    case receiveLoopActive
+    case timedOut
+    case requestFailed(RequestErrorPayload)
+}
+
+private struct ResponseWaiter<Value: Sendable> {
+    let continuation: CheckedContinuation<Value, Error>
+    let timeoutTask: Task<Void, Never>
 }

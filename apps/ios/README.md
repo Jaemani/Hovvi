@@ -9,7 +9,17 @@ swift build
 swift run HovviMobileCoreSmoke
 ```
 
-The package currently covers flattened relay envelopes, outgoing client message builders, incoming message dispatch, and a native `URLSessionWebSocketTask` relay client. It does not yet render a terminal.
+The package currently covers flattened relay envelopes, outgoing client message builders, incoming message dispatch, response matching, and a native `URLSessionWebSocketTask` relay client.
+
+The relay client exposes both low-level send/receive methods and app-facing request APIs:
+
+- `listDevices(timeout:)`
+- `prepareAttachManifest(deviceId:sessionName:lines:create:timeout:)`
+- `fetchScrollbackResult(deviceId:sessionName:lines:timeout:)`
+
+These APIs run a single receive loop, match responses by relay request id, and surface timeout/request failures explicitly. The package does not yet render a terminal.
+
+Use `connect(startReceiveLoop: true)` to eagerly route messages, or call the app-facing APIs after `connect()` and let them start the loop on first use. Manual `receive()` remains available when the loop is not active.
 
 The first native build should consume the relay protocol implemented by the CLI package:
 

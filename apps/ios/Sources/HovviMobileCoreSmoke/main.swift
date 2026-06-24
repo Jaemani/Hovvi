@@ -90,6 +90,14 @@ let scrollbackObject = try JSONSerialization.jsonObject(with: scrollbackRequest)
 try require(scrollbackObject?["type"] as? String == "session.scrollback.fetch", "scrollback type should encode")
 try require(scrollbackObject?["lines"] as? Int == 120, "scrollback lines should encode")
 
+let attachRequestEnvelope = OutgoingRelayMessage.prepareAttachEnvelope(
+    deviceId: "dev_1",
+    sessionName: "main",
+    lines: 80
+)
+try require(attachRequestEnvelope.id.isEmpty == false, "attach request envelope should expose request id")
+try require(attachRequestEnvelope.payload.lines == 80, "attach request envelope should preserve payload")
+
 let incoming = try decodeIncomingRelayMessage(from: Data(manifestJson.utf8))
 switch incoming {
 case .attachReady(let envelope):
@@ -98,10 +106,43 @@ default:
     throw SmokeError("incoming attach manifest dispatched to wrong case")
 }
 
+let matchedManifest = try RelayResponseMatcher.attachManifest(requestId: "req-1", from: incoming)
+try require(matchedManifest?.sessionName == "main", "attach response matcher should return matching manifest")
+let ignoredManifest = try RelayResponseMatcher.attachManifest(requestId: "other", from: incoming)
+try require(ignoredManifest == nil, "attach response matcher should ignore other request ids")
+
+let scrollbackJson = """
+{
+  "version": 1,
+  "type": "session.scrollback.ready",
+  "id": "message-2",
+  "sentAt": "2026-06-24T00:00:00Z",
+  "requestId": "scroll-1",
+  "sessionName": "main",
+  "lines": 2,
+  "text": "one\\ntwo"
+}
+"""
+let incomingScrollback = try decodeIncomingRelayMessage(from: Data(scrollbackJson.utf8))
+let matchedScrollback = try RelayResponseMatcher.scrollbackResult(requestId: "scroll-1", from: incomingScrollback)
+try require(matchedScrollback?.text == "one\ntwo", "scrollback response matcher should return text")
+
 let relayClient = RelayClient(url: URL(string: "ws://127.0.0.1:8787")!, token: "dev", clientId: "ios-smoke")
 do {
     try await relayClient.fetchScrollback(deviceId: "dev_1", sessionName: "main", lines: 20)
     throw SmokeError("send before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.fetchScrollbackResult(deviceId: "dev_1", sessionName: "main", lines: 20)
+    throw SmokeError("high-level scrollback before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.listDevices()
+    throw SmokeError("device list before connect should fail")
 } catch RelayClientError.notConnected {
 }
 
