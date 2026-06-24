@@ -19,12 +19,13 @@ public struct Envelope<Payload: Codable> {
 }
 
 extension Envelope: Equatable where Payload: Equatable {}
+extension Envelope: Sendable where Payload: Sendable {}
 
-public struct EmptyPayload: Codable, Equatable {
+public struct EmptyPayload: Codable, Equatable, Sendable {
     public init() {}
 }
 
-public struct Device: Codable, Equatable, Identifiable {
+public struct Device: Codable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String?
     public let platform: String?
@@ -52,7 +53,7 @@ public struct Device: Codable, Equatable, Identifiable {
     }
 }
 
-public struct Session: Codable, Equatable, Identifiable {
+public struct Session: Codable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String
     public let kind: String
@@ -70,7 +71,7 @@ public struct Session: Codable, Equatable, Identifiable {
     }
 }
 
-public struct Pane: Codable, Equatable, Identifiable {
+public struct Pane: Codable, Equatable, Identifiable, Sendable {
     public var id: String { paneId }
     public let paneId: String
     public let command: String
@@ -85,7 +86,7 @@ public struct Pane: Codable, Equatable, Identifiable {
     }
 }
 
-public struct DevicesSnapshot: Codable, Equatable {
+public struct DevicesSnapshot: Codable, Equatable, Sendable {
     public let devices: [Device]
 
     public init(devices: [Device]) {
@@ -93,7 +94,7 @@ public struct DevicesSnapshot: Codable, Equatable {
     }
 }
 
-public struct AttachReady: Codable, Equatable {
+public struct AttachReady: Codable, Equatable, Sendable {
     public let requestId: String
     public let manifest: AttachManifest
 
@@ -103,7 +104,7 @@ public struct AttachReady: Codable, Equatable {
     }
 }
 
-public struct AttachManifest: Codable, Equatable {
+public struct AttachManifest: Codable, Equatable, Sendable {
     public let kind: String
     public let version: Int
     public let deviceId: String?
@@ -137,7 +138,7 @@ public struct AttachManifest: Codable, Equatable {
     }
 }
 
-public struct AttachMethod: Codable, Equatable {
+public struct AttachMethod: Codable, Equatable, Sendable {
     public let name: String
     public let priority: Int
     public let status: String
@@ -153,7 +154,7 @@ public struct AttachMethod: Codable, Equatable {
     }
 }
 
-public struct ScrollbackSource: Codable, Equatable {
+public struct ScrollbackSource: Codable, Equatable, Sendable {
     public let source: String
     public let command: [String]
     public let lines: Int
@@ -165,7 +166,7 @@ public struct ScrollbackSource: Codable, Equatable {
     }
 }
 
-public struct ControlModeSource: Codable, Equatable {
+public struct ControlModeSource: Codable, Equatable, Sendable {
     public let source: String
     public let command: [String]
 
@@ -175,7 +176,7 @@ public struct ControlModeSource: Codable, Equatable {
     }
 }
 
-public struct ScrollbackReady: Codable, Equatable {
+public struct ScrollbackReady: Codable, Equatable, Sendable {
     public let requestId: String
     public let sessionName: String
     public let lines: Int
@@ -189,7 +190,7 @@ public struct ScrollbackReady: Codable, Equatable {
     }
 }
 
-public struct ScrollbackResult: Codable, Equatable {
+public struct ScrollbackResult: Codable, Equatable, Sendable {
     public let sessionName: String
     public let lines: Int
     public let text: String
@@ -201,7 +202,7 @@ public struct ScrollbackResult: Codable, Equatable {
     }
 }
 
-public struct RelayError: Codable, Error, Equatable {
+public struct RelayError: Codable, Error, Equatable, Sendable {
     public let code: String?
     public let field: String?
     public let message: String

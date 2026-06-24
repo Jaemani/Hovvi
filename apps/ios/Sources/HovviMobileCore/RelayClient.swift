@@ -75,7 +75,7 @@ public actor RelayClient {
     }
 }
 
-public enum RelayClientError: Error, Equatable {
+public enum RelayClientError: Error, Equatable, Sendable {
     case notConnected
     case invalidTextFrame
     case unsupportedFrame

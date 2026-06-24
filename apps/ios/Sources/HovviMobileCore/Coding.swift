@@ -65,14 +65,14 @@ public enum HovviCoding {
     }
 }
 
-public struct RawEnvelope: Codable, Equatable {
+public struct RawEnvelope: Codable, Equatable, Sendable {
     public let version: Int
     public let type: String
     public let id: String
     public let sentAt: Date
 }
 
-public enum HovviProtocolError: Error, Equatable {
+public enum HovviProtocolError: Error, Equatable, Sendable {
     case unsupportedVersion(Int)
     case unexpectedType(expected: String, actual: String)
     case invalidPayloadObject

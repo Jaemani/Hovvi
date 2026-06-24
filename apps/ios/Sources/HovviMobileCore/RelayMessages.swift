@@ -1,6 +1,6 @@
 import Foundation
 
-public struct HelloPayload: Codable, Equatable {
+public struct HelloPayload: Codable, Equatable, Sendable {
     public let role: String
     public let token: String
     public let clientId: String?
@@ -12,7 +12,7 @@ public struct HelloPayload: Codable, Equatable {
     }
 }
 
-public struct PrepareAttachRequest: Codable, Equatable {
+public struct PrepareAttachRequest: Codable, Equatable, Sendable {
     public let deviceId: String
     public let sessionName: String
     public let lines: Int
@@ -26,7 +26,7 @@ public struct PrepareAttachRequest: Codable, Equatable {
     }
 }
 
-public struct FetchScrollbackRequest: Codable, Equatable {
+public struct FetchScrollbackRequest: Codable, Equatable, Sendable {
     public let deviceId: String
     public let sessionName: String
     public let lines: Int
@@ -38,7 +38,7 @@ public struct FetchScrollbackRequest: Codable, Equatable {
     }
 }
 
-public struct RequestErrorPayload: Codable, Error, Equatable {
+public struct RequestErrorPayload: Codable, Error, Equatable, Sendable {
     public let requestId: String?
     public let code: String?
     public let field: String?
@@ -52,7 +52,7 @@ public struct RequestErrorPayload: Codable, Error, Equatable {
     }
 }
 
-public enum IncomingRelayMessage: Equatable {
+public enum IncomingRelayMessage: Equatable, Sendable {
     case helloOK(RawEnvelope)
     case devicesSnapshot(Envelope<DevicesSnapshot>)
     case attachReady(Envelope<AttachReady>)
