@@ -30,6 +30,8 @@ test("relay rejects invalid token", () => {
   assert.equal(client.closed, true);
   const error = client.messages.map(JSON.parse).find((message) => message.type === "error");
   assert.equal(error.message, "invalid relay token");
+  assert.equal(state.metrics.authRejected, 1);
+  assert.equal(state.audit.recent().at(-1).reason, "unknown_token");
 });
 
 test("relay accepts registry token for scoped role", () => {
@@ -53,6 +55,30 @@ test("relay accepts registry token for scoped role", () => {
 
   assert.equal(state.agents.has("mac-1"), true);
   assert.equal(client.closed, true);
+});
+
+test("relay enforces device-bound registry tokens", () => {
+  const state = createRelayState();
+  state.access.registry.tokens = [
+    {
+      name: "mac-agent",
+      hash: "sha256:2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b",
+      roles: ["agent"],
+      deviceIds: ["mac-1"],
+    },
+  ];
+  const agent = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "secret", device: { id: "mac-2" } })),
+  );
+
+  assert.equal(agent.closed, true);
+  assert.equal(state.agents.has("mac-2"), false);
+  assert.equal(state.metrics.authRejected, 1);
+  assert.equal(state.audit.recent().at(-1).reason, "device_not_allowed");
 });
 
 test("relay routes attach prepare response back to requesting client", () => {
@@ -188,6 +214,7 @@ test("relay status reports operational counts", () => {
   assert.equal(status.clients, 1);
   assert.equal(status.agents, 0);
   assert.equal(status.metrics.messagesReceived, 1);
+  assert.equal(status.metrics.authAccepted, 1);
 });
 
 test("relay returns structured invalid message errors", () => {

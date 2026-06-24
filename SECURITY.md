@@ -20,3 +20,5 @@ Use GitHub private vulnerability reporting for `Jaemani/Hovvi`, or contact the m
 - Hosted deployments must use scoped, revocable, expiring device credentials before public use.
 - Terminal data should remain encrypted above the relay layer or end-to-end before production hosted relay use.
 - Local config files are written atomically and forced to `0600` because they may contain GitHub or relay tokens.
+- Relay registry tokens can be restricted by role, device id, client id, activation time, and expiry.
+- Relay audit logs are token-redacted JSONL and should still be stored as sensitive operational data.

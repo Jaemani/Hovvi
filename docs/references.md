@@ -7,6 +7,9 @@ Hovvi should lean on proven terminal and packaging behavior instead of inventing
 - Mosh: roaming, intermittent connectivity, and responsive interactive terminal behavior are the compatibility target.
   - https://mosh.org/
   - https://github.com/mobile-shell/mosh
+- Tailscale DERP: relay should be connective tissue for encrypted streams, with direct/P2P paths left as a later optimization.
+  - https://tailscale.com/docs/reference/derp-servers
+  - https://github.com/tailscale/tailscale/tree/main/derp
 - tmux control mode: native mobile UI and scrollback should use tmux as the source of truth for panes, windows, sessions, and history.
   - https://github.com/tmux/tmux/wiki/Control-Mode
 

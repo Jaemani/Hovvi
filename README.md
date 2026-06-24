@@ -104,11 +104,35 @@ Start the relay with:
 hovvi relay --registry ./registry.json
 ```
 
+Registry entries may be scoped and time-bound:
+
+```json
+{
+  "tokens": [
+    {
+      "name": "jaeman-mac-agent",
+      "hash": "sha256:...",
+      "roles": ["agent"],
+      "deviceIds": ["dev_abc"],
+      "notBefore": "2026-06-24T00:00:00.000Z",
+      "expiresAt": "2026-09-24T00:00:00.000Z"
+    },
+    {
+      "name": "jaeman-iphone",
+      "hash": "sha256:...",
+      "roles": ["client"],
+      "clientIds": ["ios-main"]
+    }
+  ]
+}
+```
+
 Operational defaults:
 
 - stale agents are removed after `--device-timeout-ms` (default `30000`)
 - stale sweeps run every `--sweep-interval-ms` (default `5000`)
 - WebSocket payloads are capped by `--max-payload-bytes` (default `1048576`)
+- `--audit-log ./relay.audit.jsonl` writes token-redacted auth events to a private JSONL file
 - `/healthz` returns basic liveness
 - `/statusz` and `/metrics.json` return relay id, uptime inputs, connected agent/client counts, stream counts, and counters
 

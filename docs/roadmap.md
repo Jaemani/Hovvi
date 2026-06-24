@@ -10,11 +10,12 @@
 - protocol validation and relay lifecycle integration tests.
 - native iOS relay protocol core with request/response matching.
 - native iOS forward stream models for attach transport.
+- scoped relay credentials with token-redacted auth audit logs.
 
 ## Next
 
 - Hosted relay account service with GitHub OAuth device registration.
-- scoped device credentials, revocation, and audit logs.
+- registry-backed credential revocation workflow and audit log retention policy.
 - mosh-compatible datagram channel over relay.
 - iOS alpha shell: GitHub login, device/session list UI, attach transport, and tmux-native scrollback rendering.
 

@@ -1,6 +1,7 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
 import WebSocket, { WebSocketServer } from "ws";
+import { createAuditSink } from "./audit.js";
 import { envelope, parseAndValidateEnvelope, serialize } from "./protocol.js";
 import { createAccessRegistry } from "./registry.js";
 
@@ -9,6 +10,7 @@ export async function runRelay({
   port = 8787,
   token = "dev",
   registryPath,
+  auditLogPath,
   deviceTimeoutMs = 30000,
   sweepIntervalMs = 5000,
   maxPayloadBytes = 1024 * 1024,
@@ -18,6 +20,7 @@ export async function runRelay({
     port,
     token,
     registryPath,
+    auditLogPath,
     deviceTimeoutMs,
     sweepIntervalMs,
     maxPayloadBytes,
@@ -31,11 +34,12 @@ export function createRelayServer({
   port = 0,
   token = "dev",
   registryPath,
+  auditLogPath,
   deviceTimeoutMs = 30000,
   sweepIntervalMs = 5000,
   maxPayloadBytes = 1024 * 1024,
 } = {}) {
-  const state = createRelayState({ token, registryPath, deviceTimeoutMs });
+  const state = createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs });
   const server = http.createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -93,9 +97,10 @@ export function createRelayServer({
   };
 }
 
-export function createRelayState({ token, registryPath, deviceTimeoutMs = 30000 } = {}) {
+export function createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs = 30000 } = {}) {
   return {
     access: createAccessRegistry({ devToken: token, registryPath }),
+    audit: createAuditSink({ path: auditLogPath }),
     deviceTimeoutMs,
     relayId: randomUUID(),
     startedAt: new Date().toISOString(),
@@ -104,6 +109,8 @@ export function createRelayState({ token, registryPath, deviceTimeoutMs = 30000 
       messagesReceived: 0,
       invalidMessages: 0,
       staleAgentsPruned: 0,
+      authAccepted: 0,
+      authRejected: 0,
     },
     sockets: new Map(),
     agents: new Map(),
@@ -220,12 +227,37 @@ function responseErrorType(kind) {
 }
 
 function registerSocket(state, ws, message) {
-  const principal = state.access.authenticate({ role: message.role, token: message.token });
-  if (!principal) {
+  const clientId = message.clientId || message.id;
+  const deviceId = message.device?.id;
+  const auth = state.access.authenticateDetailed({
+    role: message.role,
+    token: message.token,
+    deviceId,
+    clientId,
+  });
+  if (!auth.ok) {
+    state.metrics.authRejected += 1;
+    state.audit.record({
+      type: "auth.reject",
+      role: message.role,
+      reason: auth.reason,
+      deviceId,
+      clientId: message.role === "client" ? clientId : undefined,
+    });
     ws.send(serialize(envelope("error", { message: "invalid relay token" })));
     ws.close(1008, "invalid token");
     return;
   }
+  const principal = auth.principal;
+  state.metrics.authAccepted += 1;
+  state.audit.record({
+    type: "auth.accept",
+    role: message.role,
+    subject: principal.subject,
+    source: principal.source,
+    deviceId,
+    clientId: message.role === "client" ? clientId : undefined,
+  });
 
   if (message.role === "agent") {
     const device = message.device;
@@ -243,7 +275,6 @@ function registerSocket(state, ws, message) {
   }
 
   if (message.role === "client") {
-    const clientId = message.clientId || message.id;
     const meta = { role: "client", principal, clientId, ws };
     state.sockets.set(ws, meta);
     state.clients.set(clientId, meta);
