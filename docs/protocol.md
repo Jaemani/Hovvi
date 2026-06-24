@@ -90,6 +90,46 @@ Message-specific fields are added next to those keys.
 }
 ```
 
+`forward.open`:
+
+```json
+{
+  "version": 1,
+  "type": "forward.open",
+  "id": "message-id",
+  "sentAt": "2026-06-24T00:00:00.000Z",
+  "streamId": "str_1",
+  "deviceId": "dev_1",
+  "remoteHost": "127.0.0.1",
+  "remotePort": 22
+}
+```
+
+`forward.data`:
+
+```json
+{
+  "version": 1,
+  "type": "forward.data",
+  "id": "message-id",
+  "sentAt": "2026-06-24T00:00:00.000Z",
+  "streamId": "str_1",
+  "data": "cGluZw=="
+}
+```
+
+`forward.end`:
+
+```json
+{
+  "version": 1,
+  "type": "forward.end",
+  "id": "message-id",
+  "sentAt": "2026-06-24T00:00:00.000Z",
+  "streamId": "str_1"
+}
+```
+
 ## Validation
 
 Relay input is schema-validated before routing. Invalid messages return:

@@ -41,4 +41,17 @@ public enum RelayResponseMatcher {
             return nil
         }
     }
+
+    public static func forwardReady(streamId: String, from message: IncomingRelayMessage) throws -> String? {
+        switch message {
+        case .forwardReady(let envelope) where envelope.payload.streamId == streamId:
+            return envelope.payload.streamId
+        case .forwardError(let envelope) where envelope.payload.streamId == streamId:
+            throw RelayClientError.forwardFailed(envelope.payload)
+        case .relayError(let envelope):
+            throw RelayClientError.requestFailed(envelope.payload)
+        default:
+            return nil
+        }
+    }
 }

@@ -202,6 +202,70 @@ public struct ScrollbackResult: Codable, Equatable, Sendable {
     }
 }
 
+public struct ForwardOpenRequest: Codable, Equatable, Sendable {
+    public let streamId: String
+    public let deviceId: String
+    public let remoteHost: String?
+    public let remotePort: Int?
+
+    public init(streamId: String, deviceId: String, remoteHost: String? = nil, remotePort: Int? = nil) {
+        self.streamId = streamId
+        self.deviceId = deviceId
+        self.remoteHost = remoteHost
+        self.remotePort = remotePort
+    }
+}
+
+public struct ForwardReady: Codable, Equatable, Sendable {
+    public let streamId: String
+
+    public init(streamId: String) {
+        self.streamId = streamId
+    }
+}
+
+public struct ForwardEnd: Codable, Equatable, Sendable {
+    public let streamId: String
+
+    public init(streamId: String) {
+        self.streamId = streamId
+    }
+}
+
+public struct ForwardDataFrame: Codable, Equatable, Sendable {
+    public let streamId: String
+    public let data: String
+
+    public init(streamId: String, data: String) {
+        self.streamId = streamId
+        self.data = data
+    }
+
+    public init(streamId: String, bytes: Data) {
+        self.streamId = streamId
+        self.data = bytes.base64EncodedString()
+    }
+
+    public var bytes: Data? {
+        Data(base64Encoded: data)
+    }
+}
+
+public struct ForwardErrorPayload: Codable, Error, Equatable, Sendable {
+    public let streamId: String
+    public let message: String?
+
+    public init(streamId: String, message: String? = nil) {
+        self.streamId = streamId
+        self.message = message
+    }
+}
+
+public enum RelayForwardFrame: Equatable, Sendable {
+    case data(Data)
+    case end
+}
+
 public struct RelayError: Codable, Error, Equatable, Sendable {
     public let code: String?
     public let field: String?

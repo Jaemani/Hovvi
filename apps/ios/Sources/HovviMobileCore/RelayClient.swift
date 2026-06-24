@@ -11,6 +11,9 @@ public actor RelayClient {
     private var deviceWaiters: [UUID: ResponseWaiter<[Device]>] = [:]
     private var attachWaiters: [String: ResponseWaiter<AttachManifest>] = [:]
     private var scrollbackWaiters: [String: ResponseWaiter<ScrollbackResult>] = [:]
+    private var forwardReadyWaiters: [String: ResponseWaiter<String>] = [:]
+    private var forwardFrameBuffers: [String: [RelayForwardFrame]] = [:]
+    private var forwardFrameWaiters: [String: [ForwardFrameWaiter]] = [:]
 
     public init(url: URL, token: String, clientId: String? = nil) {
         self.url = url
@@ -142,6 +145,73 @@ public actor RelayClient {
         )
     }
 
+    public func openForward(
+        deviceId: String,
+        remoteHost: String? = nil,
+        remotePort: Int? = nil,
+        timeout: Duration = .seconds(5)
+    ) async throws -> String {
+        try ensureReceiveLoop()
+        let request = OutgoingRelayMessage.forwardOpenEnvelope(
+            deviceId: deviceId,
+            remoteHost: remoteHost,
+            remotePort: remotePort
+        )
+        return try await withRequestWaiter(
+            requestId: request.payload.streamId,
+            timeout: timeout,
+            register: { forwardReadyWaiters[request.payload.streamId] = $0 },
+            timeoutAction: { await self.failForwardReadyWaiter(request.payload.streamId, error: RelayClientError.timedOut) },
+            cancel: { await self.failForwardReadyWaiter(request.payload.streamId, error: CancellationError()) },
+            send: { try await self.sendEnvelope(request) }
+        )
+    }
+
+    public func sendForwardData(streamId: String, bytes: Data) async throws {
+        try await sendEnvelope(OutgoingRelayMessage.forwardDataEnvelope(streamId: streamId, bytes: bytes))
+    }
+
+    public func readForwardFrame(streamId: String, timeout: Duration = .seconds(30)) async throws -> RelayForwardFrame {
+        try ensureReceiveLoop()
+        if var buffer = forwardFrameBuffers[streamId], buffer.isEmpty == false {
+            let frame = buffer.removeFirst()
+            forwardFrameBuffers[streamId] = buffer.isEmpty ? nil : buffer
+            return frame
+        }
+
+        let waiterId = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let waiter = ForwardFrameWaiter(
+                    id: waiterId,
+                    waiter: ResponseWaiter(
+                        continuation: continuation,
+                        timeoutTask: makeTimeoutTask(timeout) {
+                            await self.failForwardFrameWaiter(
+                                streamId: streamId,
+                                waiterId: waiterId,
+                                error: RelayClientError.timedOut
+                            )
+                        }
+                    )
+                )
+                forwardFrameWaiters[streamId, default: []].append(waiter)
+            }
+        } onCancel: {
+            Task {
+                await self.failForwardFrameWaiter(
+                    streamId: streamId,
+                    waiterId: waiterId,
+                    error: CancellationError()
+                )
+            }
+        }
+    }
+
+    public func closeForward(streamId: String) async throws {
+        try await sendEnvelope(OutgoingRelayMessage.forwardEndEnvelope(streamId: streamId))
+    }
+
     public func receive() async throws -> IncomingRelayMessage {
         guard receiveTask == nil else { throw RelayClientError.receiveLoopActive }
         return try await receiveFrame()
@@ -215,6 +285,18 @@ public actor RelayClient {
             } else {
                 failAll(RelayClientError.requestFailed(envelope.payload))
             }
+        case .forwardReady(let envelope):
+            resolveForwardReadyWaiter(envelope.payload.streamId, value: envelope.payload.streamId)
+        case .forwardData(let envelope):
+            guard let bytes = envelope.payload.bytes else {
+                failForward(streamId: envelope.payload.streamId, error: RelayClientError.invalidBase64Frame)
+                return
+            }
+            routeForwardFrame(streamId: envelope.payload.streamId, frame: .data(bytes))
+        case .forwardEnd(let envelope):
+            routeForwardFrame(streamId: envelope.payload.streamId, frame: .end)
+        case .forwardError(let envelope):
+            failForward(streamId: envelope.payload.streamId, error: RelayClientError.forwardFailed(envelope.payload))
         case .relayError(let envelope):
             failAll(RelayClientError.requestFailed(envelope.payload))
         default:
@@ -307,9 +389,53 @@ public actor RelayClient {
         reject(waiter, error: error)
     }
 
+    private func resolveForwardReadyWaiter(_ streamId: String, value: String) {
+        guard let waiter = forwardReadyWaiters.removeValue(forKey: streamId) else { return }
+        resolve(waiter, value: value)
+    }
+
+    private func failForwardReadyWaiter(_ streamId: String, error: Error) {
+        guard let waiter = forwardReadyWaiters.removeValue(forKey: streamId) else { return }
+        reject(waiter, error: error)
+    }
+
+    private func routeForwardFrame(streamId: String, frame: RelayForwardFrame) {
+        if var waiters = forwardFrameWaiters[streamId], waiters.isEmpty == false {
+            let next = waiters.removeFirst()
+            forwardFrameWaiters[streamId] = waiters.isEmpty ? nil : waiters
+            resolve(next.waiter, value: frame)
+            return
+        }
+        forwardFrameBuffers[streamId, default: []].append(frame)
+    }
+
+    private func failForwardFrameWaiter(streamId: String, waiterId: UUID, error: Error) {
+        guard var waiters = forwardFrameWaiters[streamId],
+              let index = waiters.firstIndex(where: { $0.id == waiterId }) else {
+            return
+        }
+        let waiter = waiters.remove(at: index)
+        forwardFrameWaiters[streamId] = waiters.isEmpty ? nil : waiters
+        reject(waiter.waiter, error: error)
+    }
+
+    private func failForwardFrameWaiters(streamId: String, error: Error) {
+        guard let waiters = forwardFrameWaiters.removeValue(forKey: streamId) else { return }
+        for waiter in waiters {
+            reject(waiter.waiter, error: error)
+        }
+        forwardFrameBuffers.removeValue(forKey: streamId)
+    }
+
+    private func failForward(streamId: String, error: Error) {
+        failForwardReadyWaiter(streamId, error: error)
+        failForwardFrameWaiters(streamId: streamId, error: error)
+    }
+
     private func failRequest(_ requestId: String, error: Error) {
         failAttachWaiter(requestId, error: error)
         failScrollbackWaiter(requestId, error: error)
+        failForwardReadyWaiter(requestId, error: error)
     }
 
     private func failAll(_ error: Error) {
@@ -322,6 +448,13 @@ public actor RelayClient {
         for requestId in Array(scrollbackWaiters.keys) {
             failScrollbackWaiter(requestId, error: error)
         }
+        for streamId in Array(forwardReadyWaiters.keys) {
+            failForwardReadyWaiter(streamId, error: error)
+        }
+        for streamId in Array(forwardFrameWaiters.keys) {
+            failForwardFrameWaiters(streamId: streamId, error: error)
+        }
+        forwardFrameBuffers.removeAll()
     }
 
     private func resolve<Value>(_ waiter: ResponseWaiter<Value>, value: Value) {
@@ -351,9 +484,16 @@ public enum RelayClientError: Error, Equatable, Sendable {
     case receiveLoopActive
     case timedOut
     case requestFailed(RequestErrorPayload)
+    case forwardFailed(ForwardErrorPayload)
+    case invalidBase64Frame
 }
 
 private struct ResponseWaiter<Value: Sendable> {
     let continuation: CheckedContinuation<Value, Error>
     let timeoutTask: Task<Void, Never>
+}
+
+private struct ForwardFrameWaiter {
+    let id: UUID
+    let waiter: ResponseWaiter<RelayForwardFrame>
 }

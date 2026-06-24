@@ -16,10 +16,14 @@ The relay client exposes both low-level send/receive methods and app-facing requ
 - `listDevices(timeout:)`
 - `prepareAttachManifest(deviceId:sessionName:lines:create:timeout:)`
 - `fetchScrollbackResult(deviceId:sessionName:lines:timeout:)`
+- `openForward(deviceId:remoteHost:remotePort:timeout:)`
+- `readForwardFrame(streamId:timeout:)`
 
 These APIs run a single receive loop, match responses by relay request id, and surface timeout/request failures explicitly. The package does not yet render a terminal.
 
 Use `connect(startReceiveLoop: true)` to eagerly route messages, or call the app-facing APIs after `connect()` and let them start the loop on first use. Manual `receive()` remains available when the loop is not active.
+
+Forward streams model the relay path that will carry SSH/mosh-compatible transport. `openForward` waits for `forward.ready`, `sendForwardData` writes base64 relay frames, and `readForwardFrame` queues incoming data/end frames per stream.
 
 `ScrollbackBuffer` turns `session.scrollback.ready` text into stable `ScrollbackLine` values for native scroll views. It keeps incomplete streamed text as a stable pending line, trims old lines by configured capacity, and resets cleanly when the user switches sessions.
 

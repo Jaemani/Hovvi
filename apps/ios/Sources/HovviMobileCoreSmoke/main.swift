@@ -127,6 +127,39 @@ let incomingScrollback = try decodeIncomingRelayMessage(from: Data(scrollbackJso
 let matchedScrollback = try RelayResponseMatcher.scrollbackResult(requestId: "scroll-1", from: incomingScrollback)
 try require(matchedScrollback?.text == "one\ntwo", "scrollback response matcher should return text")
 
+let forwardOpen = try OutgoingRelayMessage.forwardOpen(
+    deviceId: "dev_1",
+    streamId: "str_1",
+    remoteHost: "127.0.0.1",
+    remotePort: 22
+)
+let forwardOpenObject = try JSONSerialization.jsonObject(with: forwardOpen) as? [String: Any]
+try require(forwardOpenObject?["type"] as? String == "forward.open", "forward open type should encode")
+try require(forwardOpenObject?["streamId"] as? String == "str_1", "forward open stream id should encode")
+try require(forwardOpenObject?["remotePort"] as? Int == 22, "forward open remote port should encode")
+
+let forwardData = try OutgoingRelayMessage.forwardData(streamId: "str_1", bytes: Data("ping".utf8))
+let incomingForwardData = try decodeIncomingRelayMessage(from: forwardData)
+switch incomingForwardData {
+case .forwardData(let envelope):
+    try require(envelope.payload.bytes == Data("ping".utf8), "forward data should decode base64 bytes")
+default:
+    throw SmokeError("forward data dispatched to wrong case")
+}
+
+let forwardReadyJson = """
+{
+  "version": 1,
+  "type": "forward.ready",
+  "id": "message-3",
+  "sentAt": "2026-06-24T00:00:00Z",
+  "streamId": "str_1"
+}
+"""
+let incomingForwardReady = try decodeIncomingRelayMessage(from: Data(forwardReadyJson.utf8))
+let matchedForward = try RelayResponseMatcher.forwardReady(streamId: "str_1", from: incomingForwardReady)
+try require(matchedForward == "str_1", "forward ready matcher should return stream id")
+
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
     maxLines: 3
@@ -163,6 +196,18 @@ do {
 do {
     _ = try await relayClient.listDevices()
     throw SmokeError("device list before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.openForward(deviceId: "dev_1")
+    throw SmokeError("forward open before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.readForwardFrame(streamId: "str_1")
+    throw SmokeError("forward frame read before connect should fail")
 } catch RelayClientError.notConnected {
 }
 

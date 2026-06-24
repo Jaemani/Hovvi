@@ -59,6 +59,10 @@ public enum IncomingRelayMessage: Equatable, Sendable {
     case attachError(Envelope<RequestErrorPayload>)
     case scrollbackReady(Envelope<ScrollbackReady>)
     case scrollbackError(Envelope<RequestErrorPayload>)
+    case forwardReady(Envelope<ForwardReady>)
+    case forwardData(Envelope<ForwardDataFrame>)
+    case forwardEnd(Envelope<ForwardEnd>)
+    case forwardError(Envelope<ForwardErrorPayload>)
     case relayError(Envelope<RequestErrorPayload>)
     case unknown(RawEnvelope)
 }
@@ -119,6 +123,54 @@ public enum OutgoingRelayMessage {
             fetchScrollbackEnvelope(deviceId: deviceId, sessionName: sessionName, lines: lines)
         )
     }
+
+    public static func forwardOpenEnvelope(
+        deviceId: String,
+        streamId: String = makeStreamId(),
+        remoteHost: String? = nil,
+        remotePort: Int? = nil
+    ) -> Envelope<ForwardOpenRequest> {
+        Envelope(
+            type: "forward.open",
+            payload: ForwardOpenRequest(
+                streamId: streamId,
+                deviceId: deviceId,
+                remoteHost: remoteHost,
+                remotePort: remotePort
+            )
+        )
+    }
+
+    public static func forwardOpen(
+        deviceId: String,
+        streamId: String = makeStreamId(),
+        remoteHost: String? = nil,
+        remotePort: Int? = nil
+    ) throws -> Data {
+        try HovviCoding.encodeEnvelope(
+            forwardOpenEnvelope(deviceId: deviceId, streamId: streamId, remoteHost: remoteHost, remotePort: remotePort)
+        )
+    }
+
+    public static func forwardDataEnvelope(streamId: String, bytes: Data) -> Envelope<ForwardDataFrame> {
+        Envelope(type: "forward.data", payload: ForwardDataFrame(streamId: streamId, bytes: bytes))
+    }
+
+    public static func forwardData(streamId: String, bytes: Data) throws -> Data {
+        try HovviCoding.encodeEnvelope(forwardDataEnvelope(streamId: streamId, bytes: bytes))
+    }
+
+    public static func forwardEndEnvelope(streamId: String) -> Envelope<ForwardEnd> {
+        Envelope(type: "forward.end", payload: ForwardEnd(streamId: streamId))
+    }
+
+    public static func forwardEnd(streamId: String) throws -> Data {
+        try HovviCoding.encodeEnvelope(forwardEndEnvelope(streamId: streamId))
+    }
+
+    public static func makeStreamId() -> String {
+        "str_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+    }
 }
 
 public func decodeIncomingRelayMessage(from data: Data) throws -> IncomingRelayMessage {
@@ -140,6 +192,14 @@ public func decodeIncomingRelayMessage(from data: Data) throws -> IncomingRelayM
         return .scrollbackReady(try decodeEnvelope(ScrollbackReady.self, from: data, expectedType: raw.type))
     case "session.scrollback.error":
         return .scrollbackError(try decodeEnvelope(RequestErrorPayload.self, from: data, expectedType: raw.type))
+    case "forward.ready":
+        return .forwardReady(try decodeEnvelope(ForwardReady.self, from: data, expectedType: raw.type))
+    case "forward.data":
+        return .forwardData(try decodeEnvelope(ForwardDataFrame.self, from: data, expectedType: raw.type))
+    case "forward.end":
+        return .forwardEnd(try decodeEnvelope(ForwardEnd.self, from: data, expectedType: raw.type))
+    case "forward.error":
+        return .forwardError(try decodeEnvelope(ForwardErrorPayload.self, from: data, expectedType: raw.type))
     case "error":
         return .relayError(try decodeEnvelope(RequestErrorPayload.self, from: data, expectedType: raw.type))
     default:

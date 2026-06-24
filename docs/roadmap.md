@@ -9,6 +9,7 @@
 - relay heartbeat and stale-device pruning.
 - protocol validation and relay lifecycle integration tests.
 - native iOS relay protocol core with request/response matching.
+- native iOS forward stream models for attach transport.
 
 ## Next
 
