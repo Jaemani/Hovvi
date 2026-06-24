@@ -2,7 +2,7 @@ import Foundation
 
 public let hovviProtocolVersion = 1
 
-public struct Envelope<Payload: Codable>: Codable {
+public struct Envelope<Payload: Codable> {
     public let version: Int
     public let type: String
     public let id: String
@@ -91,6 +91,16 @@ public struct DevicesSnapshot: Codable, Equatable {
     }
 }
 
+public struct AttachReady: Codable, Equatable {
+    public let requestId: String
+    public let manifest: AttachManifest
+
+    public init(requestId: String, manifest: AttachManifest) {
+        self.requestId = requestId
+        self.manifest = manifest
+    }
+}
+
 public struct AttachManifest: Codable, Equatable {
     public let kind: String
     public let version: Int
@@ -160,6 +170,20 @@ public struct ControlModeSource: Codable, Equatable {
     public init(source: String, command: [String]) {
         self.source = source
         self.command = command
+    }
+}
+
+public struct ScrollbackReady: Codable, Equatable {
+    public let requestId: String
+    public let sessionName: String
+    public let lines: Int
+    public let text: String
+
+    public init(requestId: String, sessionName: String, lines: Int, text: String) {
+        self.requestId = requestId
+        self.sessionName = sessionName
+        self.lines = lines
+        self.text = text
     }
 }
 

@@ -19,3 +19,9 @@ test("serialize and parse round-trip", () => {
   assert.equal(parsed.type, "hello");
   assert.equal(parsed.role, "client");
 });
+
+test("envelope flattens message payload fields", () => {
+  const message = envelope("devices.snapshot", { devices: [{ id: "dev_1" }] });
+  assert.equal(Object.hasOwn(message, "payload"), false);
+  assert.deepEqual(message.devices, [{ id: "dev_1" }]);
+});

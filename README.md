@@ -153,5 +153,6 @@ GitHub CLI is logged in as `Jaemani`, and repo-local Git author identity is conf
 
 Architecture decisions live in `docs/adr/`.
 Reference material and upstream projects are tracked in `docs/references.md`.
+Relay wire format is documented in `docs/protocol.md`.
 
 Contribution and security expectations are documented in `CONTRIBUTING.md` and `SECURITY.md`.

@@ -20,11 +20,14 @@ let envelope = Envelope(
     sentAt: Date(timeIntervalSince1970: 0),
     payload: snapshot
 )
-let data = try HovviCoding.encode(envelope)
+let data = try HovviCoding.encodeEnvelope(envelope)
 let decoded = try decodeEnvelope(DevicesSnapshot.self, from: data, expectedType: "devices.snapshot")
 try require(decoded.version == 1, "protocol version should decode")
 try require(decoded.payload.devices.first?.name == "Mac", "device name should decode")
 try require(decoded.payload.devices.first?.sessions.first?.name == "main", "session should decode")
+let encodedObject = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+try require(encodedObject?["payload"] == nil, "wire envelope must be flattened")
+try require(encodedObject?["devices"] != nil, "payload fields must be top-level")
 
 let manifestJson = """
 {
@@ -32,7 +35,8 @@ let manifestJson = """
   "type": "session.attach.ready",
   "id": "message-1",
   "sentAt": "2026-06-24T00:00:00Z",
-  "payload": {
+  "requestId": "req-1",
+  "manifest": {
     "kind": "mosh-tmux",
     "version": 1,
     "deviceId": "dev_1",
@@ -61,12 +65,13 @@ let manifestJson = """
 """
 
 let manifestEnvelope = try decodeEnvelope(
-    AttachManifest.self,
+    AttachReady.self,
     from: Data(manifestJson.utf8),
     expectedType: "session.attach.ready"
 )
-try require(manifestEnvelope.payload.kind == "mosh-tmux", "attach manifest kind should decode")
-try require(manifestEnvelope.payload.scrollback.lines == 2000, "scrollback lines should decode")
+try require(manifestEnvelope.payload.requestId == "req-1", "attach request id should decode")
+try require(manifestEnvelope.payload.manifest.kind == "mosh-tmux", "attach manifest kind should decode")
+try require(manifestEnvelope.payload.manifest.scrollback.lines == 2000, "scrollback lines should decode")
 
 do {
     _ = try decodeEnvelope(DevicesSnapshot.self, from: data, expectedType: "other")
