@@ -98,6 +98,19 @@ default:
     throw SmokeError("incoming attach manifest dispatched to wrong case")
 }
 
+let relayClient = RelayClient(url: URL(string: "ws://127.0.0.1:8787")!, token: "dev", clientId: "ios-smoke")
+do {
+    try await relayClient.fetchScrollback(deviceId: "dev_1", sessionName: "main", lines: 20)
+    throw SmokeError("send before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.receive()
+    throw SmokeError("receive before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
 print("HovviMobileCore smoke passed")
 
 struct SmokeError: Error, CustomStringConvertible {
