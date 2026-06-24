@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createAccessRegistry, hashToken } from "../src/registry.js";
+import { mkdtempSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  createAccessRegistry,
+  hashToken,
+  listRegistryTokens,
+  loadRegistry,
+  revokeRegistryToken,
+  saveRegistry,
+} from "../src/registry.js";
 
 test("registry authenticates hashed scoped tokens", () => {
   const token = "secret";
@@ -74,4 +84,42 @@ test("registry binds agent and client tokens to registered ids", () => {
     access.authenticateDetailed({ role: "client", token: "client-secret", clientId: "ios-2" }).reason,
     "client_not_allowed",
   );
+});
+
+test("registry save and revoke support private operational workflows", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-registry-"));
+  const path = join(dir, "registry.json");
+  const registry = {
+    tokens: [
+      {
+        name: "phone",
+        hash: hashToken("client-secret"),
+        roles: ["client"],
+        clientIds: ["ios-1"],
+      },
+    ],
+  };
+
+  saveRegistry(path, registry);
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+
+  const loaded = loadRegistry(path);
+  const revoked = revokeRegistryToken(loaded, {
+    name: "phone",
+    now: new Date("2026-06-24T00:00:00.000Z"),
+  });
+  saveRegistry(path, loaded);
+
+  assert.equal(revoked.disabled, true);
+  assert.equal(loadRegistry(path).tokens[0].disabledAt, "2026-06-24T00:00:00.000Z");
+  assert.deepEqual(listRegistryTokens(loadRegistry(path))[0], {
+    name: "phone",
+    roles: ["client"],
+    disabled: true,
+    deviceIds: undefined,
+    clientIds: ["ios-1"],
+    notBefore: undefined,
+    expiresAt: undefined,
+    disabledAt: "2026-06-24T00:00:00.000Z",
+  });
 });

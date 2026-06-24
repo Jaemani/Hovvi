@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 export function createAccessRegistry({ devToken, registryPath } = {}) {
   const registry = loadRegistry(registryPath);
@@ -51,9 +52,50 @@ export function hashToken(token) {
   return `sha256:${createHash("sha256").update(token).digest("hex")}`;
 }
 
-function loadRegistry(registryPath) {
+export function loadRegistry(registryPath) {
   if (!registryPath || !existsSync(registryPath)) return {};
   return JSON.parse(readFileSync(registryPath, "utf8"));
+}
+
+export function saveRegistry(registryPath, registry) {
+  if (!registryPath) throw new Error("Registry path is required.");
+  const dir = dirname(registryPath);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const tempPath = join(dir, `.registry.${process.pid}.${Date.now()}.tmp`);
+  writeFileSync(tempPath, `${JSON.stringify(normalizeRegistry(registry), null, 2)}\n`, { mode: 0o600 });
+  chmodSync(tempPath, 0o600);
+  renameSync(tempPath, registryPath);
+  chmodSync(registryPath, 0o600);
+}
+
+export function listRegistryTokens(registry) {
+  return [...(Array.isArray(registry.tokens) ? registry.tokens : [])].map((entry) => ({
+    name: entry.name,
+    roles: entry.roles || ["agent", "client"],
+    disabled: Boolean(entry.disabled),
+    deviceIds: entry.deviceIds,
+    clientIds: entry.clientIds,
+    notBefore: entry.notBefore,
+    expiresAt: entry.expiresAt,
+    disabledAt: entry.disabledAt,
+  }));
+}
+
+export function revokeRegistryToken(registry, { name, hash, now = new Date() } = {}) {
+  if (!name && !hash) throw new Error("Token name or hash is required.");
+  const tokens = Array.isArray(registry.tokens) ? registry.tokens : [];
+  const entry = tokens.find((token) => (name ? token.name === name : token.hash === hash));
+  if (!entry) return null;
+  entry.disabled = true;
+  entry.disabledAt = now.toISOString();
+  return entry;
+}
+
+function normalizeRegistry(registry) {
+  return {
+    ...registry,
+    tokens: Array.isArray(registry.tokens) ? registry.tokens : [],
+  };
 }
 
 function evaluateEntry({ entry, role, token, deviceId, clientId, now }) {

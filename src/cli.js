@@ -24,7 +24,7 @@ import {
 import { readFlag, readOption, splitFlags } from "./flags.js";
 import { createClient } from "./relay-client.js";
 import { randomId } from "./protocol.js";
-import { hashToken } from "./registry.js";
+import { hashToken, listRegistryTokens, loadRegistry, revokeRegistryToken, saveRegistry } from "./registry.js";
 
 const HELP = `Hovvi
 
@@ -42,7 +42,7 @@ Usage:
   hovvi fetch-scrollback --device <device-id> [session-name] [--lines 2000] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
-  hovvi token <generate|hash> [token] [--role agent|client|*]
+  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--registry <path>]
 
 Commands:
   doctor    Check git, GitHub, SSH, tmux, mosh, and AI coding tools.
@@ -403,6 +403,8 @@ async function serviceCommand(args) {
 async function tokenCommand(args) {
   const [action = "generate"] = args;
   const role = readOption(args, "--role") || "*";
+  const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
+  const json = readFlag(args, "--json");
 
   switch (action) {
     case "generate": {
@@ -416,6 +418,43 @@ async function tokenCommand(args) {
       if (!token) throw new Error("Usage: hovvi token hash <token> [--role agent|client|*]");
       const entry = { name: `token-${Date.now()}`, hash: hashToken(token), roles: [role] };
       process.stdout.write(`${JSON.stringify(entry, null, 2)}\n`);
+      return;
+    }
+    case "list": {
+      if (!registryPath) throw new Error("Usage: hovvi token list --registry <path> [--json]");
+      const tokens = listRegistryTokens(loadRegistry(registryPath));
+      if (json) {
+        process.stdout.write(`${JSON.stringify({ tokens }, null, 2)}\n`);
+        return;
+      }
+      if (tokens.length === 0) {
+        process.stdout.write("No registry tokens found.\n");
+        return;
+      }
+      for (const token of tokens) {
+        const status = token.disabled ? "disabled" : "active";
+        const roles = token.roles.join(",");
+        const constraints = [
+          token.deviceIds?.length ? `devices=${token.deviceIds.join(",")}` : null,
+          token.clientIds?.length ? `clients=${token.clientIds.join(",")}` : null,
+          token.expiresAt ? `expires=${token.expiresAt}` : null,
+        ].filter(Boolean);
+        process.stdout.write(`${token.name || "<unnamed>"} ${status} roles=${roles}`);
+        if (constraints.length > 0) process.stdout.write(` ${constraints.join(" ")}`);
+        process.stdout.write("\n");
+      }
+      return;
+    }
+    case "revoke": {
+      if (!registryPath) throw new Error("Usage: hovvi token revoke --registry <path> --name <token-name>");
+      const name = readOption(args, "--name");
+      const hash = readOption(args, "--hash");
+      if (!name && !hash) throw new Error("token revoke requires --name <token-name> or --hash sha256:...");
+      const registry = loadRegistry(registryPath);
+      const revoked = revokeRegistryToken(registry, { name, hash });
+      if (!revoked) throw new Error("No matching registry token found.");
+      saveRegistry(registryPath, registry);
+      process.stdout.write(`Revoked ${revoked.name || revoked.hash}\n`);
       return;
     }
     default:

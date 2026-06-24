@@ -25,6 +25,8 @@ hovvi mobile
 hovvi fetch-scrollback --device <device-id> main --lines 2000
 hovvi service install --relay ws://127.0.0.1:8787 --token dev
 hovvi service start
+hovvi token list --registry ./registry.json
+hovvi token revoke --registry ./registry.json --name jaeman-iphone
 ```
 
 ## Local Relay Smoke Test
@@ -102,6 +104,13 @@ Start the relay with:
 
 ```bash
 hovvi relay --registry ./registry.json
+```
+
+List or revoke registry entries without exposing raw token values:
+
+```bash
+hovvi token list --registry ./registry.json
+hovvi token revoke --registry ./registry.json --name jaeman-iphone
 ```
 
 Registry entries may be scoped and time-bound:
