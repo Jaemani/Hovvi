@@ -160,6 +160,40 @@ let incomingForwardReady = try decodeIncomingRelayMessage(from: Data(forwardRead
 let matchedForward = try RelayResponseMatcher.forwardReady(streamId: "str_1", from: incomingForwardReady)
 try require(matchedForward == "str_1", "forward ready matcher should return stream id")
 
+let datagramOpen = try OutgoingRelayMessage.datagramOpen(
+    deviceId: "dev_1",
+    channelId: "dg_1",
+    label: "mosh",
+    maxDatagramBytes: 1200
+)
+let datagramOpenObject = try JSONSerialization.jsonObject(with: datagramOpen) as? [String: Any]
+try require(datagramOpenObject?["type"] as? String == "datagram.open", "datagram open type should encode")
+try require(datagramOpenObject?["channelId"] as? String == "dg_1", "datagram channel id should encode")
+try require(datagramOpenObject?["maxDatagramBytes"] as? Int == 1200, "datagram max size should encode")
+
+let datagramData = try OutgoingRelayMessage.datagramData(channelId: "dg_1", bytes: Data("pong".utf8), sequence: 7)
+let incomingDatagramData = try decodeIncomingRelayMessage(from: datagramData)
+switch incomingDatagramData {
+case .datagramData(let envelope):
+    try require(envelope.payload.bytes == Data("pong".utf8), "datagram data should decode base64 bytes")
+    try require(envelope.payload.sequence == 7, "datagram sequence should decode")
+default:
+    throw SmokeError("datagram data dispatched to wrong case")
+}
+
+let datagramReadyJson = """
+{
+  "version": 1,
+  "type": "datagram.ready",
+  "id": "message-4",
+  "sentAt": "2026-06-24T00:00:00Z",
+  "channelId": "dg_1"
+}
+"""
+let incomingDatagramReady = try decodeIncomingRelayMessage(from: Data(datagramReadyJson.utf8))
+let matchedDatagram = try RelayResponseMatcher.datagramReady(channelId: "dg_1", from: incomingDatagramReady)
+try require(matchedDatagram == "dg_1", "datagram ready matcher should return channel id")
+
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
     maxLines: 3
@@ -208,6 +242,18 @@ do {
 do {
     _ = try await relayClient.readForwardFrame(streamId: "str_1")
     throw SmokeError("forward frame read before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.openDatagram(deviceId: "dev_1")
+    throw SmokeError("datagram open before connect should fail")
+} catch RelayClientError.notConnected {
+}
+
+do {
+    _ = try await relayClient.readDatagramFrame(channelId: "dg_1")
+    throw SmokeError("datagram frame read before connect should fail")
 } catch RelayClientError.notConnected {
 }
 

@@ -14,6 +14,9 @@ public actor RelayClient {
     private var forwardReadyWaiters: [String: ResponseWaiter<String>] = [:]
     private var forwardFrameBuffers: [String: [RelayForwardFrame]] = [:]
     private var forwardFrameWaiters: [String: [ForwardFrameWaiter]] = [:]
+    private var datagramReadyWaiters: [String: ResponseWaiter<String>] = [:]
+    private var datagramFrameBuffers: [String: [RelayDatagramFrame]] = [:]
+    private var datagramFrameWaiters: [String: [DatagramFrameWaiter]] = [:]
 
     public init(url: URL, token: String, clientId: String? = nil) {
         self.url = url
@@ -212,6 +215,73 @@ public actor RelayClient {
         try await sendEnvelope(OutgoingRelayMessage.forwardEndEnvelope(streamId: streamId))
     }
 
+    public func openDatagram(
+        deviceId: String,
+        label: String? = nil,
+        maxDatagramBytes: Int? = nil,
+        timeout: Duration = .seconds(5)
+    ) async throws -> String {
+        try ensureReceiveLoop()
+        let request = OutgoingRelayMessage.datagramOpenEnvelope(
+            deviceId: deviceId,
+            label: label,
+            maxDatagramBytes: maxDatagramBytes
+        )
+        return try await withRequestWaiter(
+            requestId: request.payload.channelId,
+            timeout: timeout,
+            register: { datagramReadyWaiters[request.payload.channelId] = $0 },
+            timeoutAction: { await self.failDatagramReadyWaiter(request.payload.channelId, error: RelayClientError.timedOut) },
+            cancel: { await self.failDatagramReadyWaiter(request.payload.channelId, error: CancellationError()) },
+            send: { try await self.sendEnvelope(request) }
+        )
+    }
+
+    public func sendDatagram(channelId: String, bytes: Data, sequence: Int? = nil) async throws {
+        try await sendEnvelope(OutgoingRelayMessage.datagramDataEnvelope(channelId: channelId, bytes: bytes, sequence: sequence))
+    }
+
+    public func readDatagramFrame(channelId: String, timeout: Duration = .seconds(30)) async throws -> RelayDatagramFrame {
+        try ensureReceiveLoop()
+        if var buffer = datagramFrameBuffers[channelId], buffer.isEmpty == false {
+            let frame = buffer.removeFirst()
+            datagramFrameBuffers[channelId] = buffer.isEmpty ? nil : buffer
+            return frame
+        }
+
+        let waiterId = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let waiter = DatagramFrameWaiter(
+                    id: waiterId,
+                    waiter: ResponseWaiter(
+                        continuation: continuation,
+                        timeoutTask: makeTimeoutTask(timeout) {
+                            await self.failDatagramFrameWaiter(
+                                channelId: channelId,
+                                waiterId: waiterId,
+                                error: RelayClientError.timedOut
+                            )
+                        }
+                    )
+                )
+                datagramFrameWaiters[channelId, default: []].append(waiter)
+            }
+        } onCancel: {
+            Task {
+                await self.failDatagramFrameWaiter(
+                    channelId: channelId,
+                    waiterId: waiterId,
+                    error: CancellationError()
+                )
+            }
+        }
+    }
+
+    public func closeDatagram(channelId: String) async throws {
+        try await sendEnvelope(OutgoingRelayMessage.datagramCloseEnvelope(channelId: channelId))
+    }
+
     public func receive() async throws -> IncomingRelayMessage {
         guard receiveTask == nil else { throw RelayClientError.receiveLoopActive }
         return try await receiveFrame()
@@ -297,6 +367,21 @@ public actor RelayClient {
             routeForwardFrame(streamId: envelope.payload.streamId, frame: .end)
         case .forwardError(let envelope):
             failForward(streamId: envelope.payload.streamId, error: RelayClientError.forwardFailed(envelope.payload))
+        case .datagramReady(let envelope):
+            resolveDatagramReadyWaiter(envelope.payload.channelId, value: envelope.payload.channelId)
+        case .datagramData(let envelope):
+            guard let bytes = envelope.payload.bytes else {
+                failDatagram(channelId: envelope.payload.channelId, error: RelayClientError.invalidBase64Frame)
+                return
+            }
+            routeDatagramFrame(
+                channelId: envelope.payload.channelId,
+                frame: .data(bytes, sequence: envelope.payload.sequence)
+            )
+        case .datagramClose(let envelope):
+            routeDatagramFrame(channelId: envelope.payload.channelId, frame: .close)
+        case .datagramError(let envelope):
+            failDatagram(channelId: envelope.payload.channelId, error: RelayClientError.datagramFailed(envelope.payload))
         case .relayError(let envelope):
             failAll(RelayClientError.requestFailed(envelope.payload))
         default:
@@ -432,10 +517,54 @@ public actor RelayClient {
         failForwardFrameWaiters(streamId: streamId, error: error)
     }
 
+    private func resolveDatagramReadyWaiter(_ channelId: String, value: String) {
+        guard let waiter = datagramReadyWaiters.removeValue(forKey: channelId) else { return }
+        resolve(waiter, value: value)
+    }
+
+    private func failDatagramReadyWaiter(_ channelId: String, error: Error) {
+        guard let waiter = datagramReadyWaiters.removeValue(forKey: channelId) else { return }
+        reject(waiter, error: error)
+    }
+
+    private func routeDatagramFrame(channelId: String, frame: RelayDatagramFrame) {
+        if var waiters = datagramFrameWaiters[channelId], waiters.isEmpty == false {
+            let next = waiters.removeFirst()
+            datagramFrameWaiters[channelId] = waiters.isEmpty ? nil : waiters
+            resolve(next.waiter, value: frame)
+            return
+        }
+        datagramFrameBuffers[channelId, default: []].append(frame)
+    }
+
+    private func failDatagramFrameWaiter(channelId: String, waiterId: UUID, error: Error) {
+        guard var waiters = datagramFrameWaiters[channelId],
+              let index = waiters.firstIndex(where: { $0.id == waiterId }) else {
+            return
+        }
+        let waiter = waiters.remove(at: index)
+        datagramFrameWaiters[channelId] = waiters.isEmpty ? nil : waiters
+        reject(waiter.waiter, error: error)
+    }
+
+    private func failDatagramFrameWaiters(channelId: String, error: Error) {
+        guard let waiters = datagramFrameWaiters.removeValue(forKey: channelId) else { return }
+        for waiter in waiters {
+            reject(waiter.waiter, error: error)
+        }
+        datagramFrameBuffers.removeValue(forKey: channelId)
+    }
+
+    private func failDatagram(channelId: String, error: Error) {
+        failDatagramReadyWaiter(channelId, error: error)
+        failDatagramFrameWaiters(channelId: channelId, error: error)
+    }
+
     private func failRequest(_ requestId: String, error: Error) {
         failAttachWaiter(requestId, error: error)
         failScrollbackWaiter(requestId, error: error)
         failForwardReadyWaiter(requestId, error: error)
+        failDatagramReadyWaiter(requestId, error: error)
     }
 
     private func failAll(_ error: Error) {
@@ -455,6 +584,13 @@ public actor RelayClient {
             failForwardFrameWaiters(streamId: streamId, error: error)
         }
         forwardFrameBuffers.removeAll()
+        for channelId in Array(datagramReadyWaiters.keys) {
+            failDatagramReadyWaiter(channelId, error: error)
+        }
+        for channelId in Array(datagramFrameWaiters.keys) {
+            failDatagramFrameWaiters(channelId: channelId, error: error)
+        }
+        datagramFrameBuffers.removeAll()
     }
 
     private func resolve<Value>(_ waiter: ResponseWaiter<Value>, value: Value) {
@@ -485,6 +621,7 @@ public enum RelayClientError: Error, Equatable, Sendable {
     case timedOut
     case requestFailed(RequestErrorPayload)
     case forwardFailed(ForwardErrorPayload)
+    case datagramFailed(DatagramErrorPayload)
     case invalidBase64Frame
 }
 
@@ -496,4 +633,9 @@ private struct ResponseWaiter<Value: Sendable> {
 private struct ForwardFrameWaiter {
     let id: UUID
     let waiter: ResponseWaiter<RelayForwardFrame>
+}
+
+private struct DatagramFrameWaiter {
+    let id: UUID
+    let waiter: ResponseWaiter<RelayDatagramFrame>
 }

@@ -266,6 +266,73 @@ public enum RelayForwardFrame: Equatable, Sendable {
     case end
 }
 
+public struct DatagramOpenRequest: Codable, Equatable, Sendable {
+    public let channelId: String
+    public let deviceId: String
+    public let label: String?
+    public let maxDatagramBytes: Int?
+
+    public init(channelId: String, deviceId: String, label: String? = nil, maxDatagramBytes: Int? = nil) {
+        self.channelId = channelId
+        self.deviceId = deviceId
+        self.label = label
+        self.maxDatagramBytes = maxDatagramBytes
+    }
+}
+
+public struct DatagramReady: Codable, Equatable, Sendable {
+    public let channelId: String
+
+    public init(channelId: String) {
+        self.channelId = channelId
+    }
+}
+
+public struct DatagramClose: Codable, Equatable, Sendable {
+    public let channelId: String
+
+    public init(channelId: String) {
+        self.channelId = channelId
+    }
+}
+
+public struct DatagramDataFrame: Codable, Equatable, Sendable {
+    public let channelId: String
+    public let data: String
+    public let sequence: Int?
+
+    public init(channelId: String, data: String, sequence: Int? = nil) {
+        self.channelId = channelId
+        self.data = data
+        self.sequence = sequence
+    }
+
+    public init(channelId: String, bytes: Data, sequence: Int? = nil) {
+        self.channelId = channelId
+        self.data = bytes.base64EncodedString()
+        self.sequence = sequence
+    }
+
+    public var bytes: Data? {
+        Data(base64Encoded: data)
+    }
+}
+
+public struct DatagramErrorPayload: Codable, Error, Equatable, Sendable {
+    public let channelId: String
+    public let message: String?
+
+    public init(channelId: String, message: String? = nil) {
+        self.channelId = channelId
+        self.message = message
+    }
+}
+
+public enum RelayDatagramFrame: Equatable, Sendable {
+    case data(Data, sequence: Int?)
+    case close
+}
+
 public struct RelayError: Codable, Error, Equatable, Sendable {
     public let code: String?
     public let field: String?

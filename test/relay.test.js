@@ -149,6 +149,55 @@ test("relay routes scrollback fetch response back to requesting client", () => {
   assert.equal(response.text, "hello\n");
 });
 
+test("relay routes datagram channel messages", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("datagram.open", { channelId: "dg-1", deviceId: "mac-1", label: "mosh" })),
+  );
+
+  const open = agent.messages.map(JSON.parse).find((message) => message.type === "datagram.open");
+  assert.equal(open.channelId, "dg-1");
+  assert.equal(state.datagrams.has("dg-1"), true);
+
+  handleRelayMessage(state, agent, serialize(envelope("datagram.ready", { channelId: "dg-1" })));
+  handleRelayMessage(state, agent, serialize(envelope("datagram.data", { channelId: "dg-1", data: "cGluZw==", sequence: 1 })));
+
+  const ready = client.messages.map(JSON.parse).find((message) => message.type === "datagram.ready");
+  const data = client.messages.map(JSON.parse).find((message) => message.type === "datagram.data");
+  assert.equal(ready.channelId, "dg-1");
+  assert.equal(data.data, "cGluZw==");
+
+  handleRelayMessage(state, client, serialize(envelope("datagram.close", { channelId: "dg-1" })));
+  assert.equal(state.datagrams.has("dg-1"), false);
+});
+
+test("relay reports datagram offline errors", () => {
+  const state = createRelayState({ token: "dev" });
+  const client = fakeSocket();
+
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("datagram.open", { channelId: "dg-1", deviceId: "offline" })),
+  );
+
+  const error = client.messages.map(JSON.parse).find((message) => message.type === "datagram.error");
+  assert.equal(error.channelId, "dg-1");
+  assert.equal(error.message, "device offline");
+});
+
 test("relay returns scrollback offline errors for missing devices", () => {
   const state = createRelayState({ token: "dev" });
   const client = fakeSocket();

@@ -116,6 +116,7 @@ export function createRelayState({ token, registryPath, auditLogPath, deviceTime
     agents: new Map(),
     clients: new Map(),
     streams: new Map(),
+    datagrams: new Map(),
   };
 }
 
@@ -149,6 +150,8 @@ export function handleRelayMessage(state, ws, data) {
       return sendDeviceList(state, ws);
     case "forward.open":
       return forwardOpen(state, ws, message);
+    case "datagram.open":
+      return datagramOpen(state, ws, message);
     case "session.attach.prepare":
       return attachPrepare(state, ws, message);
     case "session.attach.ready":
@@ -164,6 +167,11 @@ export function handleRelayMessage(state, ws, data) {
     case "forward.data":
     case "forward.end":
       return forwardStreamMessage(state, ws, message);
+    case "datagram.ready":
+    case "datagram.error":
+    case "datagram.data":
+    case "datagram.close":
+      return datagramMessage(state, ws, message);
     default:
       ws.send(serialize(envelope("error", { message: `unknown message type ${message.type}` })));
   }
@@ -178,6 +186,7 @@ export function relayStatus(state) {
     agents: state.agents.size,
     clients: state.clients.size,
     streams: state.streams.size,
+    datagrams: state.datagrams.size,
     metrics: { ...state.metrics },
   };
 }
@@ -374,6 +383,34 @@ function forwardStreamMessage(state, ws, message) {
   }
 }
 
+function datagramOpen(state, ws, message) {
+  const meta = state.sockets.get(ws);
+  if (meta?.role !== "client") return;
+  const agent = state.agents.get(message.deviceId);
+  if (!agent) {
+    ws.send(serialize(envelope("datagram.error", { channelId: message.channelId, message: "device offline" })));
+    return;
+  }
+
+  state.datagrams.set(message.channelId, {
+    clientWs: ws,
+    agentWs: agent.ws,
+  });
+  agent.ws.send(serialize(message));
+}
+
+function datagramMessage(state, ws, message) {
+  const channel = state.datagrams.get(message.channelId);
+  if (!channel) return;
+  const target = ws === channel.clientWs ? channel.agentWs : channel.clientWs;
+  if (target.readyState === WebSocket.OPEN) {
+    target.send(serialize(message));
+  }
+  if (message.type === "datagram.close" || message.type === "datagram.error") {
+    state.datagrams.delete(message.channelId);
+  }
+}
+
 function unregisterSocket(state, ws) {
   const meta = state.sockets.get(ws);
   if (!meta) return;
@@ -391,6 +428,15 @@ function unregisterSocket(state, ws) {
       const peer = stream.clientWs === ws ? stream.agentWs : stream.clientWs;
       if (peer.readyState === WebSocket.OPEN) {
         peer.send(serialize(envelope("forward.end", { streamId })));
+      }
+    }
+  }
+  for (const [channelId, channel] of state.datagrams.entries()) {
+    if (channel.clientWs === ws || channel.agentWs === ws) {
+      state.datagrams.delete(channelId);
+      const peer = channel.clientWs === ws ? channel.agentWs : channel.clientWs;
+      if (peer.readyState === WebSocket.OPEN) {
+        peer.send(serialize(envelope("datagram.close", { channelId })));
       }
     }
   }

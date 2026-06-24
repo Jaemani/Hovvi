@@ -54,4 +54,17 @@ public enum RelayResponseMatcher {
             return nil
         }
     }
+
+    public static func datagramReady(channelId: String, from message: IncomingRelayMessage) throws -> String? {
+        switch message {
+        case .datagramReady(let envelope) where envelope.payload.channelId == channelId:
+            return envelope.payload.channelId
+        case .datagramError(let envelope) where envelope.payload.channelId == channelId:
+            throw RelayClientError.datagramFailed(envelope.payload)
+        case .relayError(let envelope):
+            throw RelayClientError.requestFailed(envelope.payload)
+        default:
+            return nil
+        }
+    }
 }

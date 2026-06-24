@@ -63,6 +63,10 @@ public enum IncomingRelayMessage: Equatable, Sendable {
     case forwardData(Envelope<ForwardDataFrame>)
     case forwardEnd(Envelope<ForwardEnd>)
     case forwardError(Envelope<ForwardErrorPayload>)
+    case datagramReady(Envelope<DatagramReady>)
+    case datagramData(Envelope<DatagramDataFrame>)
+    case datagramClose(Envelope<DatagramClose>)
+    case datagramError(Envelope<DatagramErrorPayload>)
     case relayError(Envelope<RequestErrorPayload>)
     case unknown(RawEnvelope)
 }
@@ -168,8 +172,65 @@ public enum OutgoingRelayMessage {
         try HovviCoding.encodeEnvelope(forwardEndEnvelope(streamId: streamId))
     }
 
+    public static func datagramOpenEnvelope(
+        deviceId: String,
+        channelId: String = makeDatagramChannelId(),
+        label: String? = nil,
+        maxDatagramBytes: Int? = nil
+    ) -> Envelope<DatagramOpenRequest> {
+        Envelope(
+            type: "datagram.open",
+            payload: DatagramOpenRequest(
+                channelId: channelId,
+                deviceId: deviceId,
+                label: label,
+                maxDatagramBytes: maxDatagramBytes
+            )
+        )
+    }
+
+    public static func datagramOpen(
+        deviceId: String,
+        channelId: String = makeDatagramChannelId(),
+        label: String? = nil,
+        maxDatagramBytes: Int? = nil
+    ) throws -> Data {
+        try HovviCoding.encodeEnvelope(
+            datagramOpenEnvelope(
+                deviceId: deviceId,
+                channelId: channelId,
+                label: label,
+                maxDatagramBytes: maxDatagramBytes
+            )
+        )
+    }
+
+    public static func datagramDataEnvelope(
+        channelId: String,
+        bytes: Data,
+        sequence: Int? = nil
+    ) -> Envelope<DatagramDataFrame> {
+        Envelope(type: "datagram.data", payload: DatagramDataFrame(channelId: channelId, bytes: bytes, sequence: sequence))
+    }
+
+    public static func datagramData(channelId: String, bytes: Data, sequence: Int? = nil) throws -> Data {
+        try HovviCoding.encodeEnvelope(datagramDataEnvelope(channelId: channelId, bytes: bytes, sequence: sequence))
+    }
+
+    public static func datagramCloseEnvelope(channelId: String) -> Envelope<DatagramClose> {
+        Envelope(type: "datagram.close", payload: DatagramClose(channelId: channelId))
+    }
+
+    public static func datagramClose(channelId: String) throws -> Data {
+        try HovviCoding.encodeEnvelope(datagramCloseEnvelope(channelId: channelId))
+    }
+
     public static func makeStreamId() -> String {
         "str_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+    }
+
+    public static func makeDatagramChannelId() -> String {
+        "dg_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
 }
 
@@ -200,6 +261,14 @@ public func decodeIncomingRelayMessage(from data: Data) throws -> IncomingRelayM
         return .forwardEnd(try decodeEnvelope(ForwardEnd.self, from: data, expectedType: raw.type))
     case "forward.error":
         return .forwardError(try decodeEnvelope(ForwardErrorPayload.self, from: data, expectedType: raw.type))
+    case "datagram.ready":
+        return .datagramReady(try decodeEnvelope(DatagramReady.self, from: data, expectedType: raw.type))
+    case "datagram.data":
+        return .datagramData(try decodeEnvelope(DatagramDataFrame.self, from: data, expectedType: raw.type))
+    case "datagram.close":
+        return .datagramClose(try decodeEnvelope(DatagramClose.self, from: data, expectedType: raw.type))
+    case "datagram.error":
+        return .datagramError(try decodeEnvelope(DatagramErrorPayload.self, from: data, expectedType: raw.type))
     case "error":
         return .relayError(try decodeEnvelope(RequestErrorPayload.self, from: data, expectedType: raw.type))
     default:

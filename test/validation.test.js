@@ -17,11 +17,35 @@ test("validateMessage accepts supported relay messages", () => {
       }),
     ),
   );
+  assert.doesNotThrow(() =>
+    validateMessage(
+      envelope("datagram.open", {
+        channelId: "dg-1",
+        deviceId: "device-1",
+        label: "mosh",
+        maxDatagramBytes: 1200,
+      }),
+    ),
+  );
+  assert.doesNotThrow(() =>
+    validateMessage(envelope("datagram.data", { channelId: "dg-1", data: "cGluZw==", sequence: 1 })),
+  );
 });
 
 test("validateMessage rejects malformed forward data", () => {
   assert.throws(
     () => validateMessage(envelope("forward.data", { streamId: "stream-1", data: "not base64!" })),
+    ValidationError,
+  );
+});
+
+test("validateMessage rejects malformed datagrams", () => {
+  assert.throws(
+    () => validateMessage(envelope("datagram.data", { channelId: "dg-1", data: "not base64!" })),
+    ValidationError,
+  );
+  assert.throws(
+    () => validateMessage(envelope("datagram.open", { channelId: "dg-1", deviceId: "device-1", maxDatagramBytes: 70000 })),
     ValidationError,
   );
 });

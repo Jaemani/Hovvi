@@ -36,6 +36,25 @@ export function validateMessage(message) {
       requireString(message.streamId, "streamId");
       requireBase64(message.data, "data");
       return;
+    case "datagram.open":
+      requireString(message.channelId, "channelId");
+      requireString(message.deviceId, "deviceId");
+      optionalString(message.label, "label");
+      optionalInteger(message.maxDatagramBytes, "maxDatagramBytes", { min: 1, max: 65507 });
+      return;
+    case "datagram.ready":
+    case "datagram.close":
+      requireString(message.channelId, "channelId");
+      return;
+    case "datagram.error":
+      requireString(message.channelId, "channelId");
+      optionalString(message.message, "message");
+      return;
+    case "datagram.data":
+      requireString(message.channelId, "channelId");
+      requireBase64(message.data, "data");
+      optionalInteger(message.sequence, "sequence", { min: 0, max: Number.MAX_SAFE_INTEGER });
+      return;
     case "session.attach.prepare":
       requireString(message.deviceId, "deviceId");
       optionalString(message.sessionName, "sessionName");

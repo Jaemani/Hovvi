@@ -130,6 +130,47 @@ Message-specific fields are added next to those keys.
 }
 ```
 
+`datagram.open`:
+
+```json
+{
+  "version": 1,
+  "type": "datagram.open",
+  "id": "message-id",
+  "sentAt": "2026-06-24T00:00:00.000Z",
+  "channelId": "dg_1",
+  "deviceId": "dev_1",
+  "label": "mosh",
+  "maxDatagramBytes": 1200
+}
+```
+
+`datagram.data`:
+
+```json
+{
+  "version": 1,
+  "type": "datagram.data",
+  "id": "message-id",
+  "sentAt": "2026-06-24T00:00:00.000Z",
+  "channelId": "dg_1",
+  "sequence": 1,
+  "data": "cGluZw=="
+}
+```
+
+`datagram.close`:
+
+```json
+{
+  "version": 1,
+  "type": "datagram.close",
+  "id": "message-id",
+  "sentAt": "2026-06-24T00:00:00.000Z",
+  "channelId": "dg_1"
+}
+```
+
 ## Validation
 
 Relay input is schema-validated before routing. Invalid messages return:
