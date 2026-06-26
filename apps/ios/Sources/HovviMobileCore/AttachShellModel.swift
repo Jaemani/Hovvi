@@ -124,11 +124,16 @@ public actor AttachShellModel {
         do {
             try await relay.connect(startReceiveLoop: true)
             let devices = try await relay.listDevices(timeout: timeout)
-            snapshot = AttachShellSnapshot(
-                phase: .browsing,
+            let selection = reconcileSelection(
                 devices: devices,
                 selectedDeviceId: snapshot.selectedDeviceId,
                 selectedSessionName: snapshot.selectedSessionName
+            )
+            snapshot = AttachShellSnapshot(
+                phase: .browsing,
+                devices: devices,
+                selectedDeviceId: selection.deviceId,
+                selectedSessionName: selection.sessionName
             )
         } catch {
             fail(title: "Could not connect to relay", error: error, recoveryAction: .connectRelay)
@@ -138,11 +143,11 @@ public actor AttachShellModel {
 
     @discardableResult
     public func selectDevice(_ deviceId: String) -> AttachShellSnapshot {
-        let selectedSession = snapshot.devices
-            .first(where: { $0.id == deviceId })?
-            .sessions
-            .first?
-            .name
+        guard let device = snapshot.devices.first(where: { $0.id == deviceId }) else {
+            fail(title: "Mac not found", message: "Refresh the device list before attaching.", recoveryAction: .connectRelay)
+            return snapshot
+        }
+        let selectedSession = device.sessions.first?.name
         snapshot = AttachShellSnapshot(
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
@@ -154,6 +159,10 @@ public actor AttachShellModel {
 
     @discardableResult
     public func selectSession(_ sessionName: String) -> AttachShellSnapshot {
+        guard selectedDeviceSessions().contains(where: { $0.name == sessionName }) else {
+            fail(title: "Session not found", message: "Refresh sessions on the selected Mac before attaching.", recoveryAction: .connectRelay)
+            return snapshot
+        }
         snapshot = AttachShellSnapshot(
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
@@ -161,6 +170,29 @@ public actor AttachShellModel {
             selectedSessionName: sessionName
         )
         return snapshot
+    }
+
+    private func selectedDeviceSessions() -> [Session] {
+        guard let selectedDeviceId = snapshot.selectedDeviceId else {
+            return []
+        }
+        return snapshot.devices.first(where: { $0.id == selectedDeviceId })?.sessions ?? []
+    }
+
+    private func reconcileSelection(
+        devices: [Device],
+        selectedDeviceId: String?,
+        selectedSessionName: String?
+    ) -> (deviceId: String?, sessionName: String?) {
+        guard let selectedDeviceId,
+              let device = devices.first(where: { $0.id == selectedDeviceId }) else {
+            return (nil, nil)
+        }
+        if let selectedSessionName,
+           device.sessions.contains(where: { $0.name == selectedSessionName }) {
+            return (selectedDeviceId, selectedSessionName)
+        }
+        return (selectedDeviceId, device.sessions.first?.name)
     }
 
     @discardableResult

@@ -297,7 +297,8 @@ Current status:
   fallback behavior.
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
-  attach, input, remote receive, resize, tick, shutdown, and mosh key redaction.
+  attach, input, remote receive, resize, tick, shutdown, mosh key redaction, and
+  stale device/session selection validation.
 - `HovviMobileUI` exists as a SwiftUI library target with presentational
   device/session/terminal/error views backed by `AttachShellSnapshot`.
 - `TerminalScreen` keeps live terminal output separate from tmux scrollback and

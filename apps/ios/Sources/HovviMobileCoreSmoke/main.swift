@@ -757,6 +757,49 @@ try require(shellSnapshot.selectedDeviceId == "dev_1", "attach shell should sele
 try require(shellSnapshot.selectedSessionName == "main", "attach shell should default to first session")
 shellSnapshot = await shell.selectSession("main")
 try require(shellSnapshot.selectedSessionName == "main", "attach shell should select session")
+shellSnapshot = await shell.selectSession("missing")
+try require(shellSnapshot.phase == AttachShellPhase.failed, "attach shell should reject missing sessions")
+try require(shellSnapshot.recoveryAction == .connectRelay, "missing session should recommend refreshing relay state")
+try require(shellSnapshot.selectedDeviceId == "dev_1", "missing session should preserve selected device")
+try require(shellSnapshot.selectedSessionName == "main", "missing session should preserve previous valid session")
+shellSnapshot = await shell.selectDevice("missing")
+try require(shellSnapshot.phase == AttachShellPhase.failed, "attach shell should reject missing devices")
+try require(shellSnapshot.recoveryAction == .connectRelay, "missing device should recommend reconnecting relay state")
+try require(shellSnapshot.selectedDeviceId == "dev_1", "missing device should preserve previous valid device")
+shellSnapshot = await shell.selectDevice("dev_1")
+shellSnapshot = await shell.selectSession("main")
+try require(shellSnapshot.phase == AttachShellPhase.browsing, "valid selection should recover browsing phase after stale selection errors")
+
+await shellRelay.setDevices([
+    Device(
+        id: "dev_1",
+        name: "Mac",
+        platform: "darwin",
+        user: "jaeman",
+        capabilities: ["tmux.sessions"],
+        sessions: [Session(id: "$1", name: "build", kind: "tmux")]
+    )
+])
+shellSnapshot = await shell.connectAndLoadDevices(timeout: Duration.seconds(1))
+try require(shellSnapshot.selectedDeviceId == "dev_1", "attach shell should keep selected device after reload")
+try require(shellSnapshot.selectedSessionName == "build", "attach shell should replace stale selected session after reload")
+await shellRelay.setDevices([
+    Device(
+        id: "dev_2",
+        name: "Mac Studio",
+        platform: "darwin",
+        user: "jaeman",
+        capabilities: ["tmux.sessions"],
+        sessions: [Session(id: "$2", name: "main", kind: "tmux")]
+    )
+])
+shellSnapshot = await shell.connectAndLoadDevices(timeout: Duration.seconds(1))
+try require(shellSnapshot.selectedDeviceId == nil, "attach shell should clear stale selected device after reload")
+try require(shellSnapshot.selectedSessionName == nil, "attach shell should clear stale selected session after reload")
+await shellRelay.setDevices(snapshot.devices)
+shellSnapshot = await shell.connectAndLoadDevices(timeout: Duration.seconds(1))
+shellSnapshot = await shell.selectDevice("dev_1")
+shellSnapshot = await shell.selectSession("main")
 
 shellSnapshot = await shell.attach(
     lines: 40,
@@ -1013,7 +1056,7 @@ actor FakeMoshCoreEngine: MoshCoreEngine {
 }
 
 actor FakeAttachShellRelay: AttachShellRelaying {
-    private let devices: [Device]
+    private var devices: [Device]
     private let manifest: AttachManifest
     private let scrollback: ScrollbackResult
     private var frames: [RelayDatagramFrame] = []
@@ -1036,6 +1079,10 @@ actor FakeAttachShellRelay: AttachShellRelaying {
 
     func listDevices(timeout: Duration) async throws -> [Device] {
         devices
+    }
+
+    func setDevices(_ devices: [Device]) {
+        self.devices = devices
     }
 
     func prepareAttachManifest(
