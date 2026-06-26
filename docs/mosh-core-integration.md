@@ -90,10 +90,20 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Vendoring Command
 
-The vendoring command exists but has not been run into the repository yet:
+The vendored snapshot in `native/mosh-core/vendor/mosh` is regenerated with:
 
 ```bash
 node scripts/mosh-vendor.js --checkout /tmp/hovvi-mosh-ref --destination native/mosh-core/vendor/mosh --clean
 ```
 
 Use `--dry-run` to inspect the file plan without copying. The script copies audited license files, core source groups, protobuf inputs, and STM client boundary files. It intentionally excludes `src/frontend/mosh-client.cc` because the CLI, termios, Unix signal loop, and direct socket path are not the mobile app boundary.
+
+After vendoring, verify the manifest and file hashes:
+
+```bash
+npm run mosh:vendor:verify
+```
+
+The verification step checks both SHA-256 hashes and the exact vendored file set. Any unlisted source file in the vendor tree fails CI so adapter work cannot silently drift away from the audited snapshot.
+
+The vendored GPL source is tracked in git for adapter development and compliance review, but it is intentionally excluded from the current MIT npm CLI package. The npm artifact includes only the Hovvi-owned native ABI scaffold until the mobile/native distribution license is finalized.

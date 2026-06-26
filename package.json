@@ -18,7 +18,11 @@
     "bin",
     "src",
     "scripts",
-    "native",
+    "native/mosh-core/README.md",
+    "native/mosh-core/Makefile",
+    "native/mosh-core/include",
+    "native/mosh-core/src",
+    "native/mosh-core/tests",
     "README.md",
     "CHANGELOG.md",
     "docs",
@@ -29,7 +33,8 @@
     "test": "node --test",
     "check": "node --check bin/hovvi && node --check src/*.js && node --check scripts/*.js",
     "native:check": "make -C native/mosh-core check",
-    "prepublishOnly": "npm run check && npm test && npm run native:check"
+    "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
+    "prepublishOnly": "npm run check && npm test && npm run native:check && npm run mosh:vendor:verify"
   },
   "keywords": [
     "tmux",

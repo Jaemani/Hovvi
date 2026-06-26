@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { auditMoshCheckout, CORE_GROUPS, REQUIRED_FILES, summarizeAudit } from "./mosh-upstream-audit.js";
@@ -33,6 +35,7 @@ export function planMoshVendor({ checkoutPath, destination = DEFAULT_DESTINATION
     upstream: audit.upstream,
     license: audit.license,
     files: [...files].sort(),
+    fileHashes: Object.fromEntries([...files].sort().map((file) => [file, sha256(join(checkoutPath, file))])),
     excluded: {
       frontendClient: ["mosh-client.cc"],
       reason: "CLI, termios, signal, and direct socket loop are reference-only for the mobile core boundary.",
@@ -64,6 +67,7 @@ export function vendorMosh({ checkoutPath, destination = DEFAULT_DESTINATION, cl
         upstream: plan.upstream,
         license: plan.license,
         files: plan.files,
+        fileHashes: plan.fileHashes,
         excluded: plan.excluded,
       },
       null,
@@ -72,6 +76,10 @@ export function vendorMosh({ checkoutPath, destination = DEFAULT_DESTINATION, cl
   );
 
   return { ...plan, copied: plan.files.map((file) => relative(destination, join(destination, file))) };
+}
+
+function sha256(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
 function parseArgs(argv) {
