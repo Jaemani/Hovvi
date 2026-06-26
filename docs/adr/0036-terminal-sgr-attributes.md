@@ -29,6 +29,7 @@ The first attribute slice supports:
 - reset/default handling for SGR 0, 22, 23, 24, 27, and 39.
 - extended foreground colors were added in ADR 0038.
 - background colors were added in ADR 0039.
+- inverse rendering was added in ADR 0042.
 
 `TerminalSurfaceView` now renders runs as composed SwiftUI `Text` values and
 maps foreground colors to native colors. This keeps the renderer native-first
@@ -38,7 +39,7 @@ while preserving terminal styling information for later refinement.
 
 The live terminal surface can now preserve and display basic prompt/status/error
 styling. Alternate screen edge cases, wide grapheme width, reverse-video color
-swapping, and full VT compatibility remain pending.
+theme parity, and full VT compatibility remain pending.
 
 ## Validation
 

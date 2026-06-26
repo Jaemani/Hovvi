@@ -66,6 +66,7 @@ movement, clear screen, erase line, resize, basic SGR text attributes,
 256-color/truecolor foreground/background colors, and alternate-screen restore.
 Printable parsing preserves Swift grapheme clusters and advances common CJK and
 emoji output as wide terminal cells.
+Inverse SGR runs render with swapped effective foreground/background colors.
 `TerminalSurfaceView` renders the live screen when present and falls back to
 `ScrollbackBuffer` before output arrives.
 

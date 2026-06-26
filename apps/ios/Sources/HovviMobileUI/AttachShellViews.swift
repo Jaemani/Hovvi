@@ -381,7 +381,7 @@ private extension TerminalScreenRun {
     @ViewBuilder
     var runView: some View {
         let text = styledText
-        if let color = attributes.background?.swiftUIColor {
+        if let color = effectiveBackgroundColor {
             text.background(color)
         } else {
             text
@@ -399,10 +399,24 @@ private extension TerminalScreenRun {
         if attributes.underline {
             text = text.underline()
         }
-        if let color = attributes.foreground?.swiftUIColor {
+        if let color = effectiveForegroundColor {
             text = text.foregroundColor(color)
         }
         return text
+    }
+
+    var effectiveForegroundColor: Color? {
+        if attributes.inverse {
+            return attributes.background?.swiftUIColor ?? .white
+        }
+        return attributes.foreground?.swiftUIColor
+    }
+
+    var effectiveBackgroundColor: Color? {
+        if attributes.inverse {
+            return attributes.foreground?.swiftUIColor ?? .black
+        }
+        return attributes.background?.swiftUIColor
     }
 }
 

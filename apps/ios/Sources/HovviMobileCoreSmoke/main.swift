@@ -400,6 +400,12 @@ try require(backgroundColorRuns[0].attributes.background == .blue, "terminal scr
 try require(backgroundColorRuns[1].attributes.background == .indexed(22), "terminal screen should preserve 256-color background SGR")
 try require(backgroundColorRuns[2].attributes.background == .rgb(red: 1, green: 2, blue: 3), "terminal screen should preserve truecolor background SGR")
 try require(backgroundColorRuns[3].attributes.background == nil, "terminal screen should reset background SGR")
+var inverseScreen = TerminalScreen(columns: 20, rows: 1)
+inverseScreen.apply("\u{001B}[7minverse\u{001B}[27mplain")
+let inverseRuns = inverseScreen.visibleLines[0].runs
+try require(inverseRuns.map(\.text) == ["inverse", "plain"], "terminal screen should split inverse SGR runs")
+try require(inverseRuns[0].attributes.inverse, "terminal screen should preserve inverse SGR")
+try require(inverseRuns[1].attributes.inverse == false, "terminal screen should reset inverse SGR")
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")
