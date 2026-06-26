@@ -59,6 +59,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
     public let selectedSessionName: String?
     public let manifest: AttachManifest?
     public let scrollback: ScrollbackBuffer?
+    public let terminalScreen: TerminalScreen?
     public let terminalOutput: Data
     public let nextTickAfterMs: UInt32?
     public let cleanShutdown: Bool
@@ -71,6 +72,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
         selectedSessionName: String? = nil,
         manifest: AttachManifest? = nil,
         scrollback: ScrollbackBuffer? = nil,
+        terminalScreen: TerminalScreen? = nil,
         terminalOutput: Data = Data(),
         nextTickAfterMs: UInt32? = nil,
         cleanShutdown: Bool = false,
@@ -82,6 +84,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
         self.selectedSessionName = selectedSessionName
         self.manifest = manifest
         self.scrollback = scrollback
+        self.terminalScreen = terminalScreen
         self.terminalOutput = terminalOutput
         self.nextTickAfterMs = nextTickAfterMs
         self.cleanShutdown = cleanShutdown
@@ -188,6 +191,8 @@ public actor AttachShellModel {
             let frame = try await session.connect(initialSize: initialSize, timeout: timeout)
             var buffer = ScrollbackBuffer(result: scrollback)
             buffer.appendPlainText(String(decoding: frame.terminalOutput, as: UTF8.self))
+            var screen = TerminalScreen(columns: initialSize.columns, rows: initialSize.rows)
+            screen.apply(frame.terminalOutput)
             snapshot = AttachShellSnapshot(
                 phase: .attached,
                 devices: snapshot.devices,
@@ -195,6 +200,7 @@ public actor AttachShellModel {
                 selectedSessionName: sessionName,
                 manifest: manifest,
                 scrollback: buffer,
+                terminalScreen: screen,
                 terminalOutput: frame.terminalOutput,
                 nextTickAfterMs: frame.nextTickAfterMs,
                 cleanShutdown: frame.cleanShutdown
@@ -227,7 +233,9 @@ public actor AttachShellModel {
             return snapshot
         }
         do {
-            apply(try await attachSession.resize(to: size))
+            var screen = snapshot.terminalScreen ?? TerminalScreen(columns: size.columns, rows: size.rows)
+            screen.resize(columns: size.columns, rows: size.rows)
+            apply(try await attachSession.resize(to: size), terminalScreen: screen)
         } catch {
             fail(title: "Could not resize terminal", error: error)
         }
@@ -266,13 +274,18 @@ public actor AttachShellModel {
         return snapshot
     }
 
-    private func apply(_ frame: MoshAttachFrame) {
+    private func apply(_ frame: MoshAttachFrame, terminalScreen existingScreen: TerminalScreen? = nil) {
         var scrollback = snapshot.scrollback
+        var terminalScreen = existingScreen ?? snapshot.terminalScreen
         if frame.terminalOutput.isEmpty == false {
             if scrollback == nil {
                 scrollback = ScrollbackBuffer(sessionName: snapshot.selectedSessionName ?? "main")
             }
             scrollback?.appendPlainText(String(decoding: frame.terminalOutput, as: UTF8.self))
+            if terminalScreen == nil {
+                terminalScreen = TerminalScreen()
+            }
+            terminalScreen?.apply(frame.terminalOutput)
         }
         snapshot = AttachShellSnapshot(
             phase: snapshot.phase,
@@ -281,6 +294,7 @@ public actor AttachShellModel {
             selectedSessionName: snapshot.selectedSessionName,
             manifest: snapshot.manifest,
             scrollback: scrollback,
+            terminalScreen: terminalScreen,
             terminalOutput: frame.terminalOutput,
             nextTickAfterMs: frame.nextTickAfterMs,
             cleanShutdown: frame.cleanShutdown,
@@ -301,6 +315,7 @@ public actor AttachShellModel {
             selectedSessionName: selectedSessionName ?? snapshot.selectedSessionName,
             manifest: snapshot.manifest,
             scrollback: snapshot.scrollback,
+            terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,
@@ -320,6 +335,7 @@ public actor AttachShellModel {
             selectedSessionName: snapshot.selectedSessionName,
             manifest: snapshot.manifest,
             scrollback: snapshot.scrollback,
+            terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,

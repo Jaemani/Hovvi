@@ -335,8 +335,11 @@ public struct TerminalSurfaceView: View {
         }
     }
 
-    private var lines: [ScrollbackLine] {
-        snapshot.scrollback?.visibleLines ?? []
+    private var lines: [TerminalSurfaceLine] {
+        if let screen = snapshot.terminalScreen, screen.hasVisibleText {
+            return screen.visibleLines.map { TerminalSurfaceLine(id: $0.id, text: $0.text) }
+        }
+        return (snapshot.scrollback?.visibleLines ?? []).map { TerminalSurfaceLine(id: $0.id, text: $0.text) }
     }
 
     private var emptyDescription: String {
@@ -349,6 +352,11 @@ public struct TerminalSurfaceView: View {
             "Pick a Mac and session to attach."
         }
     }
+}
+
+private struct TerminalSurfaceLine: Identifiable, Equatable {
+    let id: String
+    let text: String
 }
 
 @MainActor

@@ -244,6 +244,9 @@ Current status:
   attach, input, remote receive, resize, shutdown, and mosh key redaction.
 - `HovviMobileUI` exists as a SwiftUI library target with presentational
   device/session/terminal/error views backed by `AttachShellSnapshot`.
+- `TerminalScreen` keeps live terminal output separate from tmux scrollback and
+  covers basic printable text, CR/LF/backspace, CSI cursor movement, clear
+  screen, erase line, and resize in `HovviMobileCoreSmoke`.
 - A real Xcode app target, mature terminal renderer, and simulator/device
   rendering validation are still pending.
 

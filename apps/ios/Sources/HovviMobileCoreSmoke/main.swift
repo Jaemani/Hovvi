@@ -359,6 +359,20 @@ var tinyScrollbackBuffer = ScrollbackBuffer(sessionName: "main", text: "a\nb\n",
 tinyScrollbackBuffer.appendPlainText("c")
 try require(tinyScrollbackBuffer.visibleLines.map(\.text) == ["b", "c"], "visible lines should cap pending text")
 
+var terminalScreen = TerminalScreen(columns: 8, rows: 3)
+terminalScreen.apply("hello")
+try require(terminalScreen.visibleLines.map(\.text) == ["hello", "", ""], "terminal screen should write printable text")
+terminalScreen.apply("\rHELLO\r\nworld")
+try require(terminalScreen.visibleLines.map(\.text) == ["HELLO", "world", ""], "terminal screen should handle carriage return and newline")
+terminalScreen.apply("\u{001B}[1;3HZ")
+try require(terminalScreen.visibleLines[0].text == "HEZLO", "terminal screen should move cursor with CSI row column")
+terminalScreen.apply("\u{001B}[2Jclear")
+try require(terminalScreen.visibleLines.map(\.text) == ["clear", "", ""], "terminal screen should clear screen")
+terminalScreen.apply("\u{001B}[Kline")
+try require(terminalScreen.visibleLines[0].text == "line", "terminal screen should erase current line")
+terminalScreen.resize(columns: 4, rows: 2)
+try require(terminalScreen.visibleLines.map(\.text) == ["line", ""], "terminal screen resize should preserve visible cells")
+
 let relayClient = RelayClient(url: URL(string: "ws://127.0.0.1:8787")!, token: "dev", clientId: "ios-smoke")
 do {
     try await relayClient.fetchScrollback(deviceId: "dev_1", sessionName: "main", lines: 20)
@@ -445,6 +459,7 @@ try require(
 
 shellSnapshot = await shell.sendInput(Data("hi".utf8))
 try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before", "local"], "attach shell should append local output")
+try require(shellSnapshot.terminalScreen?.visibleLines.first?.text == "local", "attach shell should update live terminal screen")
 try require(shellSnapshot.terminalOutput == Data("local".utf8), "attach shell should expose latest terminal output")
 
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))

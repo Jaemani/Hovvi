@@ -178,6 +178,9 @@ surfaces redacted recoverable errors for native screens.
 `HovviMobileUI` now compiles the first SwiftUI attach shell surfaces against
 that snapshot contract, including device/session lists, terminal scroll output,
 input, resize callbacks, and recoverable error presentation.
+`TerminalScreen` separates live terminal state from tmux scrollback so future
+mobile scroll behavior can preserve the active screen while scrollback remains a
+separate data source.
 
 ## Source Groups
 
