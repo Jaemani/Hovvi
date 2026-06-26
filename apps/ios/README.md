@@ -11,6 +11,7 @@ the shell view to `AttachShellModel`. Run:
 swift build --package-path apps/ios
 swift build --package-path apps/ios --product HovviMobileApp
 swift run --package-path apps/ios HovviMobileCoreSmoke
+npm run ios:simulator-preflight
 ```
 
 The package currently covers flattened relay envelopes, outgoing client message
@@ -125,6 +126,10 @@ simulator/device screenshot validation. The fixture includes a selected Mac,
 tmux sessions, detected Claude Code and Codex panes, tmux-native scrollback,
 live terminal output, and a relay-datagram mosh manifest without starting a
 network connection.
+`npm run ios:simulator-preflight` records whether the current Mac can run future
+simulator screenshot validation. It reports `skipped` when only Command Line
+Tools are active and only reports `ready` when full Xcode and at least one iOS
+simulator are available.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the

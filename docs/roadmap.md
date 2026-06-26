@@ -216,6 +216,10 @@ Current status:
 - Swift mobile attach shell fixtures now provide deterministic browsing,
   attached coding-agent, failed reattach, and capped viewport states for future
   simulator/device rendering validation without depending on a live relay.
+- `npm run ios:simulator-preflight` now records whether the host has full Xcode,
+  `simctl`, and an available iOS simulator before future screenshot execution.
+  The current local environment has Command Line Tools active, so simulator
+  screenshot execution remains pending.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
