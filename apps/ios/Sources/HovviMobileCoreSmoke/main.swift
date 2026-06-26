@@ -447,6 +447,30 @@ try require(
     originModeScreen.cursorRow == 0 && originModeScreen.visibleLines[0].text == "top",
     "terminal screen should restore absolute row addressing when origin mode is disabled"
 )
+var savedCursorScreen = TerminalScreen(columns: 12, rows: 3)
+savedCursorScreen.apply("\u{001B}[2;3H\u{001B}[31m\u{001B}7\u{001B}[1;1Hplain\u{001B}[0m\u{001B}8X")
+try require(
+    savedCursorScreen.cursorRow == 1 && savedCursorScreen.cursorColumn == 3,
+    "terminal screen should restore DEC saved cursor position"
+)
+try require(
+    savedCursorScreen.visibleLines.map(\.text) == ["plain", "  X", ""],
+    "terminal screen should write at the restored DEC cursor position"
+)
+try require(
+    savedCursorScreen.visibleLines[1].runs.last?.attributes.foreground == .red,
+    "terminal screen should restore DEC saved cursor attributes"
+)
+var csiSavedCursorScreen = TerminalScreen(columns: 12, rows: 3)
+csiSavedCursorScreen.apply("\u{001B}[3;4H\u{001B}[1m\u{001B}[s\u{001B}[1;1Htop\u{001B}[0m\u{001B}[uB")
+try require(
+    csiSavedCursorScreen.cursorRow == 2 && csiSavedCursorScreen.cursorColumn == 4,
+    "terminal screen should restore CSI saved cursor position"
+)
+try require(
+    csiSavedCursorScreen.visibleLines[2].runs.last?.attributes.bold == true,
+    "terminal screen should restore CSI saved cursor attributes"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")

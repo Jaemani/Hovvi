@@ -121,6 +121,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var currentAttributes = TerminalTextAttributes()
     private var scrollRegion: TerminalScrollRegion?
     private var originMode = false
+    private var savedCursor: TerminalSavedCursor?
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
 
     public init(columns: Int = 80, rows: Int = 24) {
@@ -163,6 +164,7 @@ public struct TerminalScreen: Equatable, Sendable {
         self.rows = newRows
         self.cells = resized
         scrollRegion = scrollRegion?.resized(toRows: newRows)
+        savedCursor = savedCursor?.resized(columns: newColumns, rows: newRows)
         cursorRow = min(cursorRow, newRows - 1)
         cursorColumn = min(cursorColumn, newColumns - 1)
     }
@@ -206,6 +208,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = min(columns - 1, cursorColumn + count)
             case .cursorBackward(let count):
                 cursorColumn = max(0, cursorColumn - count)
+            case .saveCursor:
+                saveCursor()
+            case .restoreCursor:
+                restoreCursor()
             case .sgr(let values):
                 applySgr(values)
             case .scrollRegion(let top, let bottom):
@@ -324,6 +330,21 @@ public struct TerminalScreen: Equatable, Sendable {
             return scrollRegion.top...scrollRegion.bottom
         }
         return 0...(rows - 1)
+    }
+
+    private mutating func saveCursor() {
+        savedCursor = TerminalSavedCursor(
+            column: cursorColumn,
+            row: cursorRow,
+            attributes: currentAttributes
+        )
+    }
+
+    private mutating func restoreCursor() {
+        guard let savedCursor else { return }
+        cursorColumn = min(savedCursor.column, columns - 1)
+        cursorRow = min(savedCursor.row, rows - 1)
+        currentAttributes = savedCursor.attributes
     }
 
     private mutating func applySgr(_ values: [Int]) {
@@ -448,7 +469,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorRow: cursorRow,
                 attributes: currentAttributes,
                 scrollRegion: scrollRegion,
-                originMode: originMode
+                originMode: originMode,
+                savedCursor: savedCursor
             )
         }
         cells = Self.blankCells(columns: columns, rows: rows)
@@ -457,6 +479,7 @@ public struct TerminalScreen: Equatable, Sendable {
         currentAttributes = TerminalTextAttributes()
         scrollRegion = nil
         originMode = false
+        savedCursor = nil
     }
 
     private mutating func exitAlternateScreen() {
@@ -467,6 +490,7 @@ public struct TerminalScreen: Equatable, Sendable {
         currentAttributes = snapshot.attributes
         scrollRegion = snapshot.scrollRegion?.resized(toRows: rows)
         originMode = snapshot.originMode
+        savedCursor = snapshot.savedCursor?.resized(columns: columns, rows: rows)
         primarySnapshotBeforeAlternate = nil
     }
 
@@ -503,6 +527,8 @@ private enum TerminalToken {
     case cursorDown(Int)
     case cursorForward(Int)
     case cursorBackward(Int)
+    case saveCursor
+    case restoreCursor
     case sgr([Int])
     case scrollRegion(top: Int?, bottom: Int?)
     case originMode(Bool)
@@ -557,6 +583,14 @@ private struct TerminalEscapeParser {
             index = text.index(after: index)
             return .reverseIndex
         }
+        if text[index] == "7" {
+            index = text.index(after: index)
+            return .saveCursor
+        }
+        if text[index] == "8" {
+            index = text.index(after: index)
+            return .restoreCursor
+        }
         guard text[index] == "[" else { return nil }
         index = text.index(after: index)
 
@@ -605,6 +639,10 @@ private struct TerminalEscapeParser {
             return (values.first ?? 0) == 2 ? .clearScreen : nil
         case "K":
             return .eraseLine
+        case "s":
+            return .saveCursor
+        case "u":
+            return .restoreCursor
         case "m":
             return .sgr(values)
         case "r":
@@ -665,6 +703,21 @@ private struct TerminalScreenSnapshot: Equatable {
     var attributes: TerminalTextAttributes
     var scrollRegion: TerminalScrollRegion?
     var originMode: Bool
+    var savedCursor: TerminalSavedCursor?
+}
+
+private struct TerminalSavedCursor: Equatable {
+    var column: Int
+    var row: Int
+    var attributes: TerminalTextAttributes
+
+    func resized(columns: Int, rows: Int) -> TerminalSavedCursor {
+        TerminalSavedCursor(
+            column: min(column, columns - 1),
+            row: min(row, rows - 1),
+            attributes: attributes
+        )
+    }
 }
 
 private struct TerminalScrollRegion: Equatable {

@@ -72,6 +72,8 @@ Inverse SGR runs render with swapped effective foreground/background colors.
 at the top margin.
 DEC origin mode (`CSI ? 6 h/l`) makes cursor addressing and vertical movement
 respect the active scroll region.
+Saved cursor sequences (`ESC 7/8` and `CSI s/u`) restore cursor position and
+SGR attributes within current screen bounds.
 `TerminalSurfaceView` renders the live screen when present and falls back to
 `ScrollbackBuffer` before output arrives.
 

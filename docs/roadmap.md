@@ -252,7 +252,7 @@ Current status:
   screen, erase line, resize, SGR text attributes, 256-color/truecolor
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior, and
-  reverse-index bounded scrolling, and DEC origin mode in
+  reverse-index bounded scrolling, DEC origin mode, and saved cursor state in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
   simulator/device rendering validation are still pending.
