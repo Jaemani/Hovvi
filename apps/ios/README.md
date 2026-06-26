@@ -119,6 +119,12 @@ validate render inputs before simulator/device screenshot coverage is added.
 `TerminalSurfaceViewport` caps the immediate SwiftUI render input and exposes a
 bottom anchor so large scrollback snapshots do not create an unbounded terminal
 view.
+`AttachShellPreviewFixtures` provides deterministic browsing, attached coding
+agent, failed attach, and capped viewport states for SwiftUI previews and future
+simulator/device screenshot validation. The fixture includes a selected Mac,
+tmux sessions, detected Claude Code and Codex panes, tmux-native scrollback,
+live terminal output, and a relay-datagram mosh manifest without starting a
+network connection.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the

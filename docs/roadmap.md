@@ -213,6 +213,9 @@ Current status:
 - Swift mobile terminal viewport projection now caps immediate SwiftUI render
   input, exposes a deterministic bottom anchor, and reports when older rows are
   truncated above the viewport.
+- Swift mobile attach shell fixtures now provide deterministic browsing,
+  attached coding-agent, failed reattach, and capped viewport states for future
+  simulator/device rendering validation without depending on a live relay.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
@@ -283,7 +286,7 @@ Current status:
   insert-delete, tab-stop, and erase-character behavior in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
-  simulator/device rendering validation are still pending.
+  simulator/device screenshot execution are still pending.
 
 ### 6. Mac Agent and CLI Hardening
 

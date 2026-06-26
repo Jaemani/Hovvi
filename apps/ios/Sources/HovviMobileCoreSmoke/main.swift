@@ -741,6 +741,26 @@ try require(cappedViewport.isTruncatedAbove, "terminal surface viewport should r
 let minimumViewport = TerminalSurfaceProjection.viewport(lines: composedSurface, maxRows: 0)
 try require(minimumViewport.lines.count == 1, "terminal surface viewport should keep at least one row")
 
+let previewSnapshot = AttachShellPreviewFixtures.attachedCodingAgent
+try require(previewSnapshot.phase == .attached, "preview fixture should model an attached terminal")
+try require(previewSnapshot.devices.first?.sessions.first?.aiPanes.map(\.command) == ["claude", "codex"], "preview fixture should expose detected AI panes")
+try require(previewSnapshot.selectedDeviceId == "macbook-pro", "preview fixture should select the Mac")
+try require(previewSnapshot.selectedSessionName == "main", "preview fixture should select the tmux session")
+guard let previewManifest = previewSnapshot.manifest else {
+    throw SmokeError("preview fixture should carry an attach manifest")
+}
+let previewTransport = try previewManifest.preferredMoshRelayDatagramTransport()
+try require(previewTransport.label == "mosh", "preview fixture should carry a mosh relay datagram manifest")
+let previewSurface = TerminalSurfaceProjection.lines(for: previewSnapshot)
+try require(previewSurface.contains { $0.source == .scrollback }, "preview fixture should include tmux-native scrollback rows")
+try require(previewSurface.contains { $0.source == .live }, "preview fixture should include live terminal rows")
+let previewViewport = AttachShellPreviewFixtures.terminalViewport(maxRows: 8)
+try require(previewViewport.lines.count == 8, "preview fixture viewport should honor the requested render cap")
+try require(previewViewport.lines.allSatisfy { $0.source == .live }, "preview fixture capped viewport should show newest live rows")
+try require(previewViewport.anchorId == previewViewport.lines.last?.id, "preview fixture viewport should expose a bottom anchor")
+try require(previewViewport.isTruncatedAbove, "preview fixture viewport should report hidden older rows")
+try require(AttachShellPreviewFixtures.failedAttach.recoveryAction == .reattachSession, "preview fixture should cover reattach recovery UI")
+
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))
 try require(
