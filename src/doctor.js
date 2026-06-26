@@ -34,12 +34,14 @@ export async function runDoctor({
     const relayUrl = process.env.HOVVI_RELAY_URL || config.relay?.url || "ws://127.0.0.1:8787";
     items.push(checkGithubCli({ runTextFn }));
     items.push(checkGithubSsh({ runTextFn }));
+    items.push(checkFirewallState({ platformFn, runTextFn }));
     items.push(await relayReachabilityFn(relayUrl));
   } else {
     items.push({
       name: "github network checks",
       status: "warn",
-      message: "Skipped. Run `hovvi doctor --network` to check gh auth, GitHub SSH, and relay reachability.",
+      message:
+        "Skipped. Run `hovvi doctor --network` to check gh auth, GitHub SSH, firewall state, and relay reachability.",
     });
     items.push({
       name: "relay reachability",
@@ -124,6 +126,58 @@ function checkServiceState({ platformFn, serviceStatusFn }) {
       detail: error.message,
     };
   }
+}
+
+function checkFirewallState({ platformFn, runTextFn }) {
+  if (platformFn() !== "darwin") {
+    return {
+      name: "macOS firewall",
+      status: "warn",
+      message: "not checked",
+      detail: "macOS Application Firewall state is only available on macOS.",
+    };
+  }
+
+  const result = runTextFn(
+    "/usr/libexec/ApplicationFirewall/socketfilterfw",
+    ["--getglobalstate"],
+    { timeout: 10000 },
+  );
+  const text = result.text || result.stdout || result.stderr || "";
+  if (!result.ok) {
+    return {
+      name: "macOS firewall",
+      status: "warn",
+      message: "could not inspect firewall",
+      detail: firstLine(text) || "socketfilterfw did not return firewall state.",
+    };
+  }
+
+  if (/enabled/i.test(text)) {
+    return {
+      name: "macOS firewall",
+      status: "warn",
+      message: "enabled",
+      detail:
+        "Hovvi relay attach does not require inbound internet ports, but local mosh-server UDP on 127.0.0.1 may be blocked by strict firewall policy.",
+    };
+  }
+
+  if (/disabled/i.test(text)) {
+    return {
+      name: "macOS firewall",
+      status: "pass",
+      message: "disabled",
+      detail: firstLine(text),
+    };
+  }
+
+  return {
+    name: "macOS firewall",
+    status: "warn",
+    message: "unknown",
+    detail: firstLine(text) || "socketfilterfw returned an unrecognized firewall state.",
+  };
 }
 
 function checkGithubCli({ runTextFn }) {

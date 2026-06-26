@@ -226,8 +226,8 @@ Current status:
   those containing sessions as `kind: "cmux"`, and advertises `cmux.sessions`
   only when the optional `cmux` command is installed.
 - `hovvi doctor` now reports LaunchAgent service state and keeps relay
-  WebSocket reachability behind `hovvi doctor --network`, with URL credentials
-  redacted in diagnostics.
+  WebSocket reachability and read-only macOS Application Firewall state behind
+  `hovvi doctor --network`, with URL credentials redacted in diagnostics.
 - `hovvi service logs` redacts relay tokens, URL credentials, bearer tokens, and
   printable mosh keys before printing LaunchAgent log files.
 - `npm run ios:simulator-preflight` now records whether the host has full Xcode,
@@ -335,8 +335,8 @@ Acceptance criteria:
 Current status:
 
 - `hovvi doctor` checks required tools, optional cmux/AI/Tailscale tools, Git
-  identity, LaunchAgent service state, opt-in GitHub auth/SSH, and opt-in relay
-  WebSocket reachability.
+  identity, LaunchAgent service state, opt-in GitHub auth/SSH, opt-in macOS
+  Application Firewall state, and opt-in relay WebSocket reachability.
 - `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
   setup failures can be debugged without exposing relay credentials or mosh
   keys.

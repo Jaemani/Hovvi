@@ -29,6 +29,7 @@ test("runDoctor checks configured relay only in network mode", async () => {
     runTextFn(command, args) {
       if (command === "gh") return ok("Logged in to github.com account Jaemani");
       if (command === "ssh") return ok("Hi Jaemani! You've successfully authenticated.");
+      if (command.endsWith("socketfilterfw")) return ok("Firewall is disabled. (State = 0)");
       return fakeGitIdentity(command, args);
     },
     getConfigFn: () => ({ relay: { url: "ws://token@example.test:8787" } }),
@@ -44,12 +45,62 @@ test("runDoctor checks configured relay only in network mode", async () => {
 
   assert.equal(report.ok, true);
   assert.equal(findItem(report, "launchd service").status, "warn");
+  assert.deepEqual(findItem(report, "macOS firewall"), {
+    name: "macOS firewall",
+    status: "pass",
+    message: "disabled",
+    detail: "Firewall is disabled. (State = 0)",
+  });
   assert.deepEqual(findItem(report, "relay reachability"), {
     name: "relay reachability",
     status: "pass",
     message: "reachable",
     detail: "ws://token@example.test:8787",
   });
+});
+
+test("runDoctor warns when macOS firewall is enabled", async () => {
+  const report = await runDoctor({
+    network: true,
+    commandExistsFn: () => true,
+    runTextFn(command, args) {
+      if (command === "gh") return ok("Logged in to github.com account Jaemani");
+      if (command === "ssh") return ok("Hi Jaemani! You've successfully authenticated.");
+      if (command.endsWith("socketfilterfw")) return ok("Firewall is enabled. (State = 1)");
+      return fakeGitIdentity(command, args);
+    },
+    getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+    relayReachabilityFn: async (relayUrl) => ({
+      name: "relay reachability",
+      status: "pass",
+      message: "reachable",
+      detail: relayUrl,
+    }),
+  });
+
+  const firewall = findItem(report, "macOS firewall");
+  assert.equal(report.ok, true);
+  assert.equal(firewall.status, "warn");
+  assert.equal(firewall.message, "enabled");
+  assert.match(firewall.detail, /local mosh-server UDP/);
+});
+
+test("runDoctor skips macOS firewall state outside network mode", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn(command, args) {
+      assert.notEqual(command, "/usr/libexec/ApplicationFirewall/socketfilterfw");
+      return fakeGitIdentity(command, args);
+    },
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  assert.equal(findItem(report, "macOS firewall"), undefined);
+  assert.match(findItem(report, "github network checks").message, /firewall state/);
 });
 
 test("checkRelayReachability redacts URL credentials", async () => {
