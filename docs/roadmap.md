@@ -1,35 +1,289 @@
 # Hovvi Roadmap
 
-## Now
+This roadmap records confirmed execution goals only. Work should continue through
+the confirmed items without waiting for more product input. Stop only at the
+decision gates listed below, or when a severe technical/security/legal blocker is
+found.
 
-- launchd service command hardening.
-- relay auth registry and device listing.
-- local relay smoke tests for agent registration and forwarding.
-- attach manifest contract for mobile clients.
-- relay heartbeat and stale-device pruning.
-- protocol validation and relay lifecycle integration tests.
-- native iOS relay protocol core with request/response matching.
-- native iOS forward stream models for attach transport.
-- scoped relay credentials with token-redacted auth audit logs.
-- registry-backed token listing and revocation CLI.
-- relay-routed datagram channel primitive for mosh-compatible transport.
-- Mac agent UDP adapter for relay datagram channels.
-- mosh-server bootstrap in attach manifests.
-- native iOS mosh relay-datagram packet session.
-- mosh server key validation across Node and Swift attach paths.
-- upstream mosh core integration boundary and audit tooling.
-- reproducible upstream mosh vendoring plan script.
-- buildable native mosh C ABI unavailable scaffold and smoke harness.
+## Product Target
 
-## Next
+Hovvi lets a developer install a Mac-side package once, sign in on mobile, pick a
+device, and resume long-running development sessions such as tmux, cmux, Claude
+Code, and Codex without configuring ports, IP addresses, VPNs, or SSH tunnels.
 
-- Hosted relay account service with GitHub OAuth device registration.
-- hosted credential lifecycle UI/API and audit log retention policy.
-- upstream mosh core adapter behind `hovvi_mosh_core.h`.
-- iOS alpha shell: GitHub login, device/session list UI, attach transport, and tmux-native scrollback rendering.
+The compatibility target is mosh semantics over a Hovvi relay/datagram path. The
+product is not a new terminal multiplexer; it is a mature wrapper around proven
+session, transport, and terminal primitives.
+
+## Fixed Architecture
+
+- Connectivity is relay-first. WireGuard/P2P is a later fast path, not the MVP
+  path.
+- The mobile mosh engine uses upstream mosh behavior instead of a clean-room
+  Swift reimplementation.
+- Swift and mobile UI must not depend on upstream C++ class layout. The stable
+  boundary is the C ABI in `native/mosh-core/include/hovvi_mosh_core.h`.
+- GPL upstream mosh source is allowed in the repository for native adapter work
+  and CI checks, but it must not be silently included in the current MIT npm
+  package.
+- Relay datagrams carry encrypted mosh packets. The relay must not interpret
+  mosh AES-OCB/SSP payloads.
+- tmux-native scrollback is separate from the live mosh stream. Mobile scrolling
+  must use a proper scrollback model instead of pretending that the live screen
+  buffer is complete history.
+- iOS is the first mobile quality target. Android follows after iOS attach
+  quality stabilizes.
+
+## Current Foundation
+
+- npm package `hovvi@0.1.0` is published.
+- GitHub and npm release basics are established.
+- CI runs CLI checks, tests, package dry-run, native ABI checks, native adapter
+  checks, vendored mosh verification, upstream native smokes, and Swift checks.
+- The upstream mosh snapshot is vendored from audited commit
+  `decd9b705eb81626f694335b8d5940538beb06da`.
+- Vendor verification checks both file set and SHA-256 hashes.
+- The native C ABI scaffold is buildable and intentionally returns
+  `HOVVI_MOSH_UNAVAILABLE` until an upstream-backed adapter is linked.
+- Swift has a `MoshCoreEngine` interface that consumes the C ABI shape.
+- Upstream native smokes currently validate:
+  - AES-OCB crypto session round trip
+  - network fragmentation and reassembly
+  - packet encode/decode and timestamp behavior
+- Hovvi-owned in-process packet IO exists in
+  `native/mosh-core/adapter/hovvi_packet_io.h`.
+
+## Execution Goals
+
+### 1. Native Relay-Backed Mosh Adapter
+
+Build the first Hovvi-owned adapter layer between upstream mosh network packets
+and Hovvi relay datagram endpoints.
+
+Deliverables:
+
+- Adapter source under `native/mosh-core/adapter/`.
+- Tests that use in-process datagram queues, not UDP sockets.
+- No direct Swift dependency on upstream C++.
+- No mutation of vendored upstream mosh files unless a separate ADR justifies it.
+- CI target coverage through `npm run native:adapter-check` or
+  `npm run native:upstream-check`, depending on whether GPL upstream symbols are
+  linked.
+
+Acceptance criteria:
+
+- The adapter preserves mosh packet boundaries.
+- Bidirectional client/server packet flow is deterministic in-process.
+- Datagram size limits are enforced before relay send.
+- Failure paths return explicit status values, not silent drops.
+- Tests document the exact upstream classes/functions touched by the adapter.
+
+### 2. Upstream-Backed C ABI Engine
+
+Replace the unavailable scaffold with an upstream-backed implementation behind
+`hovvi_mosh_core.h` while keeping the scaffold available for unsupported or
+MIT-only builds.
+
+Deliverables:
+
+- Real `hovvi_mosh_core_create`, `receive`, `input`, `resize`, `tick`, and
+  `shutdown` paths for upstream-enabled builds.
+- Frame output for terminal bytes, outbound relay datagrams, errors, and tick
+  scheduling.
+- Explicit ownership rules for all buffers returned through the ABI.
+- Swift wrapper updates without exposing C++ types.
+- Build mode separation between shipped MIT scaffold and repository GPL-linked
+  native validation.
+
+Acceptance criteria:
+
+- `tick` drives retransmit, ack, prediction, and shutdown progress.
+- `receive` can consume encrypted mosh datagrams from the relay path.
+- `input` and `resize` map to upstream mosh semantics.
+- Unsupported builds still fail clearly with `HOVVI_MOSH_UNAVAILABLE`.
+- ABI smoke tests cover success, unavailable, invalid key, invalid packet, and
+  shutdown cases.
+
+### 3. Local macOS Mosh-Server Harness
+
+Prove the native engine against a real local `mosh-server` before connecting it
+to mobile UI.
+
+Deliverables:
+
+- A macOS command-line harness that bootstraps local `mosh-server`.
+- A deterministic relay/datagram bridge between the harness and the server.
+- tmux attach target for a known session.
+- Test fixtures for input, output, resize, paste, and clean shutdown.
+
+Acceptance criteria:
+
+- The harness can start `mosh-server`, validate the printable key, and exchange
+  encrypted packets.
+- A tmux session can be attached through the native path.
+- Text output is observed through the native frame API.
+- Resize and paste behavior are covered before mobile UI integration.
+- Cleanup leaves no orphaned `mosh-server` or tmux test sessions.
+
+### 4. Relay Datagram Integration
+
+Connect the native mosh packet path to the existing Hovvi relay and Mac agent
+datagram protocol.
+
+Deliverables:
+
+- Agent-side UDP/datagram bridge hardening for `mosh-server`.
+- Mobile/client relay datagram session integration with the native core.
+- Strict message validation, size limits, close semantics, heartbeat handling,
+  and stale channel cleanup.
+- Integration tests for local relay, agent, and client datagram flow.
+
+Acceptance criteria:
+
+- No inbound port forwarding is required on the Mac.
+- The relay forwards opaque encrypted datagrams only.
+- Invalid datagram messages return structured errors.
+- The channel handles reconnect/close cases without leaking relay state.
+- A local end-to-end smoke can attach to a server-launched tmux session through
+  the relay datagram path.
+
+### 5. iOS Alpha Attach Shell
+
+Build the first usable iOS path after the native mosh engine is proven on macOS.
+
+Deliverables:
+
+- Native Swift app shell for sign-in, device list, session list, and attach.
+- `MoshCoreEngine` integration through the C ABI.
+- Terminal renderer with live screen, resize, keyboard input, paste, and
+  scrollback integration.
+- tmux-native scrollback fetch via `session.scrollback.fetch`.
+- Session state UI for tmux/cmux/Claude Code/Codex where the agent can detect
+  it.
+
+Acceptance criteria:
+
+- A user can sign in, pick a Mac, pick a session, and attach without entering
+  hostnames, ports, IP addresses, VPN settings, or SSH tunnel settings.
+- Live terminal output and input work over relay datagrams.
+- Mobile scroll is smooth and does not corrupt the live terminal screen.
+- Session list distinguishes attachable tmux/cmux sessions and detected AI
+  coding sessions.
+- Recoverable errors are user-facing and actionable without exposing secrets.
+
+### 6. Mac Agent and CLI Hardening
+
+Make the Mac-side package reliable enough for repeated local and hosted use.
+
+Deliverables:
+
+- `hovvi doctor` checks for tmux, cmux when available, mosh-server, SSH, relay
+  reachability, service state, Git/GitHub identity, and common firewall issues.
+- LaunchAgent install/start/status/logs hardening.
+- Stable attach manifest schema for mobile clients.
+- Session discovery for tmux, cmux, Claude Code, Codex, and plain shell sessions
+  where detectable.
+- Token-redacted logs and diagnostics.
+
+Acceptance criteria:
+
+- A clean Mac can install the package, run doctor, start the agent, and appear
+  in a local relay without manual config editing.
+- Agent logs are sufficient to debug common setup issues without leaking tokens
+  or mosh keys.
+- Attach manifests remain backward-compatible or are versioned explicitly.
+- CI and local smoke tests cover manifest generation and failure modes.
+
+### 7. Hosted Relay and Account Service
+
+Turn the local relay foundation into a hosted login-based experience.
+
+Deliverables:
+
+- Account/device registration flow.
+- GitHub OAuth device registration unless a later ADR replaces it.
+- Scoped agent/client credentials.
+- Token listing, revocation, expiration, and audit events.
+- Hosted relay health, metrics, and structured logs.
+
+Acceptance criteria:
+
+- The user logs in instead of manually copying relay tokens for normal hosted
+  use.
+- Devices are scoped to an account and can be revoked.
+- Audit logs redact tokens and secrets.
+- Relay status can be inspected operationally without packet payload access.
+
+### 8. Release and Distribution
+
+Keep releases reproducible and legally/commercially safe.
+
+Deliverables:
+
+- Version bump and changelog for every user-facing npm release after `0.1.0`.
+- Git tags for release cuts.
+- npm provenance or documented fallback.
+- Clear npm package contents that exclude GPL mosh source unless the release
+  policy changes.
+- Mobile source-availability and license notice plan before distributing an app
+  linked with upstream mosh.
+
+Acceptance criteria:
+
+- No new commit is published as npm `0.1.0`.
+- `npm pack --dry-run` remains part of release verification.
+- GPL-linked native artifacts are not shipped without the license/compliance
+  decision gate being closed.
+- Release notes call out compatibility, migration, and security-relevant changes.
+
+## Decision Gates
+
+Stop and request an explicit decision before doing any of the following:
+
+- Shipping or packaging a mobile app that links upstream mosh-derived GPL code.
+- Including vendored GPL mosh source or GPL-linked binaries in the npm package.
+- Modifying vendored upstream mosh files instead of adding a Hovvi-owned adapter
+  or wrapper.
+- Choosing Flutter/React Native for the first terminal engine implementation.
+  The confirmed path is Swift plus a native C/C++ core for iOS.
+- Starting Android before iOS relay-backed attach quality is proven.
+- Starting WireGuard/P2P before the relay-first attach path works.
+- Selecting a paid hosted-relay retention, pricing, or data policy.
+- Weakening authentication, token scoping, audit redaction, or mosh key
+  validation to make a demo pass.
+- Publishing a new npm release without version bump, changelog, and package
+  contents review.
+
+## Test Gates
+
+Continue implementation, but do not mark the relevant milestone done until these
+tests pass:
+
+- Native adapter milestone: deterministic in-process datagram tests.
+- C ABI engine milestone: ABI smoke coverage for success and failure states.
+- macOS harness milestone: real local `mosh-server` attach through native frames.
+- Relay integration milestone: local relay + agent + client datagram end-to-end
+  smoke.
+- iOS alpha milestone: attach, input, resize, paste, scrollback, reconnect, and
+  error states on device or simulator as appropriate.
+- Release milestone: CI green, package dry-run clean, docs updated, and release
+  notes written.
 
 ## Later
 
-- Android app after iOS attach quality stabilizes.
+These are intentionally not on the immediate path:
+
+- Android app.
 - WireGuard/P2P fast path with relay fallback.
 - Homebrew tap and signed release artifacts.
+- Full AI workflow controls such as approve/retry/stop buttons for coding
+  agents. The immediate goal is reliable session discovery and attach.
+
+## Traceability
+
+- Architecture decisions live in `docs/adr/`.
+- Mosh integration details live in `docs/mosh-core-integration.md`.
+- Relay wire format lives in `docs/protocol.md`.
+- Referenced upstream projects and documents live in `docs/references.md`.
+- Every new architectural decision should either extend an existing ADR or add a
+  new ADR before implementation continues past the decision point.
