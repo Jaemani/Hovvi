@@ -60,6 +60,8 @@ session, transport, and terminal primitives.
   `native/mosh-core/adapter/hovvi_relay_datagram.h`.
 - Hovvi-owned relay session pumping exists in
   `native/mosh-core/adapter/hovvi_mosh_relay_session.h`.
+- Hovvi-owned C ABI driver adaptation exists in
+  `native/mosh-core/adapter/hovvi_c_abi_mosh_driver.h`.
 
 ## Execution Goals
 

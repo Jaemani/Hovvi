@@ -62,7 +62,7 @@ public:
     if ( relay_status != RelayDatagramStatus::Ok ) {
       return MoshRelaySessionStatus::RelayError;
     }
-    return map_core_status( core_.receive_packet( packet, frame ), frame );
+    return run_and_flush( core_.receive_packet( packet, frame ), frame );
   }
 
   MoshRelaySessionStatus send_user_input( PacketBytes input, MoshCoreFrame& frame )

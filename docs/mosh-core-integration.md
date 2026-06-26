@@ -97,6 +97,8 @@ The first Hovvi-owned seam is `native/mosh-core/adapter/hovvi_packet_io.h`, a bi
 
 `native/mosh-core/adapter/hovvi_mosh_relay_session.h` defines the Hovvi-owned session pump between a mosh core driver and a relay datagram endpoint. It drains outbound core packets, pumps inbound datagrams, preserves tick/shutdown frame metadata, and maps core/relay failures into explicit session statuses without linking upstream mosh.
 
+`native/mosh-core/adapter/hovvi_c_abi_mosh_driver.h` adapts the stable C ABI to `MoshCoreDriver`. It copies ABI-owned frame data into C++ vectors, frees ABI frames, maps status values, and can use either the default `hovvi_mosh_core_*` symbols or an injected function table for tests/platform builds.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
@@ -115,10 +117,9 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Add a C ABI driver adapter for `MoshRelaySession` so the session pump can drive `hovvi_mosh_core_*` directly.
-2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through relay/datagram queues.
+1. Add a macOS command-line harness that links the C ABI driver adapter and talks to a real local `mosh-server` through relay/datagram queues.
+2. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
 3. Port the harness to an iOS static library build once macOS correctness tests pass.
-4. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
 
 ## Vendoring Command
 
