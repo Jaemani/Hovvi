@@ -167,6 +167,9 @@ Client-side relay lifecycle coverage also rejects pending device snapshot,
 attach, scrollback, forward, and datagram operations when the relay WebSocket
 disconnects unexpectedly, so future reconnect wrappers can restart from a clean
 client state instead of inheriting stale promises.
+`createReconnectingClient` now provides that wrapper for subsequent operations:
+it drops a disconnected underlying client and reconnects on the next command
+without silently retrying an attach that may have started a server.
 
 ## Source Groups
 
@@ -190,8 +193,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
    GPL mobile distribution gate.
 2. Add Swift Package linker wiring for the repository-only upstream C ABI
    library without changing npm package contents.
-3. Add a reconnecting wrapper around the relay client after the process-backed
-   relay attach path has stayed stable in CI.
+3. Add mobile coordinator/UI handling for reconnect prompts and user-initiated
+   attach retry after the first native iOS terminal surface exists.
 4. Port the harness to an iOS static library build once macOS correctness tests
    pass.
 

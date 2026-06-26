@@ -201,6 +201,9 @@ Current status:
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.
+- `createReconnectingClient` wraps the low-level relay client with conservative
+  reconnect-on-next-operation behavior. It does not silently retry failed
+  stateful attach operations.
 - Native relay packet exchange is proven locally on Macs with `tmux` and
   `mosh-server`; iOS C ABI linkage and terminal UI quality remain pending before
   the mobile attach milestone can be considered complete.
