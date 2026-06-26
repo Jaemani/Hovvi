@@ -15,12 +15,13 @@
 - relay-routed datagram channel primitive for mosh-compatible transport.
 - Mac agent UDP adapter for relay datagram channels.
 - mosh-server bootstrap in attach manifests.
+- native iOS mosh relay-datagram packet session.
 
 ## Next
 
 - Hosted relay account service with GitHub OAuth device registration.
 - hosted credential lifecycle UI/API and audit log retention policy.
-- mobile-side mosh packet handling over relay datagrams.
+- mobile-side mosh AES-OCB/SSP state engine or vendored core integration.
 - iOS alpha shell: GitHub login, device/session list UI, attach transport, and tmux-native scrollback rendering.
 
 ## Later

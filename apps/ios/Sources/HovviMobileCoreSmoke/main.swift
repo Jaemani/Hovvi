@@ -207,6 +207,25 @@ let incomingDatagramReady = try decodeIncomingRelayMessage(from: Data(datagramRe
 let matchedDatagram = try RelayResponseMatcher.datagramReady(channelId: "dg_1", from: incomingDatagramReady)
 try require(matchedDatagram == "dg_1", "datagram ready matcher should return channel id")
 
+let moshTransport = try manifestEnvelope.payload.manifest.preferredMoshRelayDatagramTransport()
+try require(moshTransport.remoteHost == "127.0.0.1", "mosh transport should select relay datagram host")
+let fakeRelay = FakeDatagramRelay()
+let moshSession = try MoshRelayDatagramSession(
+    relay: fakeRelay,
+    deviceId: "dev_1",
+    transport: moshTransport
+)
+let openedMoshChannel = try await moshSession.connect()
+try require(openedMoshChannel == "dg_fake", "mosh session should open relay datagram channel")
+let firstMoshSequence = try await moshSession.sendPacket(Data([0x01, 0x02, 0x03]))
+try require(firstMoshSequence == 0, "mosh session should sequence outgoing relay packets")
+await fakeRelay.enqueue(frame: .data(Data([0x04, 0x05]), sequence: 12))
+let receivedMoshPacket = try await moshSession.receivePacket(timeout: .seconds(1))
+try require(receivedMoshPacket?.bytes == Data([0x04, 0x05]), "mosh session should receive relay datagram packet")
+try require(receivedMoshPacket?.relaySequence == 12, "mosh session should preserve relay sequence")
+try await moshSession.close()
+try require(await fakeRelay.closedChannelId == "dg_fake", "mosh session should close relay datagram channel")
+
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
     maxLines: 3
@@ -289,5 +308,48 @@ struct SmokeError: Error, CustomStringConvertible {
 func require(_ condition: Bool, _ message: String) throws {
     if !condition {
         throw SmokeError(message)
+    }
+}
+
+actor FakeDatagramRelay: RelayDatagramTransporting {
+    private(set) var closedChannelId: String?
+    private var frames: [RelayDatagramFrame] = []
+
+    func openDatagram(
+        deviceId: String,
+        label: String?,
+        remoteHost: String?,
+        remotePort: Int?,
+        maxDatagramBytes: Int?,
+        timeout: Duration
+    ) async throws -> String {
+        try require(deviceId == "dev_1", "fake relay should receive device id")
+        try require(label == "mosh", "fake relay should receive mosh label")
+        try require(remoteHost == "127.0.0.1", "fake relay should receive local mosh host")
+        try require(remotePort == 60001, "fake relay should receive mosh server port")
+        try require(maxDatagramBytes == 1200, "fake relay should receive max datagram size")
+        return "dg_fake"
+    }
+
+    func sendDatagram(channelId: String, bytes: Data, sequence: Int?) async throws {
+        try require(channelId == "dg_fake", "fake relay should receive mosh channel id")
+        try require(bytes == Data([0x01, 0x02, 0x03]), "fake relay should receive mosh packet bytes")
+        try require(sequence == 0, "fake relay should receive relay sequence")
+    }
+
+    func readDatagramFrame(channelId: String, timeout: Duration) async throws -> RelayDatagramFrame {
+        try require(channelId == "dg_fake", "fake relay should read from mosh channel")
+        guard frames.isEmpty == false else {
+            throw SmokeError("fake relay has no datagram frame")
+        }
+        return frames.removeFirst()
+    }
+
+    func closeDatagram(channelId: String) async throws {
+        closedChannelId = channelId
+    }
+
+    func enqueue(frame: RelayDatagramFrame) {
+        frames.append(frame)
     }
 }

@@ -151,6 +151,8 @@ Mobile clients should use `session.scrollback.fetch` for native scrollback inste
 
 `prepare-attach` asks the Mac agent to build an attach manifest. When `mosh-server` is available, the agent bootstraps `mosh-server new ... -- tmux attach-session -t <session>` and returns a `mosh` method with `relay-datagram` transport details: `remotePort`, encrypted mosh `key`, and the datagram size target. If bootstrap fails, the manifest still includes SSH relay forwarding and local tmux fallbacks.
 
+The native iOS core can select the available `mosh` relay-datagram transport from an attach manifest, open the relay datagram channel, and send/receive encrypted mosh packets with relay sequencing and datagram-size enforcement. The relay datagram layer intentionally does not interpret mosh's AES-OCB/SSP payloads; that remains the compatibility boundary for the mobile terminal engine.
+
 ## Product Direction
 
 - Name: Hovvi
