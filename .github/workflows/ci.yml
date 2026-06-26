@@ -24,6 +24,7 @@ jobs:
       - run: npm run mosh:vendor:verify
       - run: brew list pkgconf protobuf >/dev/null 2>&1 || brew install pkgconf protobuf
       - run: npm run native:upstream-check
+      - run: npm run native:upstream-lib
       - run: brew list tmux mosh >/dev/null 2>&1 || brew install tmux mosh
       - run: npm run native:mosh-server-harness-check
       - run: npm run native:relay-attach-check

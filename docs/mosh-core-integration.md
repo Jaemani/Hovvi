@@ -73,12 +73,15 @@ The native checks are intentionally separated by ownership and license boundary:
 npm run native:check
 npm run native:adapter-check
 npm run native:upstream-check
+npm run native:upstream-lib
 npm run native:relay-attach-check
 ```
 
 - `native:check` validates the shipped unavailable C ABI scaffold.
 - `native:adapter-check` validates Hovvi-owned packet IO and relay datagram primitives that may be included in the MIT npm package.
 - `native:upstream-check` compiles vendored GPL upstream source for repository/CI validation only.
+- `native:upstream-lib` builds the repository-only upstream-backed C ABI static
+  library at `native/mosh-core/build/upstream/libhovvi_mosh_core_upstream.a`.
 - `native:relay-attach-check` runs the repository-only native mosh probe through
   a local relay, JavaScript relay datagram channel, agent UDP bridge, and
   agent-started `mosh-server`. It skips when `tmux`, `mosh-server`, or the
@@ -90,7 +93,12 @@ The upstream-linked check currently runs five isolated smokes:
 - network: generates `transportinstruction.pb.cc/.h` under `build/upstream/generated`, compiles upstream `compressor.cc` and `transportfragment.cc`, then runs a `Network::Fragmenter`/`FragmentAssembly` round trip
 - packet: compiles upstream `network.cc` and `timestamp.cc`, then verifies `Network::Packet` serialization, valid port range parsing, and timestamp wraparound math
 - relay packet: encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted datagrams through Hovvi `RelayDatagramEndpoint`, decrypts on the other side, reconstructs `Network::Packet`, and verifies datagram size rejection
-- upstream ABI: compiles the repository-only upstream C++ implementation behind `hovvi_mosh_core.h`, creates a core with upstream key/session/terminal state, renders validated server host diffs into terminal output bytes, emits encrypted outbound packets for input and resize, verifies tick/clean-shutdown ABI behavior, and verifies crypto/protocol errors at the ABI boundary
+- upstream ABI: links the repository-only
+  `libhovvi_mosh_core_upstream.a`, creates a core with upstream
+  key/session/terminal state, renders validated server host diffs into terminal
+  output bytes, emits encrypted outbound packets for input and resize, verifies
+  tick/clean-shutdown ABI behavior, and verifies crypto/protocol errors at the
+  ABI boundary
 - upstream relay transport: compiles a repository-only relay transport slice
   that wraps upstream `TransportInstruction`, `Fragmenter`,
   `FragmentAssembly`, `UserStream`, and `Terminal::Complete` around Hovvi
@@ -161,8 +169,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 1. Implement a native `MoshCoreEngine` for iOS/macOS builds behind the explicit
    GPL mobile distribution gate.
-2. Implement a native C ABI engine build target that links the upstream relay
-   transport for local and iOS validation without changing npm package contents.
+2. Add Swift Package C module/linker wiring for the repository-only upstream C
+   ABI library without changing npm package contents.
 3. Add reconnect and local relay process integration coverage around the
    mosh-server probe.
 4. Port the harness to an iOS static library build once macOS correctness tests

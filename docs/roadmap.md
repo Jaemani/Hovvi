@@ -45,6 +45,9 @@ session, transport, and terminal primitives.
 - Vendor verification checks both file set and SHA-256 hashes.
 - The native C ABI scaffold is buildable and intentionally returns
   `HOVVI_MOSH_UNAVAILABLE` until an upstream-backed adapter is linked.
+- Repository-only upstream C ABI static library builds as
+  `native/mosh-core/build/upstream/libhovvi_mosh_core_upstream.a` through
+  `npm run native:upstream-lib`.
 - Swift has a `MoshCoreEngine` interface that consumes the C ABI shape.
 - Upstream native smokes currently validate:
   - AES-OCB crypto session round trip

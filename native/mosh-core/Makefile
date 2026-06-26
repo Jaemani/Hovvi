@@ -74,9 +74,10 @@ UPSTREAM_RELAY_PACKET_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_relay_packet_smoke
 UPSTREAM_RELAY_TRANSPORT_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_relay_transport_smoke
 UPSTREAM_MOSH_SERVER_PROBE := $(UPSTREAM_BUILD_DIR)/upstream_mosh_server_probe
 UPSTREAM_ABI_OBJ := $(UPSTREAM_BUILD_DIR)/hovvi_mosh_core_upstream.o
+UPSTREAM_LIB := $(UPSTREAM_BUILD_DIR)/libhovvi_mosh_core_upstream.a
 UPSTREAM_ABI_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_abi_smoke
 
-.PHONY: all check adapter-check upstream-check mosh-server-probe clean
+.PHONY: all check adapter-check upstream-check upstream-lib mosh-server-probe clean
 .SECONDARY: $(UPSTREAM_PROTO_CC) $(UPSTREAM_PROTO_H)
 
 all: $(LIB)
@@ -96,6 +97,8 @@ upstream-check: $(UPSTREAM_CRYPTO_SMOKE) $(UPSTREAM_NETWORK_SMOKE) $(UPSTREAM_PA
 	$(UPSTREAM_RELAY_PACKET_SMOKE)
 	$(UPSTREAM_RELAY_TRANSPORT_SMOKE)
 	$(UPSTREAM_ABI_SMOKE)
+
+upstream-lib: $(UPSTREAM_LIB)
 
 mosh-server-probe: $(UPSTREAM_MOSH_SERVER_PROBE)
 
@@ -164,8 +167,11 @@ $(UPSTREAM_ABI_OBJ): src/hovvi_mosh_core_upstream.cc include/hovvi_mosh_core.h $
 	mkdir -p $(dir $@)
 	$(CXX) -Iinclude $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) -c src/hovvi_mosh_core_upstream.cc -o $(UPSTREAM_ABI_OBJ)
 
-$(UPSTREAM_ABI_SMOKE): tests/upstream_abi_smoke.cc include/hovvi_mosh_core.h $(UPSTREAM_ABI_OBJ) $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_TERMINAL_OBJ)
-	$(CXX) -Iinclude $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) tests/upstream_abi_smoke.cc $(UPSTREAM_ABI_OBJ) $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_TERMINAL_OBJ) $(PROTOBUF_LDLIBS) -lz -lcurses -o $(UPSTREAM_ABI_SMOKE)
+$(UPSTREAM_LIB): $(UPSTREAM_ABI_OBJ) $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_TERMINAL_OBJ)
+	$(AR) rcs $(UPSTREAM_LIB) $(UPSTREAM_ABI_OBJ) $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_TERMINAL_OBJ)
+
+$(UPSTREAM_ABI_SMOKE): tests/upstream_abi_smoke.cc include/hovvi_mosh_core.h $(UPSTREAM_LIB)
+	$(CXX) -Iinclude $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) tests/upstream_abi_smoke.cc $(UPSTREAM_LIB) $(PROTOBUF_LDLIBS) -lz -lcurses -o $(UPSTREAM_ABI_SMOKE)
 
 clean:
 	rm -rf $(BUILD_DIR)

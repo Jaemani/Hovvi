@@ -39,6 +39,7 @@
     "native:check": "make -C native/mosh-core check",
     "native:adapter-check": "make -C native/mosh-core adapter-check",
     "native:upstream-check": "make -C native/mosh-core upstream-check",
+    "native:upstream-lib": "make -C native/mosh-core upstream-lib",
     "native:mosh-server-harness-check": "node scripts/native-mosh-server-harness-check.js",
     "native:relay-attach-check": "node scripts/native-relay-attach-check.js",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",

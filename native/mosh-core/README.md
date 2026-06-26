@@ -25,6 +25,7 @@ The current implementation is an unavailable scaffold. It validates the ABI, sta
 ```bash
 make -C native/mosh-core adapter-check
 make -C native/mosh-core upstream-check
+make -C native/mosh-core upstream-lib
 ```
 
 `adapter-check` compiles Hovvi-owned packet IO, relay datagram, relay session, and C ABI driver primitives for future relay-backed transport tests. `upstream-check` compiles isolated vendored upstream mosh crypto, transport-fragment, packet, relay-packet, and upstream ABI smokes. Generated protobuf C++ files are written under `build/upstream/generated`, not into `vendor/mosh`. These targets do not change the scaffold ABI behavior used by `make check`.
@@ -32,3 +33,8 @@ make -C native/mosh-core upstream-check
 The relay-packet smoke is the first upstream-backed adapter slice. It encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted bytes through Hovvi `RelayDatagramEndpoint`, decrypts them on the other side, and reconstructs upstream packets without opening UDP sockets.
 
 The upstream ABI smoke links `src/hovvi_mosh_core_upstream.cc` for repository validation only. It validates inbound host diff rendering, outbound input and resize packet generation, scheduled tick behavior, and clean shutdown flags. The npm package includes only `src/hovvi_mosh_core_unavailable.c` until native/mobile GPL distribution policy is finalized.
+
+`upstream-lib` builds the repository-only GPL-linked static library at
+`build/upstream/libhovvi_mosh_core_upstream.a`. Future local macOS and iOS
+validation can link this artifact through the stable C ABI, but it is not part
+of the current MIT npm package contents.
