@@ -217,6 +217,7 @@ function openDatagram(ws, datagrams, message) {
       channelId: message.channelId,
       remoteHost: message.remoteHost || "127.0.0.1",
       remotePort: message.remotePort,
+      maxDatagramBytes: Number(message.maxDatagramBytes || 1200),
       send(type, payload) {
         ws.send(serialize(envelope(type, payload)));
       },

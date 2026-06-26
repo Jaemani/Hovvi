@@ -32,6 +32,37 @@ test("UDP datagram bridge forwards local UDP replies as relay frames", async () 
   server.close();
 });
 
+test("UDP datagram bridge rejects oversize sends before socket write", async () => {
+  const writes = [];
+  const frames = [];
+  const socket = {
+    on() {},
+    connect(_port, _host, callback) {
+      callback();
+    },
+    send(bytes) {
+      writes.push(bytes);
+    },
+    close() {},
+  };
+
+  const bridge = createUdpDatagramBridge({
+    channelId: "dg-oversize",
+    remotePort: 60001,
+    maxDatagramBytes: 4,
+    socket,
+    send(type, payload) {
+      frames.push({ type, ...payload });
+    },
+  });
+
+  assert.equal(bridge.sendData(Buffer.from("1234")), true);
+  assert.equal(bridge.sendData(Buffer.from("12345")), false);
+  assert.equal(writes.length, 1);
+  assert.equal(frames.at(-1).type, "datagram.error");
+  assert.match(frames.at(-1).message, /maxDatagramBytes/);
+});
+
 function bind(server) {
   return new Promise((resolve, reject) => {
     server.once("error", reject);

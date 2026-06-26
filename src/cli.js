@@ -25,6 +25,7 @@ import { readFlag, readOption, splitFlags } from "./flags.js";
 import { createClient } from "./relay-client.js";
 import { randomId } from "./protocol.js";
 import { hashToken, listRegistryTokens, loadRegistry, revokeRegistryToken, saveRegistry } from "./registry.js";
+import { localMoshHarnessPreflight, runLocalMoshServerHarness } from "./mosh-harness.js";
 
 const HELP = `Hovvi
 
@@ -39,6 +40,7 @@ Usage:
   hovvi mobile [--relay wss://relay.example.com]
   hovvi devices [--relay ws://127.0.0.1:8787] [--json]
   hovvi prepare-attach --device <device-id> [session-name] [--json] [--create]
+  hovvi mosh-harness [session-name] [--json] [--no-create] [--timeout-ms 5000] [--max-datagram-bytes 1200]
   hovvi fetch-scrollback --device <device-id> [session-name] [--lines 2000] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
@@ -56,6 +58,8 @@ Commands:
   devices   List devices currently connected to the relay.
   prepare-attach
             Ask a connected agent for a mobile attach manifest.
+  mosh-harness
+            Run a local mosh-server bootstrap and UDP relay-datagram harness smoke.
   fetch-scrollback
             Fetch tmux scrollback from a connected agent.
   forward   Open a local TCP tunnel through relay to a registered agent.
@@ -99,6 +103,8 @@ export async function main(argv) {
       return devicesCommand(rest);
     case "prepare-attach":
       return prepareAttachCommand(rest);
+    case "mosh-harness":
+      return moshHarnessCommand(rest);
     case "fetch-scrollback":
       return fetchScrollbackCommand(rest);
     case "forward":
@@ -301,6 +307,38 @@ async function prepareAttachCommand(args) {
   process.stdout.write(`${manifest.kind} ${manifest.deviceName || manifest.deviceId}:${manifest.sessionName}\n`);
   for (const method of manifest.methods) {
     process.stdout.write(`${method.name} (${method.status}): ${method.command.join(" ")}\n`);
+  }
+}
+
+async function moshHarnessCommand(args) {
+  const json = readFlag(args, "--json");
+  const create = !readFlag(args, "--no-create");
+  const timeoutMs = Number(readOption(args, "--timeout-ms") || 5000);
+  const maxDatagramBytes = Number(readOption(args, "--max-datagram-bytes") || 1200);
+  const [sessionName = "hovvi-harness"] = args;
+  const preflight = localMoshHarnessPreflight();
+  if (!preflight.ok) {
+    throw new Error(`Missing harness dependencies: ${preflight.missing.join(", ")}`);
+  }
+
+  const result = await runLocalMoshServerHarness({ sessionName, create, timeoutMs, maxDatagramBytes });
+  try {
+    const printable = {
+      ok: result.ok,
+      sessionName: result.sessionName,
+      createdSession: result.createdSession,
+      mosh: result.mosh,
+      datagram: result.datagram,
+    };
+    if (json) {
+      process.stdout.write(`${JSON.stringify(printable, null, 2)}\n`);
+      return;
+    }
+    process.stdout.write(`mosh-server ready on 127.0.0.1:${result.mosh.port}\n`);
+    process.stdout.write(`printable key validated for ${result.sessionName}\n`);
+    process.stdout.write(`relay datagram bridge ready, maxDatagramBytes=${result.datagram.maxDatagramBytes}\n`);
+  } finally {
+    await result.dispose();
   }
 }
 

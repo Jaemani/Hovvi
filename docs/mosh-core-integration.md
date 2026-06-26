@@ -99,6 +99,13 @@ The first Hovvi-owned seam is `native/mosh-core/adapter/hovvi_packet_io.h`, a bi
 
 `native/mosh-core/adapter/hovvi_c_abi_mosh_driver.h` adapts the stable C ABI to `MoshCoreDriver`. It copies ABI-owned frame data into C++ vectors, frees ABI frames, maps status values, and can use either the default `hovvi_mosh_core_*` symbols or an injected function table for tests/platform builds.
 
+`src/mosh-harness.js` is the first macOS harness slice. It starts a real local
+`mosh-server`, validates the `MOSH CONNECT` UDP port and printable key, opens a
+Hovvi UDP relay-datagram bridge to that server, and cleans up the spawned server
+and any harness-created tmux session. This proves the binary bootstrap and
+datagram boundary, but not yet full native frame attach; the upstream
+`Network::Transport` loop still needs a socket-free relay-backed seam.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
@@ -117,9 +124,13 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Add a macOS command-line harness that links the C ABI driver adapter and talks to a real local `mosh-server` through relay/datagram queues.
-2. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
-3. Port the harness to an iOS static library build once macOS correctness tests pass.
+1. Connect upstream `Network::Transport`/sender semantics to Hovvi relay
+   datagrams so the local harness can exchange native frames with a real
+   `mosh-server`.
+2. Add packet loss, reordering, resize, paste, and shutdown tests before
+   connecting the core to the app UI.
+3. Port the harness to an iOS static library build once macOS correctness tests
+   pass.
 
 ## Vendoring Command
 

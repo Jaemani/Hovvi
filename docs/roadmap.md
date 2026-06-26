@@ -62,6 +62,9 @@ session, transport, and terminal primitives.
   `native/mosh-core/adapter/hovvi_mosh_relay_session.h`.
 - Hovvi-owned C ABI driver adaptation exists in
   `native/mosh-core/adapter/hovvi_c_abi_mosh_driver.h`.
+- Local macOS mosh-server bootstrap harness exists in `src/mosh-harness.js` and
+  `hovvi mosh-harness`. It validates the real `MOSH CONNECT` port/key and opens
+  the UDP relay-datagram bridge, but full native frame exchange remains pending.
 
 ## Execution Goals
 
