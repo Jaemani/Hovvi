@@ -50,10 +50,36 @@ public struct AttachShellError: Codable, Equatable, Sendable, CustomStringConver
     }
 
     private static func redact(_ message: String) -> String {
-        message.replacing(
+        var redacted = message.replacing(
             /[A-Za-z0-9+\/]{22}/,
             with: "[redacted-mosh-key]"
         )
+        redacted = redacted.replacing(
+            /(?i)(Authorization:\s*Bearer\s+)[A-Za-z0-9._~+\/=-]+/,
+            with: "$1[redacted]"
+        )
+        redacted = redacted.replacing(
+            /(?i)((?:HOVVI_RELAY_TOKEN|token)["']?\s*[:=]\s*["']?)[^"',\s}]+/,
+            with: "$1[redacted]"
+        )
+        redacted = redacted.replacing(
+            /wss?:\/\/[^\s"'<>]+/,
+            with: { match in redactURLCredentials(String(match.output)) }
+        )
+        return redacted
+    }
+
+    private static func redactURLCredentials(_ rawURL: String) -> String {
+        guard var components = URLComponents(string: rawURL) else {
+            return rawURL.replacing(/:\/\/[^@\s]+@/, with: "://[redacted]@")
+        }
+        if components.user != nil {
+            components.user = "[redacted]"
+        }
+        if components.password != nil {
+            components.password = "[redacted]"
+        }
+        return components.string ?? rawURL
     }
 }
 

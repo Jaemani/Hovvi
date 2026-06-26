@@ -954,6 +954,18 @@ try require(
     redactedShellError.message.contains("MDEyMzQ1Njc4OWFiY2RlZg") == false,
     "attach shell errors should redact mosh keys"
 )
+let secretShellError = AttachShellError(
+    title: "Relay",
+    message: "relay=wss://user:pass@relay.example.test/path token=relay-secret Authorization: Bearer bearer-secret HOVVI_RELAY_TOKEN=env-secret"
+)
+try require(secretShellError.message.contains("user:pass") == false, "attach shell errors should redact relay URL credentials")
+try require(secretShellError.message.contains("relay-secret") == false, "attach shell errors should redact inline tokens")
+try require(secretShellError.message.contains("bearer-secret") == false, "attach shell errors should redact bearer tokens")
+try require(secretShellError.message.contains("env-secret") == false, "attach shell errors should redact relay environment tokens")
+try require(
+    secretShellError.message.contains("wss://%5Bredacted%5D:%5Bredacted%5D@relay.example.test/path"),
+    "attach shell errors should preserve redacted relay URL context"
+)
 
 print("HovviMobileCore smoke passed")
 
