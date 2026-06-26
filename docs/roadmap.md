@@ -181,6 +181,8 @@ Current status:
   target.
 - Agent-started attach manifests are covered through real tmux creation,
   `mosh-server` bootstrap, and client datagram channel open/close.
+- JavaScript clients expose `prepareMoshDatagramAttach` so manifest selection,
+  key validation, and channel opening are one reusable attach contract.
 - Swift mobile core has a `MoshAttachSession` coordinator that flushes mosh core
   frames through relay datagrams with fake-engine smoke coverage.
 - Native mosh-core consumption of the client datagram channel remains pending

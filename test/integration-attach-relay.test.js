@@ -32,30 +32,21 @@ test("client opens relay datagram channel from an agent-started mosh attach mani
   try {
     await waitFor(async () => relay.state.agents.has(device.id));
 
-    const manifest = await client.prepareAttach({
+    const { manifest, transport, channel } = await client.prepareMoshDatagramAttach({
       deviceId: device.id,
       sessionName,
       create: true,
       lines: 40,
       timeoutMs: 7000,
+      datagramTimeoutMs: 3000,
     });
-    const transport = manifest.methods.find((method) => method.name === "mosh")?.transport;
 
     assert.equal(manifest.deviceId, device.id);
     assert.equal(manifest.sessionName, sessionName);
-    assert.equal(transport?.kind, "relay-datagram");
-    assert.equal(transport?.remoteHost, "127.0.0.1");
-    assert.equal(Number.isInteger(transport?.remotePort), true);
-    assert.match(transport?.key || "", /^[A-Za-z0-9+/]{22}$/);
-
-    const channel = await client.openDatagram({
-      deviceId: device.id,
-      label: transport.label,
-      remoteHost: transport.remoteHost,
-      remotePort: transport.remotePort,
-      maxDatagramBytes: transport.maxDatagramBytes,
-      timeoutMs: 3000,
-    });
+    assert.equal(transport.kind, "relay-datagram");
+    assert.equal(transport.remoteHost, "127.0.0.1");
+    assert.equal(Number.isInteger(transport.remotePort), true);
+    assert.match(transport.key || "", /^[A-Za-z0-9+/]{22}$/);
     assert.match(channel.channelId, /^dg_/);
     assert.equal(relay.state.datagrams.size, 1);
 

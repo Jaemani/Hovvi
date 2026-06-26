@@ -145,7 +145,7 @@ export async function createClient({ relayUrl, token }) {
 
   ws.send(serialize(envelope("hello", { role: "client", token })));
 
-  return {
+  const api = {
     devices: () => devices,
     listDevices({ timeoutMs = 3000 } = {}) {
       if (haveDeviceSnapshot) return Promise.resolve(devices);
@@ -244,6 +244,27 @@ export async function createClient({ relayUrl, token }) {
       ws.send(serialize(request));
       return promise;
     },
+    async prepareMoshDatagramAttach({
+      deviceId,
+      sessionName = "main",
+      lines = 2000,
+      create = false,
+      timeoutMs = 5000,
+      datagramTimeoutMs = 3000,
+    }) {
+      const manifest = await api.prepareAttach({ deviceId, sessionName, lines, create, timeoutMs });
+      const method = selectMoshRelayDatagramMethod(manifest);
+      const transport = method.transport;
+      const channel = await api.openDatagram({
+        deviceId: manifest.deviceId || deviceId,
+        label: transport.label,
+        remoteHost: transport.remoteHost,
+        remotePort: transport.remotePort,
+        maxDatagramBytes: transport.maxDatagramBytes,
+        timeoutMs: datagramTimeoutMs,
+      });
+      return { manifest, method, transport, channel };
+    },
     fetchScrollback({ deviceId, sessionName = "main", lines = 2000, timeoutMs = 5000 }) {
       const request = envelope("session.scrollback.fetch", {
         deviceId,
@@ -261,6 +282,23 @@ export async function createClient({ relayUrl, token }) {
       return promise;
     },
   };
+  return api;
+}
+
+function selectMoshRelayDatagramMethod(manifest) {
+  const methods = [...(manifest?.methods || [])].sort((left, right) => (left.priority || 0) - (right.priority || 0));
+  const method = methods.find((candidate) => {
+    return candidate.name === "mosh" && candidate.status === "available" && candidate.transport?.kind === "relay-datagram";
+  });
+  if (!method) throw new Error("attach manifest does not include an available mosh relay datagram transport");
+  const transport = method.transport;
+  if (!Number.isInteger(Number(transport.remotePort))) {
+    throw new Error("mosh relay datagram transport is missing remotePort");
+  }
+  if (!/^[A-Za-z0-9+/]{22}$/.test(transport.key || "")) {
+    throw new Error("mosh relay datagram transport has an invalid server key");
+  }
+  return method;
 }
 
 function createDatagramChannel({ ws, channelId, datagrams }) {

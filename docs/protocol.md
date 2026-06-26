@@ -206,6 +206,12 @@ The returned channel supports `send(bytes)`, `nextMessage({ timeoutMs })`, and
 `datagram.close` marks the channel closed. The relay and client must release
 channel state after either peer closes.
 
+For attach flows, the JavaScript relay client also exposes
+`prepareMoshDatagramAttach(...)`. It requests an attach manifest, selects the
+highest-priority available `mosh` method with `relay-datagram` transport,
+validates `remotePort` and the printable mosh server key, opens the datagram
+channel, and returns `{ manifest, method, transport, channel }`.
+
 ## Validation
 
 Relay input is schema-validated before routing. Invalid messages return:
