@@ -10,6 +10,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <climits>
 #include <new>
 #include <string>
 
@@ -23,6 +24,9 @@ struct hovvi_mosh_core {
   Terminal::Framebuffer rendered_frame;
   Terminal::Display display;
   bool rendered_once;
+  uint64_t local_frame_num;
+  bool shutdown_requested;
+  bool clean_shutdown;
 };
 
 namespace {
@@ -51,6 +55,14 @@ void clear_frame( hovvi_mosh_frame_t* frame )
   frame->outbound_packet_count = 0;
   frame->next_tick_ms = 0;
   frame->clean_shutdown = 0;
+}
+
+uint32_t bounded_next_tick_ms( int wait_ms )
+{
+  if ( wait_ms < 0 || wait_ms == INT_MAX ) {
+    return 0;
+  }
+  return static_cast<uint32_t>( wait_ms );
 }
 
 hovvi_mosh_status_t set_terminal_output( hovvi_mosh_frame_t* frame, const std::string& output )
@@ -100,6 +112,11 @@ hovvi_mosh_status_t emit_user_stream( hovvi_mosh_core_t* core, const Network::Us
   const std::string encrypted = core->outbound.encrypt( packet.toMessage() );
   return set_one_outbound_packet( frame, encrypted );
 }
+
+void set_tick_from_terminal( hovvi_mosh_core_t* core, uint64_t now_ms, hovvi_mosh_frame_t* frame )
+{
+  frame->next_tick_ms = bounded_next_tick_ms( core->remote_terminal.wait_time( now_ms ) );
+}
 }
 
 extern "C" {
@@ -147,6 +164,9 @@ hovvi_mosh_status_t hovvi_mosh_core_create( const char* printable_key,
                                       Terminal::Complete( initial_size.columns, initial_size.rows ),
                                       Terminal::Framebuffer( initial_size.columns, initial_size.rows ),
                                       Terminal::Display( false ),
+                                      false,
+                                      0,
+                                      false,
                                       false };
     return HOVVI_MOSH_OK;
   } catch ( const Crypto::CryptoException& ) {
@@ -188,7 +208,11 @@ hovvi_mosh_status_t hovvi_mosh_core_receive_packet( hovvi_mosh_core_t* core,
     core->rendered_frame = next_frame;
     core->rendered_once = true;
 
-    return set_terminal_output( out_frame, output );
+    const hovvi_mosh_status_t status = set_terminal_output( out_frame, output );
+    if ( status == HOVVI_MOSH_OK ) {
+      set_tick_from_terminal( core, Network::timestamp(), out_frame );
+    }
+    return status;
   } catch ( const Crypto::CryptoException& ) {
     return HOVVI_MOSH_CRYPTO_ERROR;
   } catch ( const Network::NetworkException& ) {
@@ -211,7 +235,14 @@ hovvi_mosh_status_t hovvi_mosh_core_send_user_input( hovvi_mosh_core_t* core,
     for ( size_t i = 0; i < input.len; i++ ) {
       stream.push_back( Parser::UserByte( input.data[i] ) );
     }
-    return emit_user_stream( core, stream, out_frame );
+    if ( input.len > 0 ) {
+      core->remote_terminal.register_input_frame( ++core->local_frame_num, Network::timestamp() );
+    }
+    const hovvi_mosh_status_t status = emit_user_stream( core, stream, out_frame );
+    if ( status == HOVVI_MOSH_OK ) {
+      set_tick_from_terminal( core, Network::timestamp(), out_frame );
+    }
+    return status;
   } catch ( const Crypto::CryptoException& ) {
     return HOVVI_MOSH_CRYPTO_ERROR;
   } catch ( const std::bad_alloc& ) {
@@ -232,7 +263,12 @@ hovvi_mosh_status_t hovvi_mosh_core_resize( hovvi_mosh_core_t* core,
   try {
     Network::UserStream stream;
     stream.push_back( Parser::Resize( size.columns, size.rows ) );
-    return emit_user_stream( core, stream, out_frame );
+    core->remote_terminal.register_input_frame( ++core->local_frame_num, Network::timestamp() );
+    const hovvi_mosh_status_t status = emit_user_stream( core, stream, out_frame );
+    if ( status == HOVVI_MOSH_OK ) {
+      set_tick_from_terminal( core, Network::timestamp(), out_frame );
+    }
+    return status;
   } catch ( const Crypto::CryptoException& ) {
     return HOVVI_MOSH_CRYPTO_ERROR;
   } catch ( const std::bad_alloc& ) {
@@ -244,12 +280,28 @@ hovvi_mosh_status_t hovvi_mosh_core_resize( hovvi_mosh_core_t* core,
 
 hovvi_mosh_status_t hovvi_mosh_core_tick( hovvi_mosh_core_t* core, uint64_t now_ms, hovvi_mosh_frame_t* out_frame )
 {
-  (void)now_ms;
   if ( core == nullptr || out_frame == nullptr ) {
     return HOVVI_MOSH_INVALID_ARGUMENT;
   }
   clear_frame( out_frame );
-  return HOVVI_MOSH_UNAVAILABLE;
+  try {
+    if ( core->remote_terminal.set_echo_ack( now_ms ) && core->rendered_once ) {
+      const Terminal::Framebuffer& next_frame = core->remote_terminal.get_fb();
+      const std::string output = core->display.new_frame( true, core->rendered_frame, next_frame );
+      core->rendered_frame = next_frame;
+      const hovvi_mosh_status_t status = set_terminal_output( out_frame, output );
+      if ( status != HOVVI_MOSH_OK ) {
+        return status;
+      }
+    }
+    set_tick_from_terminal( core, now_ms, out_frame );
+    out_frame->clean_shutdown = core->clean_shutdown ? 1 : 0;
+    return HOVVI_MOSH_OK;
+  } catch ( const std::bad_alloc& ) {
+    return HOVVI_MOSH_INTERNAL_ERROR;
+  } catch ( const std::exception& ) {
+    return HOVVI_MOSH_INTERNAL_ERROR;
+  }
 }
 
 hovvi_mosh_status_t hovvi_mosh_core_shutdown( hovvi_mosh_core_t* core, hovvi_mosh_frame_t* out_frame )
@@ -258,7 +310,10 @@ hovvi_mosh_status_t hovvi_mosh_core_shutdown( hovvi_mosh_core_t* core, hovvi_mos
     return HOVVI_MOSH_INVALID_ARGUMENT;
   }
   clear_frame( out_frame );
-  return HOVVI_MOSH_UNAVAILABLE;
+  core->shutdown_requested = true;
+  core->clean_shutdown = true;
+  out_frame->clean_shutdown = 1;
+  return HOVVI_MOSH_OK;
 }
 
 void hovvi_mosh_frame_free( hovvi_mosh_frame_t* frame )

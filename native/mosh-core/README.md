@@ -31,4 +31,4 @@ make -C native/mosh-core upstream-check
 
 The relay-packet smoke is the first upstream-backed adapter slice. It encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted bytes through Hovvi `RelayDatagramEndpoint`, decrypts them on the other side, and reconstructs upstream packets without opening UDP sockets.
 
-The upstream ABI smoke links `src/hovvi_mosh_core_upstream.cc` for repository validation only. It validates inbound host diff rendering plus outbound input and resize packet generation. The npm package includes only `src/hovvi_mosh_core_unavailable.c` until native/mobile GPL distribution policy is finalized.
+The upstream ABI smoke links `src/hovvi_mosh_core_upstream.cc` for repository validation only. It validates inbound host diff rendering, outbound input and resize packet generation, scheduled tick behavior, and clean shutdown flags. The npm package includes only `src/hovvi_mosh_core_unavailable.c` until native/mobile GPL distribution policy is finalized.

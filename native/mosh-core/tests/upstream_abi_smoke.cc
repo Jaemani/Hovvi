@@ -138,6 +138,23 @@ int main()
   }
   hovvi_mosh_frame_free( &frame );
 
+  failures += require( hovvi_mosh_core_send_user_input( core,
+                                                        { .data = user_input, .len = sizeof( user_input ) },
+                                                        &frame )
+                         == HOVVI_MOSH_OK,
+                       "second input should emit outbound encrypted mosh packet" )
+                ? 0
+                : 1;
+  failures += require( frame.next_tick_ms > 0, "second input should schedule echo-ack tick" ) ? 0 : 1;
+  hovvi_mosh_frame_free( &frame );
+
+  failures += require( hovvi_mosh_core_tick( core, UINT64_C( 1000000000000 ), &frame ) == HOVVI_MOSH_OK,
+                       "tick should process upstream terminal timers" )
+                ? 0
+                : 1;
+  failures += require( frame.clean_shutdown == 0, "tick should not mark clean shutdown before shutdown" ) ? 0 : 1;
+  hovvi_mosh_frame_free( &frame );
+
   failures += require( hovvi_mosh_core_resize( core, { .columns = 100, .rows = 40 }, &frame ) == HOVVI_MOSH_OK,
                        "resize should emit outbound encrypted mosh packet" )
                 ? 0
@@ -153,6 +170,20 @@ int main()
     failures += require( resize_packet.direction == Network::TO_SERVER, "resize packet should target server" ) ? 0 : 1;
     failures += require( resize_stream.size() == 1, "resize stream should contain one event" ) ? 0 : 1;
   }
+  hovvi_mosh_frame_free( &frame );
+
+  failures += require( hovvi_mosh_core_shutdown( core, &frame ) == HOVVI_MOSH_OK,
+                       "shutdown should complete cleanly in current ABI slice" )
+                ? 0
+                : 1;
+  failures += require( frame.clean_shutdown == 1, "shutdown should set clean shutdown flag" ) ? 0 : 1;
+  hovvi_mosh_frame_free( &frame );
+
+  failures += require( hovvi_mosh_core_tick( core, UINT64_C( 1000000000100 ), &frame ) == HOVVI_MOSH_OK,
+                       "tick after shutdown should remain valid" )
+                ? 0
+                : 1;
+  failures += require( frame.clean_shutdown == 1, "tick after shutdown should preserve clean shutdown flag" ) ? 0 : 1;
   hovvi_mosh_frame_free( &frame );
 
   hovvi_mosh_core_destroy( core );
