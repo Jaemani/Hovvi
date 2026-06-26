@@ -31,6 +31,7 @@ The initial model supports:
 - alternate-screen preservation was added in ADR 0037.
 - extended foreground color preservation was added in ADR 0038.
 - background color preservation was added in ADR 0039.
+- wide grapheme cursor advancement was added in ADR 0041.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. `TerminalSurfaceView` renders the live terminal screen when
@@ -40,9 +41,9 @@ it has visible text, and falls back to scrollback lines otherwise.
 
 The iOS shell now has a distinct live-screen surface, which is the right boundary
 for future ANSI parsing, keyboard, paste, and simulator screenshot validation.
-This is not yet a complete terminal emulator. Full ANSI/VT behavior, wide
-grapheme handling, selection, scroll regions, reverse-video color swapping, and
-performance profiling remain pending.
+This is not yet a complete terminal emulator. Full ANSI/VT behavior,
+ambiguous-width parity, selection, scroll regions, reverse-video color swapping,
+and performance profiling remain pending.
 
 ## Validation
 

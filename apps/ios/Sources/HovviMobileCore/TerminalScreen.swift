@@ -212,12 +212,42 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     private mutating func put(_ character: Character) {
-        cells[cursorRow][cursorColumn] = TerminalCell(character: character, attributes: currentAttributes)
-        if cursorColumn == columns - 1 {
+        let width = character.terminalCellWidth
+        if width == 0 {
+            appendCombiningCharacter(character)
+            return
+        }
+        if width == 2, cursorColumn == columns - 1 {
             cursorColumn = 0
             lineFeed()
-        } else {
-            cursorColumn += 1
+        }
+        cells[cursorRow][cursorColumn] = TerminalCell(character: character, attributes: currentAttributes)
+        if width == 2, cursorColumn + 1 < columns {
+            cells[cursorRow][cursorColumn + 1] = TerminalCell(
+                character: " ",
+                attributes: currentAttributes,
+                isContinuation: true
+            )
+        }
+        advanceCursor(by: width)
+    }
+
+    private mutating func appendCombiningCharacter(_ character: Character) {
+        guard cursorColumn > 0 else { return }
+        let previousColumn = cursorColumn - 1
+        guard cells[cursorRow][previousColumn].isContinuation == false else { return }
+        let combined = String(cells[cursorRow][previousColumn].character) + String(character)
+        let combinedCharacters = Array(combined)
+        if combinedCharacters.count == 1, let combinedCharacter = combinedCharacters.first {
+            cells[cursorRow][previousColumn].character = combinedCharacter
+        }
+    }
+
+    private mutating func advanceCursor(by width: Int) {
+        cursorColumn += width
+        while cursorColumn >= columns {
+            cursorColumn -= columns
+            lineFeed()
         }
     }
 
@@ -396,47 +426,72 @@ private enum TerminalToken {
 }
 
 private struct TerminalEscapeParser {
-    private let scalars: [UnicodeScalar]
-    private var index = 0
+    private let text: String
+    private var index: String.Index
+    private var pendingTokens: [TerminalToken] = []
 
     init(_ text: String) {
-        self.scalars = Array(text.unicodeScalars)
+        self.text = text
+        self.index = text.startIndex
     }
 
     mutating func nextToken() -> TerminalToken? {
-        guard index < scalars.count else { return nil }
-        let scalar = scalars[index]
-        index += 1
-
+        if pendingTokens.isEmpty == false {
+            return pendingTokens.removeFirst()
+        }
+        guard index < text.endIndex else { return nil }
+        let character = text[index]
+        let scalarValues = character.unicodeScalars.map(\.value)
+        if scalarValues == [0x0D, 0x0A] {
+            index = text.index(after: index)
+            pendingTokens.append(.lineFeed)
+            return .carriageReturn
+        }
+        guard let scalar = text[index].unicodeScalars.first else { return nil }
         switch scalar.value {
         case 0x0A:
+            advanceOneScalar()
             return .lineFeed
         case 0x0D:
+            advanceOneScalar()
             return .carriageReturn
         case 0x08:
+            advanceOneScalar()
             return .backspace
         case 0x1B:
+            advanceOneScalar()
             return parseEscape()
         default:
-            return .character(Character(scalar))
+            index = text.index(after: index)
+            return .character(character)
         }
     }
 
     private mutating func parseEscape() -> TerminalToken? {
-        guard index < scalars.count else { return nil }
-        guard scalars[index] == "[" else { return nil }
-        index += 1
+        guard index < text.endIndex else { return nil }
+        guard text[index] == "[" else { return nil }
+        index = text.index(after: index)
 
         var parameters = ""
-        while index < scalars.count {
-            let scalar = scalars[index]
-            index += 1
+        while index < text.endIndex {
+            let character = text[index]
+            index = text.index(after: index)
+            guard let scalar = character.unicodeScalars.first else { continue }
             if scalar.value >= 0x40, scalar.value <= 0x7E {
                 return csiToken(final: scalar, parameters: parameters)
             }
-            parameters.unicodeScalars.append(scalar)
+            parameters.append(character)
         }
         return nil
+    }
+
+    private mutating func advanceOneScalar() {
+        guard let scalarIndex = index.samePosition(in: text.unicodeScalars) else {
+            index = text.index(after: index)
+            return
+        }
+        let nextScalarIndex = text.unicodeScalars.index(after: scalarIndex)
+        index = nextScalarIndex.samePosition(in: text) ?? text.index(after: index)
     }
 
     private func csiToken(final: UnicodeScalar, parameters: String) -> TerminalToken? {
@@ -485,10 +540,16 @@ private struct TerminalEscapeParser {
 private struct TerminalCell: Equatable {
     var character: Character
     var attributes: TerminalTextAttributes
+    var isContinuation: Bool
 
-    init(character: Character = " ", attributes: TerminalTextAttributes = TerminalTextAttributes()) {
+    init(
+        character: Character = " ",
+        attributes: TerminalTextAttributes = TerminalTextAttributes(),
+        isContinuation: Bool = false
+    ) {
         self.character = character
         self.attributes = attributes
+        self.isContinuation = isContinuation
     }
 }
 
@@ -502,7 +563,7 @@ private struct TerminalScreenSnapshot: Equatable {
 private extension Array where Element == TerminalCell {
     func trimmingRightSpaces() -> [TerminalCell] {
         var value = self
-        while value.last?.character == " " {
+        while value.last?.isBlankForTrimming == true {
             value.removeLast()
         }
         return value
@@ -514,6 +575,9 @@ private extension Array where Element == TerminalCell {
         var attributes = first?.attributes ?? TerminalTextAttributes()
 
         for cell in self {
+            if cell.isContinuation {
+                continue
+            }
             if cell.attributes == attributes {
                 text.append(cell.character)
             } else {
@@ -529,5 +593,51 @@ private extension Array where Element == TerminalCell {
             runs.append(TerminalScreenRun(text: text, attributes: attributes))
         }
         return runs
+    }
+}
+
+private extension TerminalCell {
+    var isBlankForTrimming: Bool {
+        isContinuation || character == " "
+    }
+}
+
+private extension Character {
+    var terminalCellWidth: Int {
+        let scalars = unicodeScalars
+        if scalars.allSatisfy(\.isCombiningMark) {
+            return 0
+        }
+        if scalars.contains(where: \.isWideTerminalScalar) {
+            return 2
+        }
+        return 1
+    }
+}
+
+private extension UnicodeScalar {
+    var isCombiningMark: Bool {
+        properties.generalCategory == .nonspacingMark ||
+            properties.generalCategory == .enclosingMark ||
+            properties.generalCategory == .spacingMark
+    }
+
+    var isWideTerminalScalar: Bool {
+        switch value {
+        case 0x1100...0x115F,
+             0x2329...0x232A,
+             0x2E80...0xA4CF,
+             0xAC00...0xD7A3,
+             0xF900...0xFAFF,
+             0xFE10...0xFE19,
+             0xFE30...0xFE6F,
+             0xFF00...0xFF60,
+             0xFFE0...0xFFE6,
+             0x1F300...0x1FAFF,
+             0x20000...0x3FFFD:
+            return true
+        default:
+            return false
+        }
     }
 }
