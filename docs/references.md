@@ -8,6 +8,8 @@ Hovvi should lean on proven terminal and packaging behavior instead of inventing
   - https://mosh.org/
   - https://github.com/mobile-shell/mosh
   - https://www.usenix.org/system/files/conference/atc12/atc12-final32.pdf
+  - https://github.com/mobile-shell/mosh/blob/master/COPYING.iOS
+  - https://github.com/mobile-shell/mosh/blob/master/ocb-license.html
   - Reference source paths checked during implementation: `src/network/network.cc`, `src/crypto/crypto.cc`, `src/network/transportsender-impl.h`, and `src/protobufs/transportinstruction.proto`.
 - Tailscale DERP: relay should be connective tissue for encrypted streams, with direct/P2P paths left as a later optimization.
   - https://tailscale.com/docs/reference/derp-servers

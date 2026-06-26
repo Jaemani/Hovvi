@@ -17,12 +17,13 @@
 - mosh-server bootstrap in attach manifests.
 - native iOS mosh relay-datagram packet session.
 - mosh server key validation across Node and Swift attach paths.
+- upstream mosh core integration boundary and audit tooling.
 
 ## Next
 
 - Hosted relay account service with GitHub OAuth device registration.
 - hosted credential lifecycle UI/API and audit log retention policy.
-- mobile-side mosh AES-OCB/SSP state engine or vendored core integration.
+- vendored upstream mosh core adapter behind `hovvi_mosh_core.h`.
 - iOS alpha shell: GitHub login, device/session list UI, attach transport, and tmux-native scrollback rendering.
 
 ## Later

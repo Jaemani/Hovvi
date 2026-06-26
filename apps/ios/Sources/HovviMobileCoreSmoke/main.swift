@@ -227,6 +227,19 @@ try require(receivedMoshPacket?.relaySequence == 12, "mosh session should preser
 try await moshSession.close()
 try require(await fakeRelay.closedChannelId == "dg_fake", "mosh session should close relay datagram channel")
 
+let unavailableMoshCore = UnavailableMoshCoreEngine(reason: "smoke")
+do {
+    _ = try await unavailableMoshCore.start(
+        configuration: MoshCoreConfiguration(
+            serverKey: MoshServerKey(rawValue: moshTransport.key ?? "")!,
+            initialSize: MoshCoreTerminalSize(columns: 80, rows: 24)
+        )
+    )
+    throw SmokeError("unavailable mosh core should fail")
+} catch MoshCoreEngineError.unavailable(let reason) {
+    try require(reason == "smoke", "unavailable mosh core should expose reason")
+}
+
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
     maxLines: 3
