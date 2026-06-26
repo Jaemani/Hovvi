@@ -26,4 +26,4 @@ The current implementation is an unavailable scaffold. It validates the ABI, sta
 make -C native/mosh-core upstream-check
 ```
 
-This compiles isolated vendored upstream mosh crypto and transport-fragment smokes. Generated protobuf C++ files are written under `build/upstream/generated`, not into `vendor/mosh`. The target verifies AES-OCB session round trip and network fragment assemble behavior without changing the scaffold ABI behavior used by `make check`.
+This compiles isolated vendored upstream mosh crypto, transport-fragment, and packet smokes. Generated protobuf C++ files are written under `build/upstream/generated`, not into `vendor/mosh`. The target verifies AES-OCB session round trip, network fragment assembly, and packet serialization behavior without changing the scaffold ABI behavior used by `make check`.

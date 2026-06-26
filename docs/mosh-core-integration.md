@@ -77,8 +77,11 @@ This target currently runs two isolated upstream smokes:
 
 - crypto: compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_internal.cc` with a Hovvi-owned Apple CommonCrypto config shim, then runs an AES-OCB `Crypto::Session` encrypt/decrypt round trip
 - network: generates `transportinstruction.pb.cc/.h` under `build/upstream/generated`, compiles upstream `compressor.cc` and `transportfragment.cc`, then runs a `Network::Fragmenter`/`FragmentAssembly` round trip
+- packet: compiles upstream `network.cc` and `timestamp.cc`, then verifies `Network::Packet` serialization, valid port range parsing, and timestamp wraparound math
 
-The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto and transport-fragment pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
+The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto, transport-fragment, and packet pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
+
+`Network::Transport` still owns a socket-backed `Connection` directly. A deterministic relay-backed transport test needs a Hovvi-owned adapter seam before it should instantiate the full upstream transport loop.
 
 ## Source Groups
 
@@ -98,7 +101,7 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Build a C++ adapter that maps upstream mosh transport send/recv to `hovvi_mosh_core_*` packet APIs.
+1. Add a Hovvi-owned packet IO seam around upstream `Connection::send`/`recv` so the next native smoke can run transport send/receive over in-process relay queues without opening UDP sockets.
 2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through in-process datagram queues.
 3. Port the harness to an iOS static library build once macOS correctness tests pass.
 4. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
