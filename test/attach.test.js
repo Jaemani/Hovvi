@@ -8,6 +8,7 @@ import {
   isMoshServerKey,
   parseMoshConnectLine,
   startMoshServer,
+  validateAttachManifest,
 } from "../src/attach.js";
 
 const MOSH_TEST_KEY = "MDEyMzQ1Njc4OWFiY2RlZg";
@@ -24,6 +25,18 @@ test("buildAttachManifest describes mosh, relay fallback, and tmux scrollback", 
   assert.equal(manifest.methods[0].name, "mosh");
   assert.deepEqual(manifest.scrollback.command, ["tmux", "capture-pane", "-t", "main", "-p", "-S", "-500"]);
   assert.deepEqual(manifest.controlMode.command, ["tmux", "-CC", "attach-session", "-t", "main"]);
+  assert.equal(validateAttachManifest(manifest), manifest);
+});
+
+test("validateAttachManifest rejects unsupported schema versions", () => {
+  const manifest = buildAttachManifest({
+    device: { id: "dev_1", name: "Mac" },
+    sessionName: "main",
+  });
+
+  assert.throws(() => validateAttachManifest({ ...manifest, kind: "ssh-tmux" }), /unsupported attach manifest kind/);
+  assert.throws(() => validateAttachManifest({ ...manifest, version: 2 }), /unsupported attach manifest version/);
+  assert.throws(() => validateAttachManifest({ ...manifest, methods: undefined }), /methods must be an array/);
 });
 
 test("buildAttachManifest exposes relay datagram transport after mosh bootstrap", () => {

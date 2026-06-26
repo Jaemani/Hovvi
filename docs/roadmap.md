@@ -188,6 +188,8 @@ Current status:
   `mosh-server` bootstrap, and client datagram channel open/close.
 - JavaScript clients expose `prepareMoshDatagramAttach` so manifest selection,
   key validation, and channel opening are one reusable attach contract.
+- JavaScript and Swift attach paths reject unsupported attach manifest
+  `kind`/`version` values before selecting a mosh relay datagram transport.
 - `npm run native:relay-attach-check` runs the repository-only native mosh probe
   through a local UDP shim, JavaScript relay datagram channel, relay, agent UDP
   bridge, and agent-started `mosh-server`.
@@ -338,6 +340,9 @@ Current status:
 - `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
   setup failures can be debugged without exposing relay credentials or mosh
   keys.
+- Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
+  JavaScript relay client and Swift mobile attach path reject unsupported
+  manifest schema values.
 - tmux sessions and panes are discovered through tmux format output.
 - Claude Code, Codex, Gemini, aider, and cursor-agent panes are marked as AI
   coding panes.

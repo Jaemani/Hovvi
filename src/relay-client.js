@@ -1,5 +1,6 @@
 import { Duplex } from "node:stream";
 import WebSocket from "ws";
+import { validateAttachManifest } from "./attach.js";
 import { envelope, parseEnvelope, randomId, serialize } from "./protocol.js";
 
 export async function createClient({ relayUrl, token }) {
@@ -369,6 +370,7 @@ export async function createClient({ relayUrl, token }) {
 }
 
 function selectMoshRelayDatagramMethod(manifest) {
+  validateAttachManifest(manifest);
   const methods = [...(manifest?.methods || [])].sort((left, right) => (left.priority || 0) - (right.priority || 0));
   const method = methods.find((candidate) => {
     return candidate.name === "mosh" && candidate.status === "available" && candidate.transport?.kind === "relay-datagram";

@@ -209,8 +209,13 @@ channel state after either peer closes.
 For attach flows, the JavaScript relay client also exposes
 `prepareMoshDatagramAttach(...)`. It requests an attach manifest, selects the
 highest-priority available `mosh` method with `relay-datagram` transport,
-validates `remotePort` and the printable mosh server key, opens the datagram
-channel, and returns `{ manifest, method, transport, channel }`.
+validates that the manifest is supported v1 `mosh-tmux`, validates `remotePort`
+and the printable mosh server key, opens the datagram channel, and returns
+`{ manifest, method, transport, channel }`.
+
+The current attach manifest schema is versioned independently from the relay
+envelope. Mobile and JavaScript clients must reject unknown attach manifest
+`kind` or `version` values instead of silently treating them as compatible.
 
 ## Validation
 

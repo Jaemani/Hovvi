@@ -1,6 +1,9 @@
 import { spawn as spawnChild } from "node:child_process";
 import { userInfo } from "node:os";
 
+export const ATTACH_MANIFEST_KIND = "mosh-tmux";
+export const ATTACH_MANIFEST_VERSION = 1;
+
 export function buildAttachManifest({ device, sessionName, lines = 2000, mosh } = {}) {
   const target = escapeTmuxTarget(sessionName);
   const user = userInfo().username;
@@ -28,8 +31,8 @@ export function buildAttachManifest({ device, sessionName, lines = 2000, mosh } 
   }
 
   return {
-    kind: "mosh-tmux",
-    version: 1,
+    kind: ATTACH_MANIFEST_KIND,
+    version: ATTACH_MANIFEST_VERSION,
     deviceId: device?.id,
     deviceName: device?.name,
     sessionName,
@@ -61,6 +64,25 @@ export function buildAttachManifest({ device, sessionName, lines = 2000, mosh } 
       command: ["tmux", "-CC", "attach-session", "-t", target],
     },
   };
+}
+
+export function validateAttachManifest(manifest) {
+  if (!manifest || typeof manifest !== "object") {
+    throw new Error("attach manifest must be an object");
+  }
+  if (manifest.kind !== ATTACH_MANIFEST_KIND) {
+    throw new Error(`unsupported attach manifest kind: ${manifest.kind || "<missing>"}`);
+  }
+  if (manifest.version !== ATTACH_MANIFEST_VERSION) {
+    throw new Error(`unsupported attach manifest version: ${manifest.version || "<missing>"}`);
+  }
+  if (!manifest.sessionName || typeof manifest.sessionName !== "string") {
+    throw new Error("attach manifest is missing sessionName");
+  }
+  if (!Array.isArray(manifest.methods)) {
+    throw new Error("attach manifest methods must be an array");
+  }
+  return manifest;
 }
 
 export function buildMoshServerCommand({

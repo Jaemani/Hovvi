@@ -83,6 +83,43 @@ try require(manifestEnvelope.payload.manifest.kind == "mosh-tmux", "attach manif
 try require(manifestEnvelope.payload.manifest.scrollback.lines == 2000, "scrollback lines should decode")
 try require(manifestEnvelope.payload.manifest.methods[0].transport?.remotePort == 60001, "mosh transport port should decode")
 try require(manifestEnvelope.payload.manifest.methods[0].transport?.key == "MDEyMzQ1Njc4OWFiY2RlZg", "mosh transport key should decode")
+try manifestEnvelope.payload.manifest.validateSupportedMoshAttachManifest()
+
+do {
+    let unsupportedKindManifest = AttachManifest(
+        kind: "ssh-tmux",
+        version: 1,
+        deviceId: "dev_1",
+        deviceName: "Mac",
+        sessionName: "main",
+        user: "jaeman",
+        methods: [],
+        scrollback: ScrollbackSource(source: "tmux.capture-pane", command: [], lines: 2000),
+        controlMode: ControlModeSource(source: "tmux.control-mode", command: [])
+    )
+    try unsupportedKindManifest.validateSupportedMoshAttachManifest()
+    throw SmokeError("unsupported attach manifest kind should fail")
+} catch MoshRelayDatagramSessionError.unsupportedManifestKind(let kind) {
+    try require(kind == "ssh-tmux", "unsupported attach manifest kind should be reported")
+}
+
+do {
+    let unsupportedVersionManifest = AttachManifest(
+        kind: "mosh-tmux",
+        version: 2,
+        deviceId: "dev_1",
+        deviceName: "Mac",
+        sessionName: "main",
+        user: "jaeman",
+        methods: [],
+        scrollback: ScrollbackSource(source: "tmux.capture-pane", command: [], lines: 2000),
+        controlMode: ControlModeSource(source: "tmux.control-mode", command: [])
+    )
+    try unsupportedVersionManifest.validateSupportedMoshAttachManifest()
+    throw SmokeError("unsupported attach manifest version should fail")
+} catch MoshRelayDatagramSessionError.unsupportedManifestVersion(let version) {
+    try require(version == 2, "unsupported attach manifest version should be reported")
+}
 
 do {
     _ = try decodeEnvelope(DevicesSnapshot.self, from: data, expectedType: "other")

@@ -49,7 +49,12 @@ public struct MoshServerKey: Equatable, Sendable, RawRepresentable {
     }
 }
 
+public let hovviAttachManifestKind = "mosh-tmux"
+public let hovviAttachManifestVersion = 1
+
 public enum MoshRelayDatagramSessionError: Error, Equatable, Sendable, CustomStringConvertible {
+    case unsupportedManifestKind(String)
+    case unsupportedManifestVersion(Int)
     case missingDeviceId
     case noRelayDatagramTransport
     case unsupportedTransportKind(String)
@@ -63,6 +68,10 @@ public enum MoshRelayDatagramSessionError: Error, Equatable, Sendable, CustomStr
 
     public var description: String {
         switch self {
+        case .unsupportedManifestKind(let kind):
+            return "Unsupported attach manifest kind: \(kind)."
+        case .unsupportedManifestVersion(let version):
+            return "Unsupported attach manifest version: \(version)."
         case .missingDeviceId:
             return "Attach manifest does not include a device id."
         case .noRelayDatagramTransport:
@@ -88,7 +97,17 @@ public enum MoshRelayDatagramSessionError: Error, Equatable, Sendable, CustomStr
 }
 
 public extension AttachManifest {
+    func validateSupportedMoshAttachManifest() throws {
+        guard kind == hovviAttachManifestKind else {
+            throw MoshRelayDatagramSessionError.unsupportedManifestKind(kind)
+        }
+        guard version == hovviAttachManifestVersion else {
+            throw MoshRelayDatagramSessionError.unsupportedManifestVersion(version)
+        }
+    }
+
     func preferredMoshRelayDatagramTransport() throws -> AttachTransport {
+        try validateSupportedMoshAttachManifest()
         let candidates = methods
             .filter { $0.name == "mosh" && $0.status == "available" }
             .sorted { $0.priority < $1.priority }
@@ -118,6 +137,7 @@ public actor MoshRelayDatagramSession {
     private var nextRelaySequence = 0
 
     public init(relay: any RelayDatagramTransporting, manifest: AttachManifest) throws {
+        try manifest.validateSupportedMoshAttachManifest()
         guard let deviceId = manifest.deviceId else {
             throw MoshRelayDatagramSessionError.missingDeviceId
         }
