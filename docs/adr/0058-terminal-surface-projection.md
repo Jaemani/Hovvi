@@ -26,7 +26,8 @@ The projection maps an `AttachShellSnapshot` into public
 - attributed `TerminalScreenRun` payloads for the renderer.
 
 `TerminalSurfaceView` now consumes the projection instead of owning row
-composition directly.
+composition directly. ADR 0059 adds the bounded viewport that the SwiftUI view
+renders from this projection.
 
 ## Consequences
 

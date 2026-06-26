@@ -116,6 +116,9 @@ live screen rows with separate stable IDs. Before live output arrives, it falls
 back to scrollback only.
 `TerminalSurfaceProjection` exposes that row composition as public data so CI can
 validate render inputs before simulator/device screenshot coverage is added.
+`TerminalSurfaceViewport` caps the immediate SwiftUI render input and exposes a
+bottom anchor so large scrollback snapshots do not create an unbounded terminal
+view.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the

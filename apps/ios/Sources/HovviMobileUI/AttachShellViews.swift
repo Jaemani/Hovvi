@@ -19,7 +19,21 @@ public struct TerminalSurfaceLine: Identifiable, Equatable, Sendable {
     }
 }
 
+public struct TerminalSurfaceViewport: Equatable, Sendable {
+    public let lines: [TerminalSurfaceLine]
+    public let anchorId: String?
+    public let isTruncatedAbove: Bool
+
+    public init(lines: [TerminalSurfaceLine], anchorId: String?, isTruncatedAbove: Bool) {
+        self.lines = lines
+        self.anchorId = anchorId
+        self.isTruncatedAbove = isTruncatedAbove
+    }
+}
+
 public enum TerminalSurfaceProjection {
+    public static let defaultViewportLineLimit = 5000
+
     public static func lines(for snapshot: AttachShellSnapshot) -> [TerminalSurfaceLine] {
         let scrollbackLines = (snapshot.scrollback?.visibleLines ?? []).map {
             TerminalSurfaceLine(
@@ -35,6 +49,23 @@ public enum TerminalSurfaceProjection {
             TerminalSurfaceLine(id: "live-\($0.id)", source: .live, runs: $0.runs)
         }
         return scrollbackLines + screenLines
+    }
+
+    public static func viewport(
+        for snapshot: AttachShellSnapshot,
+        maxRows: Int = defaultViewportLineLimit
+    ) -> TerminalSurfaceViewport {
+        viewport(lines: lines(for: snapshot), maxRows: maxRows)
+    }
+
+    public static func viewport(lines: [TerminalSurfaceLine], maxRows: Int) -> TerminalSurfaceViewport {
+        let boundedMaxRows = max(1, maxRows)
+        let visibleLines = lines.count > boundedMaxRows ? Array(lines.suffix(boundedMaxRows)) : lines
+        return TerminalSurfaceViewport(
+            lines: visibleLines,
+            anchorId: visibleLines.last?.id,
+            isTruncatedAbove: visibleLines.count < lines.count
+        )
     }
 }
 
@@ -386,7 +417,7 @@ public struct TerminalSurfaceView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(lines) { line in
+                    ForEach(viewport.lines) { line in
                         TerminalSurfaceLineView(line: line)
                             .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
@@ -397,22 +428,22 @@ public struct TerminalSurfaceView: View {
                 .padding(12)
             }
             .background(Color.black.opacity(0.03))
-            .onChange(of: lines.last?.id) { _, id in
+            .onChange(of: viewport.anchorId) { _, id in
                 guard let id else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo(id, anchor: .bottom)
                 }
             }
             .overlay {
-                if lines.isEmpty {
+                if viewport.lines.isEmpty {
                     ContentUnavailableView("No Output", systemImage: "terminal", description: Text(emptyDescription))
                 }
             }
         }
     }
 
-    private var lines: [TerminalSurfaceLine] {
-        TerminalSurfaceProjection.lines(for: snapshot)
+    private var viewport: TerminalSurfaceViewport {
+        TerminalSurfaceProjection.viewport(for: snapshot)
     }
 
     private var emptyDescription: String {

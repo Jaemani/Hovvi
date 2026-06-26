@@ -210,6 +210,9 @@ Current status:
 - Swift mobile terminal surface projection is now public and smoke-tested, so
   scrollback/live row order, row sources, and stable render IDs are validated
   before simulator/device screenshot coverage is added.
+- Swift mobile terminal viewport projection now caps immediate SwiftUI render
+  input, exposes a deterministic bottom anchor, and reports when older rows are
+  truncated above the viewport.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,

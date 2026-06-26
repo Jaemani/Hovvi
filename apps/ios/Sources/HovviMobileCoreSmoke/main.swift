@@ -734,6 +734,12 @@ try require(
     composedSurface[1].runs.map(\.text).joined() == "local",
     "terminal surface live row should preserve terminal screen runs"
 )
+let cappedViewport = TerminalSurfaceProjection.viewport(lines: composedSurface, maxRows: 1)
+try require(cappedViewport.lines.map(\.id) == ["live-screen-24"], "terminal surface viewport should keep the newest rows when capped")
+try require(cappedViewport.anchorId == "live-screen-24", "terminal surface viewport should anchor to the newest visible row")
+try require(cappedViewport.isTruncatedAbove, "terminal surface viewport should report when older rows are hidden")
+let minimumViewport = TerminalSurfaceProjection.viewport(lines: composedSurface, maxRows: 0)
+try require(minimumViewport.lines.count == 1, "terminal surface viewport should keep at least one row")
 
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))
