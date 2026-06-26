@@ -19,6 +19,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm pack --dry-run
+      - run: npm run native:check
       - run: swift build
         working-directory: apps/ios
       - run: swift run HovviMobileCoreSmoke

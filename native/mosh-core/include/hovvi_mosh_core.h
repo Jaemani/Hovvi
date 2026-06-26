@@ -31,8 +31,11 @@ typedef enum {
   HOVVI_MOSH_INVALID_ARGUMENT = 1,
   HOVVI_MOSH_CRYPTO_ERROR = 2,
   HOVVI_MOSH_PROTOCOL_ERROR = 3,
-  HOVVI_MOSH_INTERNAL_ERROR = 4
+  HOVVI_MOSH_INTERNAL_ERROR = 4,
+  HOVVI_MOSH_UNAVAILABLE = 5
 } hovvi_mosh_status_t;
+
+const char* hovvi_mosh_status_name(hovvi_mosh_status_t status);
 
 hovvi_mosh_status_t hovvi_mosh_core_create(const char* printable_key,
                                            hovvi_mosh_terminal_size_t initial_size,

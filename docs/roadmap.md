@@ -19,12 +19,13 @@
 - mosh server key validation across Node and Swift attach paths.
 - upstream mosh core integration boundary and audit tooling.
 - reproducible upstream mosh vendoring plan script.
+- buildable native mosh C ABI unavailable scaffold and smoke harness.
 
 ## Next
 
 - Hosted relay account service with GitHub OAuth device registration.
 - hosted credential lifecycle UI/API and audit log retention policy.
-- vendored upstream mosh core adapter behind `hovvi_mosh_core.h`.
+- upstream mosh core adapter behind `hovvi_mosh_core.h`.
 - iOS alpha shell: GitHub login, device/session list UI, attach transport, and tmux-native scrollback rendering.
 
 ## Later

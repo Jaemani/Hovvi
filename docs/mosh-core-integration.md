@@ -50,6 +50,18 @@ The native core receives opaque encrypted mosh packets from Hovvi relay datagram
 - terminal output bytes for the mobile terminal renderer
 - outbound encrypted mosh packets to send through the relay datagram channel
 
+## Build Scaffold
+
+The current native implementation is an unavailable scaffold, not the real upstream-backed core. It exists to keep the ABI, status values, frame ownership rules, printable key validation, and CI wiring buildable before GPL source is vendored.
+
+```bash
+npm run native:check
+# equivalent:
+make -C native/mosh-core check
+```
+
+The smoke binary must return `HOVVI_MOSH_UNAVAILABLE` for a valid create call until the upstream adapter is linked. That failure mode is intentional; it prevents the app from silently pretending that mosh protocol handling exists.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior.

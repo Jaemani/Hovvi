@@ -11,3 +11,11 @@ The ABI is packet-oriented:
 - terminal renderer output is returned as frame data for the native mobile UI
 
 The C ABI exists so Swift, Kotlin, and future test harnesses do not depend directly on upstream C++ class layout.
+
+## Local Check
+
+```bash
+make -C native/mosh-core check
+```
+
+The current implementation is an unavailable scaffold. It validates the ABI, status values, printable mosh key shape, frame cleanup, and build wiring before upstream mosh source is linked.

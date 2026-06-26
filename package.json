@@ -28,7 +28,8 @@
   "scripts": {
     "test": "node --test",
     "check": "node --check bin/hovvi && node --check src/*.js && node --check scripts/*.js",
-    "prepublishOnly": "npm run check && npm test"
+    "native:check": "make -C native/mosh-core check",
+    "prepublishOnly": "npm run check && npm test && npm run native:check"
   },
   "keywords": [
     "tmux",

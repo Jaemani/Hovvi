@@ -155,6 +155,12 @@ The native iOS core can select the available `mosh` relay-datagram transport fro
 
 The upstream-mosh-first native core plan is tracked in `docs/mosh-core-integration.md`. Hovvi has a stable C ABI draft in `native/mosh-core/include/hovvi_mosh_core.h`, a Swift `MoshCoreEngine` interface, and audit/vendoring scripts so the app does not depend directly on upstream C++ class layout.
 
+Native ABI smoke checks run with:
+
+```bash
+npm run native:check
+```
+
 ## Product Direction
 
 - Name: Hovvi

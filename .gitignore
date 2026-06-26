@@ -7,4 +7,5 @@ coverage/
 .nyc_output/
 dist/
 .build/
+native/mosh-core/build/
 *.log
