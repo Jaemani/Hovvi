@@ -3,6 +3,7 @@ CXX ?= c++
 AR ?= ar
 CFLAGS ?= -std=c11 -Wall -Wextra -Werror -pedantic -O2
 CPPFLAGS ?= -Iinclude
+ADAPTER_CXXFLAGS ?= -std=c++17 -Wall -Wextra -Werror -pedantic -O2
 UPSTREAM_CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -Wno-unused-parameter -O2
 BUILD_DIR ?= build
 PROTOBUF_PREFIX ?= $(shell brew --prefix protobuf 2>/dev/null)
@@ -19,6 +20,7 @@ PROTOBUF_LDLIBS ?= $(if $(PROTOBUF_PKG_LIBS),$(PROTOBUF_PKG_LIBS),$(PROTOBUF_LDF
 
 LIB := $(BUILD_DIR)/libhovvi_mosh_core.a
 SMOKE := $(BUILD_DIR)/abi_smoke
+ADAPTER_SMOKE := $(BUILD_DIR)/packet_io_smoke
 SRC := src/hovvi_mosh_core_unavailable.c
 OBJ := $(BUILD_DIR)/hovvi_mosh_core_unavailable.o
 UPSTREAM_VENDOR_DIR := vendor/mosh
@@ -50,13 +52,16 @@ UPSTREAM_CRYPTO_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_crypto_smoke
 UPSTREAM_NETWORK_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_network_smoke
 UPSTREAM_PACKET_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_packet_smoke
 
-.PHONY: all check upstream-check clean
+.PHONY: all check adapter-check upstream-check clean
 .SECONDARY: $(UPSTREAM_PROTO_CC) $(UPSTREAM_PROTO_H)
 
 all: $(LIB)
 
 check: $(SMOKE)
 	$(SMOKE)
+
+adapter-check: $(ADAPTER_SMOKE)
+	$(ADAPTER_SMOKE)
 
 upstream-check: $(UPSTREAM_CRYPTO_SMOKE) $(UPSTREAM_NETWORK_SMOKE) $(UPSTREAM_PACKET_SMOKE)
 	$(UPSTREAM_CRYPTO_SMOKE)
@@ -74,6 +79,9 @@ $(LIB): $(OBJ)
 
 $(SMOKE): tests/abi_smoke.c $(LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/abi_smoke.c $(LIB) -o $(SMOKE)
+
+$(ADAPTER_SMOKE): tests/packet_io_smoke.cc adapter/hovvi_packet_io.h | $(BUILD_DIR)
+	$(CXX) -Iadapter $(ADAPTER_CXXFLAGS) tests/packet_io_smoke.cc -o $(ADAPTER_SMOKE)
 
 $(UPSTREAM_CONFIG_ROOT): $(UPSTREAM_CONFIG_SRC) | $(BUILD_DIR)
 	mkdir -p $(dir $@)

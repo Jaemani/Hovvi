@@ -67,13 +67,19 @@ The ABI includes `hovvi_mosh_core_tick` and `MoshCoreFrame.nextTickAfterMs` beca
 
 ## Upstream Compile Smoke
 
-The first upstream-linked native check is intentionally separate from the shipped scaffold:
+The native checks are intentionally separated by ownership and license boundary:
 
 ```bash
+npm run native:check
+npm run native:adapter-check
 npm run native:upstream-check
 ```
 
-This target currently runs two isolated upstream smokes:
+- `native:check` validates the shipped unavailable C ABI scaffold.
+- `native:adapter-check` validates Hovvi-owned packet IO primitives that may be included in the MIT npm package.
+- `native:upstream-check` compiles vendored GPL upstream source for repository/CI validation only.
+
+The upstream-linked check currently runs three isolated smokes:
 
 - crypto: compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_internal.cc` with a Hovvi-owned Apple CommonCrypto config shim, then runs an AES-OCB `Crypto::Session` encrypt/decrypt round trip
 - network: generates `transportinstruction.pb.cc/.h` under `build/upstream/generated`, compiles upstream `compressor.cc` and `transportfragment.cc`, then runs a `Network::Fragmenter`/`FragmentAssembly` round trip
@@ -82,6 +88,8 @@ This target currently runs two isolated upstream smokes:
 The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto, transport-fragment, and packet pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
 
 `Network::Transport` still owns a socket-backed `Connection` directly. A deterministic relay-backed transport test needs a Hovvi-owned adapter seam before it should instantiate the full upstream transport loop.
+
+The first Hovvi-owned seam is `native/mosh-core/adapter/hovvi_packet_io.h`, a bidirectional in-process datagram queue used to preserve packet boundaries and ordering in future relay-backed tests.
 
 ## Source Groups
 

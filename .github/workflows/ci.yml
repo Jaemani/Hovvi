@@ -20,6 +20,7 @@ jobs:
       - run: npm test
       - run: npm pack --dry-run
       - run: npm run native:check
+      - run: npm run native:adapter-check
       - run: npm run mosh:vendor:verify
       - run: brew list pkgconf protobuf >/dev/null 2>&1 || brew install pkgconf protobuf
       - run: npm run native:upstream-check
