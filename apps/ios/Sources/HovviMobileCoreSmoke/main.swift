@@ -1,5 +1,6 @@
 import Foundation
 import HovviMobileCore
+import HovviMobileUI
 
 let snapshot = DevicesSnapshot(
     devices: [
@@ -460,6 +461,22 @@ shellSnapshot = await shell.shutdown()
 try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shutdown should return to browsing")
 try require(shellSnapshot.cleanShutdown, "attach shell should expose clean shutdown")
 try require(await shellRelay.closedChannelId == "dg_shell", "attach shell shutdown should close relay datagram")
+
+let attachShellView = HovviAttachShellView(snapshot: shellSnapshot)
+let terminalSurfaceView = TerminalSurfaceView(snapshot: shellSnapshot)
+let deviceSidebar = DeviceSidebar(snapshot: shellSnapshot)
+try require(
+    String(describing: type(of: attachShellView)).contains("HovviAttachShellView"),
+    "SwiftUI attach shell view should instantiate"
+)
+try require(
+    String(describing: type(of: terminalSurfaceView)).contains("TerminalSurfaceView"),
+    "SwiftUI terminal surface view should instantiate"
+)
+try require(
+    String(describing: type(of: deviceSidebar)).contains("DeviceSidebar"),
+    "SwiftUI device sidebar should instantiate"
+)
 
 let redactedShellError = AttachShellError(
     title: "Secret",

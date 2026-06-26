@@ -175,6 +175,9 @@ On iOS, `AttachShellModel` is the first UI-facing coordinator above the relay
 and mosh attach layers. It fetches scrollback, prepares the attach manifest,
 starts `MoshAttachSession`, applies terminal output into `ScrollbackBuffer`, and
 surfaces redacted recoverable errors for native screens.
+`HovviMobileUI` now compiles the first SwiftUI attach shell surfaces against
+that snapshot contract, including device/session lists, terminal scroll output,
+input, resize callbacks, and recoverable error presentation.
 
 ## Source Groups
 

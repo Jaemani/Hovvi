@@ -242,7 +242,10 @@ Current status:
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
   attach, input, remote receive, resize, shutdown, and mosh key redaction.
-- A real SwiftUI app target and terminal renderer are still pending.
+- `HovviMobileUI` exists as a SwiftUI library target with presentational
+  device/session/terminal/error views backed by `AttachShellSnapshot`.
+- A real Xcode app target, mature terminal renderer, and simulator/device
+  rendering validation are still pending.
 
 ### 6. Mac Agent and CLI Hardening
 

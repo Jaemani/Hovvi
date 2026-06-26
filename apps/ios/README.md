@@ -2,7 +2,9 @@
 
 The iOS app is intentionally not scaffolded as a throwaway UI yet. Hovvi is native-first for mobile because terminal attach, keyboard behavior, background lifecycle, mosh-compatible transport, and future Network Extension work are platform-sensitive.
 
-`HovviMobileCore` is a Swift Package that pins the first native protocol models and JSON coding behavior. Run:
+`HovviMobileCore` is a Swift Package that pins the first native protocol models
+and JSON coding behavior. `HovviMobileUI` is the first SwiftUI target for the
+native attach shell. Run:
 
 ```bash
 swift build
@@ -12,7 +14,8 @@ swift run HovviMobileCoreSmoke
 The package currently covers flattened relay envelopes, outgoing client message
 builders, incoming message dispatch, response matching, a native
 `URLSessionWebSocketTask` relay client, relay datagram attach coordination, and
-the Swift C ABI wrapper for the native mosh core boundary.
+the Swift C ABI wrapper for the native mosh core boundary. The UI target compiles
+the first device/session/terminal/error views against `AttachShellSnapshot`.
 
 The relay client exposes both low-level send/receive methods and app-facing request APIs:
 
@@ -43,12 +46,20 @@ prepares the mosh attach manifest, starts `MoshAttachSession`, applies terminal
 output into `ScrollbackBuffer`, and exposes redacted user-facing error state for
 SwiftUI screens.
 
+`HovviAttachShellView`, `DeviceSidebar`, `TerminalSurfaceView`, and related row
+views are presentational SwiftUI surfaces. They do not own relay or mosh state;
+they render `AttachShellSnapshot` and emit closures for connect, select, attach,
+input, resize, and retry actions.
+
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the
 repository-only upstream static library remains a separate validation artifact
 until the GPL mobile distribution gate is closed.
 
-`ScrollbackBuffer` turns `session.scrollback.ready` text into stable `ScrollbackLine` values for native scroll views. It keeps incomplete streamed text as a stable pending line, trims old lines by configured capacity, and resets cleanly when the user switches sessions.
+`ScrollbackBuffer` turns `session.scrollback.ready` text into stable
+`ScrollbackLine` values for native scroll views. It keeps incomplete streamed
+text as a stable pending line, trims old lines by configured capacity, and resets
+cleanly when the user switches sessions.
 
 The first native build should consume the relay protocol implemented by the CLI package:
 
