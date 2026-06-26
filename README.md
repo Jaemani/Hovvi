@@ -153,7 +153,7 @@ Mobile clients should use `session.scrollback.fetch` for native scrollback inste
 
 The native iOS core can select the available `mosh` relay-datagram transport from an attach manifest, validate the printable mosh server key, open the relay datagram channel, and send/receive encrypted mosh packets with relay sequencing and datagram-size enforcement. The relay datagram layer intentionally does not interpret mosh's AES-OCB/SSP payloads; that remains the compatibility boundary for the mobile terminal engine.
 
-The upstream-mosh-first native core plan is tracked in `docs/mosh-core-integration.md`. Hovvi has a stable C ABI draft in `native/mosh-core/include/hovvi_mosh_core.h` and a Swift `MoshCoreEngine` interface so the app does not depend directly on upstream C++ class layout.
+The upstream-mosh-first native core plan is tracked in `docs/mosh-core-integration.md`. Hovvi has a stable C ABI draft in `native/mosh-core/include/hovvi_mosh_core.h`, a Swift `MoshCoreEngine` interface, and audit/vendoring scripts so the app does not depend directly on upstream C++ class layout.
 
 ## Product Direction
 

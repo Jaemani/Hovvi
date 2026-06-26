@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const CORE_GROUPS = [
+export const CORE_GROUPS = [
   {
     name: "crypto",
     makefile: "src/crypto/Makefile.am",
@@ -53,7 +53,7 @@ const CORE_GROUPS = [
   },
 ];
 
-const REQUIRED_FILES = [
+export const REQUIRED_FILES = [
   "COPYING",
   "COPYING.iOS",
   "ocb-license.html",

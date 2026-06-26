@@ -68,8 +68,17 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Create a vendoring script that copies only the audited source groups, license files, and generated protobuf inputs into `native/mosh-core/vendor/mosh`.
-2. Build a C++ adapter that maps upstream mosh transport send/recv to `hovvi_mosh_core_*` packet APIs.
-3. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through in-process datagram queues.
-4. Port the harness to an iOS static library build once macOS correctness tests pass.
-5. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
+1. Build a C++ adapter that maps upstream mosh transport send/recv to `hovvi_mosh_core_*` packet APIs.
+2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through in-process datagram queues.
+3. Port the harness to an iOS static library build once macOS correctness tests pass.
+4. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
+
+## Vendoring Command
+
+The vendoring command exists but has not been run into the repository yet:
+
+```bash
+node scripts/mosh-vendor.js --checkout /tmp/hovvi-mosh-ref --destination native/mosh-core/vendor/mosh --clean
+```
+
+Use `--dry-run` to inspect the file plan without copying. The script copies audited license files, core source groups, protobuf inputs, and STM client boundary files. It intentionally excludes `src/frontend/mosh-client.cc` because the CLI, termios, Unix signal loop, and direct socket path are not the mobile app boundary.

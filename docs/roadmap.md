@@ -18,6 +18,7 @@
 - native iOS mosh relay-datagram packet session.
 - mosh server key validation across Node and Swift attach paths.
 - upstream mosh core integration boundary and audit tooling.
+- reproducible upstream mosh vendoring plan script.
 
 ## Next
 
