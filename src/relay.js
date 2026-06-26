@@ -12,6 +12,7 @@ export async function runRelay({
   registryPath,
   auditLogPath,
   deviceTimeoutMs = 30000,
+  datagramTimeoutMs = 30000,
   sweepIntervalMs = 5000,
   maxPayloadBytes = 1024 * 1024,
 }) {
@@ -22,6 +23,7 @@ export async function runRelay({
     registryPath,
     auditLogPath,
     deviceTimeoutMs,
+    datagramTimeoutMs,
     sweepIntervalMs,
     maxPayloadBytes,
   });
@@ -36,10 +38,11 @@ export function createRelayServer({
   registryPath,
   auditLogPath,
   deviceTimeoutMs = 30000,
+  datagramTimeoutMs = 30000,
   sweepIntervalMs = 5000,
   maxPayloadBytes = 1024 * 1024,
 } = {}) {
-  const state = createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs });
+  const state = createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs, datagramTimeoutMs });
   const server = http.createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -79,7 +82,10 @@ export function createRelayServer({
         server.once("error", reject);
         server.listen(port, host, () => {
           server.off("error", reject);
-          sweep = setInterval(() => sweepStaleAgents(state), sweepIntervalMs);
+          sweep = setInterval(() => {
+            sweepStaleAgents(state);
+            sweepStaleDatagrams(state);
+          }, sweepIntervalMs);
           resolve(this);
         });
       });
@@ -97,11 +103,12 @@ export function createRelayServer({
   };
 }
 
-export function createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs = 30000 } = {}) {
+export function createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs = 30000, datagramTimeoutMs = 30000 } = {}) {
   return {
     access: createAccessRegistry({ devToken: token, registryPath }),
     audit: createAuditSink({ path: auditLogPath }),
     deviceTimeoutMs,
+    datagramTimeoutMs,
     relayId: randomUUID(),
     startedAt: new Date().toISOString(),
     metrics: {
@@ -109,6 +116,7 @@ export function createRelayState({ token, registryPath, auditLogPath, deviceTime
       messagesReceived: 0,
       invalidMessages: 0,
       staleAgentsPruned: 0,
+      staleDatagramsPruned: 0,
       authAccepted: 0,
       authRejected: 0,
     },
@@ -183,6 +191,7 @@ export function relayStatus(state) {
     relayId: state.relayId,
     startedAt: state.startedAt,
     deviceTimeoutMs: state.deviceTimeoutMs,
+    datagramTimeoutMs: state.datagramTimeoutMs,
     agents: state.agents.size,
     clients: state.clients.size,
     streams: state.streams.size,
@@ -341,6 +350,20 @@ export function sweepStaleAgents(state, now = Date.now()) {
   return stale.length;
 }
 
+export function sweepStaleDatagrams(state, now = Date.now()) {
+  const stale = [...state.datagrams.entries()].filter(([, channel]) => {
+    if (channel.clientWs.readyState !== WebSocket.OPEN || channel.agentWs.readyState !== WebSocket.OPEN) return true;
+    return now - (channel.lastSeenMs || 0) > state.datagramTimeoutMs;
+  });
+  for (const [channelId, channel] of stale) {
+    state.datagrams.delete(channelId);
+    notifyDatagramClose(channel.clientWs, channelId);
+    notifyDatagramClose(channel.agentWs, channelId);
+  }
+  state.metrics.staleDatagramsPruned += stale.length;
+  return stale.length;
+}
+
 function broadcastDeviceList(state) {
   for (const client of state.clients.values()) {
     if (client.ws.readyState === WebSocket.OPEN) sendDeviceList(state, client.ws);
@@ -395,6 +418,7 @@ function datagramOpen(state, ws, message) {
   state.datagrams.set(message.channelId, {
     clientWs: ws,
     agentWs: agent.ws,
+    lastSeenMs: Date.now(),
   });
   agent.ws.send(serialize(message));
 }
@@ -402,12 +426,19 @@ function datagramOpen(state, ws, message) {
 function datagramMessage(state, ws, message) {
   const channel = state.datagrams.get(message.channelId);
   if (!channel) return;
+  channel.lastSeenMs = Date.now();
   const target = ws === channel.clientWs ? channel.agentWs : channel.clientWs;
   if (target.readyState === WebSocket.OPEN) {
     target.send(serialize(message));
   }
   if (message.type === "datagram.close" || message.type === "datagram.error") {
     state.datagrams.delete(message.channelId);
+  }
+}
+
+function notifyDatagramClose(ws, channelId) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(serialize(envelope("datagram.close", { channelId })));
   }
 }
 
@@ -435,9 +466,7 @@ function unregisterSocket(state, ws) {
     if (channel.clientWs === ws || channel.agentWs === ws) {
       state.datagrams.delete(channelId);
       const peer = channel.clientWs === ws ? channel.agentWs : channel.clientWs;
-      if (peer.readyState === WebSocket.OPEN) {
-        peer.send(serialize(envelope("datagram.close", { channelId })));
-      }
+      notifyDatagramClose(peer, channelId);
     }
   }
 }

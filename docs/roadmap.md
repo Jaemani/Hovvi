@@ -74,6 +74,9 @@ session, transport, and terminal primitives.
   `mosh-server`, it binds `mosh-server` to `127.0.0.1`, sends native relay
   transport data to the UDP port, and verifies rendered tmux output, shell
   input, paste-sized input, resize, and shutdown acknowledgement.
+- Relay datagram lifecycle cleanup exists through `sweepStaleDatagrams`, with
+  tests for peer disconnects and idle timeout pruning. Native upstream transport
+  smokes cover out-of-order multi-fragment relay datagram assembly.
 
 ## Execution Goals
 

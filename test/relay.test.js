@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRelayState, handleRelayMessage, relayStatus, sweepStaleAgents } from "../src/relay.js";
+import { createRelayState, handleRelayMessage, relayStatus, sweepStaleAgents, sweepStaleDatagrams } from "../src/relay.js";
 import { envelope, serialize } from "../src/protocol.js";
 
 test("relay registers agent and sends device snapshot to client", () => {
@@ -180,6 +180,51 @@ test("relay routes datagram channel messages", () => {
 
   handleRelayMessage(state, client, serialize(envelope("datagram.close", { channelId: "dg-1" })));
   assert.equal(state.datagrams.has("dg-1"), false);
+});
+
+test("relay closes datagram channels when a peer disconnects", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(state, client, serialize(envelope("datagram.open", { channelId: "dg-peer", deviceId: "mac-1" })));
+
+  agent.readyState = 3;
+  assert.equal(sweepStaleDatagrams(state), 1);
+  assert.equal(state.datagrams.has("dg-peer"), false);
+
+  const close = client.messages.map(JSON.parse).find((message) => message.type === "datagram.close");
+  assert.equal(close.channelId, "dg-peer");
+});
+
+test("relay sweeps idle datagram channels without leaking relay state", () => {
+  const state = createRelayState({ token: "dev", datagramTimeoutMs: 1000 });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(state, client, serialize(envelope("datagram.open", { channelId: "dg-idle", deviceId: "mac-1" })));
+
+  state.datagrams.get("dg-idle").lastSeenMs = 1000;
+  assert.equal(sweepStaleDatagrams(state, 2501), 1);
+  assert.equal(state.datagrams.has("dg-idle"), false);
+  assert.equal(state.metrics.staleDatagramsPruned, 1);
+
+  const clientClose = client.messages.map(JSON.parse).find((message) => message.type === "datagram.close");
+  const agentClose = agent.messages.map(JSON.parse).find((message) => message.type === "datagram.close");
+  assert.equal(clientClose.channelId, "dg-idle");
+  assert.equal(agentClose.channelId, "dg-idle");
 });
 
 test("relay reports datagram offline errors", () => {

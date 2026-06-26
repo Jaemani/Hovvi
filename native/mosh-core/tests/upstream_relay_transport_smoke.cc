@@ -75,6 +75,20 @@ void send_server_instruction( RelayDatagramEndpoint& endpoint,
     endpoint.send( to_bytes( crypto.encrypt( packet.toMessage() ) ) );
   }
 }
+
+std::vector<std::string> encrypt_server_fragments( Crypto::Session& crypto,
+                                                   const TransportBuffers::Instruction& instruction,
+                                                   size_t mtu )
+{
+  Network::Fragmenter fragmenter;
+  std::vector<Network::Fragment> fragments = fragmenter.make_fragments( instruction, mtu );
+  std::vector<std::string> encrypted;
+  for ( Network::Fragment& fragment : fragments ) {
+    Network::Packet packet( Network::TO_CLIENT, Network::timestamp16(), static_cast<uint16_t>( -1 ), fragment.tostring() );
+    encrypted.push_back( crypto.encrypt( packet.toMessage() ) );
+  }
+  return encrypted;
+}
 }
 
 int main()
@@ -133,6 +147,45 @@ int main()
                 : 1;
   failures += require( frame.remote_state_num == 1, "client should record remote state number" ) ? 0 : 1;
   failures += require( frame.ack_num == client.sent_state_num(), "client should observe server ack" ) ? 0 : 1;
+
+  Terminal::Complete reordered_terminal( 80, 24 );
+  reordered_terminal.act( std::string( 220, 'r' ) );
+  TransportBuffers::Instruction reordered_instruction;
+  reordered_instruction.set_protocol_version( Network::MOSH_PROTOCOL_VERSION );
+  reordered_instruction.set_old_num( client.received_state_num() );
+  reordered_instruction.set_new_num( client.received_state_num() + 1 );
+  reordered_instruction.set_ack_num( client.sent_state_num() );
+  reordered_instruction.set_throwaway_num( 0 );
+  reordered_instruction.set_diff( reordered_terminal.diff_from( server_terminal ) );
+  const std::vector<std::string> reordered_fragments = encrypt_server_fragments( server_crypto, reordered_instruction, 40 );
+  failures += require( reordered_fragments.size() > 2, "reordered fixture should produce multiple fragments" ) ? 0 : 1;
+  if ( reordered_fragments.size() > 2 ) {
+    server_relay.send( to_bytes( reordered_fragments.back() ) );
+    failures += require( client.pump_inbound( frame ) == RelayTransportStatus::Ok,
+                         "last fragment alone should be accepted without output" )
+                  ? 0
+                  : 1;
+    failures += require( frame.terminal_output.empty(), "incomplete fragment set should not render output" ) ? 0 : 1;
+    for ( size_t i = 1; i + 1 < reordered_fragments.size(); i++ ) {
+      server_relay.send( to_bytes( reordered_fragments[i] ) );
+      failures += require( client.pump_inbound( frame ) == RelayTransportStatus::Ok,
+                           "middle out-of-order fragment should be accepted" )
+                    ? 0
+                    : 1;
+      failures += require( frame.terminal_output.empty(), "missing first fragment should still not render output" )
+                    ? 0
+                    : 1;
+    }
+    server_relay.send( to_bytes( reordered_fragments.front() ) );
+    failures += require( client.pump_inbound( frame ) == RelayTransportStatus::Ok,
+                         "final missing fragment should complete assembly" )
+                  ? 0
+                  : 1;
+    failures += require( frame.terminal_output.find( "rrrrrrrr" ) != std::string::npos,
+                         "reordered fragments should render after assembly completes" )
+                  ? 0
+                  : 1;
+  }
 
   failures += require( client.send_resize( 100, 40 ) == RelayTransportStatus::Ok,
                        "client resize should produce relay transport datagram" )

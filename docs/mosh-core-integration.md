@@ -124,6 +124,11 @@ session, sends native relay transport resize/input/paste-sized input through
 UDP, verifies rendered native output, and confirms shutdown acknowledgement. The
 check is optional and skips when `tmux` or `mosh-server` is unavailable.
 
+Relay datagram lifecycle coverage now includes idle timeout cleanup and peer
+disconnect cleanup through `sweepStaleDatagrams`. Upstream relay transport
+coverage includes out-of-order multi-fragment server instructions; incomplete
+fragment sets must not render terminal output until assembly completes.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
@@ -142,10 +147,10 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Add packet loss, reordering, reconnect, and stale-channel tests around the
-   local mosh-server probe and relay datagram bridge.
-2. Add relay/agent/client datagram end-to-end coverage before
+1. Add relay/agent/client datagram end-to-end coverage before
    connecting the core to the app UI.
+2. Add reconnect and local relay process integration coverage around the
+   mosh-server probe.
 3. Port the harness to an iOS static library build once macOS correctness tests
    pass.
 
