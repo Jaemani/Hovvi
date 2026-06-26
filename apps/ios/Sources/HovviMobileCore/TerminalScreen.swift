@@ -212,6 +212,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 saveCursor()
             case .restoreCursor:
                 restoreCursor()
+            case .insertLines(let count):
+                insertLines(count)
+            case .deleteLines(let count):
+                deleteLines(count)
             case .sgr(let values):
                 applySgr(values)
             case .scrollRegion(let top, let bottom):
@@ -345,6 +349,32 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorColumn = min(savedCursor.column, columns - 1)
         cursorRow = min(savedCursor.row, rows - 1)
         currentAttributes = savedCursor.attributes
+    }
+
+    private mutating func insertLines(_ count: Int) {
+        guard let region = activeRegionContainingCursor else { return }
+        let count = min(max(1, count), region.bottom - cursorRow + 1)
+        for row in stride(from: region.bottom, through: cursorRow + count, by: -1) {
+            cells[row] = cells[row - count]
+        }
+        for row in cursorRow..<cursorRow + count {
+            cells[row] = Self.blankRow(columns: columns)
+        }
+    }
+
+    private mutating func deleteLines(_ count: Int) {
+        guard let region = activeRegionContainingCursor else { return }
+        let count = min(max(1, count), region.bottom - cursorRow + 1)
+        for row in cursorRow...region.bottom {
+            let source = row + count
+            cells[row] = source <= region.bottom ? cells[source] : Self.blankRow(columns: columns)
+        }
+    }
+
+    private var activeRegionContainingCursor: TerminalScrollRegion? {
+        let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
+        guard cursorRow >= region.top, cursorRow <= region.bottom else { return nil }
+        return region
     }
 
     private mutating func applySgr(_ values: [Int]) {
@@ -529,6 +559,8 @@ private enum TerminalToken {
     case cursorBackward(Int)
     case saveCursor
     case restoreCursor
+    case insertLines(Int)
+    case deleteLines(Int)
     case sgr([Int])
     case scrollRegion(top: Int?, bottom: Int?)
     case originMode(Bool)
@@ -639,6 +671,10 @@ private struct TerminalEscapeParser {
             return (values.first ?? 0) == 2 ? .clearScreen : nil
         case "K":
             return .eraseLine
+        case "L":
+            return .insertLines(first)
+        case "M":
+            return .deleteLines(first)
         case "s":
             return .saveCursor
         case "u":

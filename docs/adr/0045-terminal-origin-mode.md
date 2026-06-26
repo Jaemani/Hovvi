@@ -32,11 +32,10 @@ tmux-native scrollback or the relay/datagram protocol.
 - Cursor addressing now matches the active margins when origin mode is enabled.
 - Scroll regions, reverse index, and cursor movement have a consistent bounded
   model for common full-screen terminal output.
-- Insert/delete line, tab stops, saved cursor state, and exact xterm private
-  mode combinations remain pending.
+- Saved cursor state was added in ADR 0046 and insert/delete line was added in
+  ADR 0047. Tab stops and exact xterm private mode combinations remain pending.
 
 ## Validation
 
 - `swift run --package-path apps/ios HovviMobileCoreSmoke`
 - `swift build --package-path apps/ios --product HovviMobileApp`
-

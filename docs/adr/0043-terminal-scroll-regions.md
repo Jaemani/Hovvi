@@ -26,9 +26,10 @@ scrolling rather than trapping.
 
 ## Consequences
 
-The live terminal model is closer to tmux and full-screen tool behavior. Reverse
-scrolling, insert/delete line within margins, origin mode, and exact xterm edge
-cases remain pending.
+The live terminal model is closer to tmux and full-screen tool behavior.
+Reverse scrolling was added in ADR 0044, origin mode was added in ADR 0045, and
+insert/delete line within margins was added in ADR 0047. Exact xterm edge cases
+remain pending.
 
 ## Validation
 

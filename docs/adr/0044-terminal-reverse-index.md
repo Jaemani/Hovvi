@@ -31,11 +31,10 @@ relay protocol, C ABI, or upstream mosh boundary.
   scrolling.
 - This improves tmux/full-screen renderer parity without mixing live screen
   state with tmux-native scrollback history.
-- Origin mode, insert/delete line, and exact xterm margin edge cases remain
-  pending.
+- Origin mode was added in ADR 0045 and insert/delete line was added in
+  ADR 0047. Exact xterm margin edge cases remain pending.
 
 ## Validation
 
 - `swift run --package-path apps/ios HovviMobileCoreSmoke`
 - `swift build --package-path apps/ios --product HovviMobileApp`
-

@@ -471,6 +471,28 @@ try require(
     csiSavedCursorScreen.visibleLines[2].runs.last?.attributes.bold == true,
     "terminal screen should restore CSI saved cursor attributes"
 )
+var lineEditScreen = TerminalScreen(columns: 10, rows: 6)
+lineEditScreen.apply("\u{001B}[1;1Htop")
+lineEditScreen.apply("\u{001B}[2;1Hone")
+lineEditScreen.apply("\u{001B}[3;1Htwo")
+lineEditScreen.apply("\u{001B}[4;1Hthree")
+lineEditScreen.apply("\u{001B}[5;1Hfour")
+lineEditScreen.apply("\u{001B}[6;1Hbottom")
+lineEditScreen.apply("\u{001B}[2;5r\u{001B}[3;1H\u{001B}[2L")
+try require(
+    lineEditScreen.visibleLines.map(\.text) == ["top", "one", "", "", "two", "bottom"],
+    "terminal screen should insert blank lines inside the active scroll region"
+)
+lineEditScreen.apply("\u{001B}[3;1H\u{001B}[2M")
+try require(
+    lineEditScreen.visibleLines.map(\.text) == ["top", "one", "two", "", "", "bottom"],
+    "terminal screen should delete lines inside the active scroll region"
+)
+lineEditScreen.apply("\u{001B}[1;1H\u{001B}[L")
+try require(
+    lineEditScreen.visibleLines.map(\.text) == ["top", "one", "two", "", "", "bottom"],
+    "terminal screen should ignore line insert outside the active scroll region"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")
