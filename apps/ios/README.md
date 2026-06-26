@@ -4,11 +4,13 @@ The iOS app is intentionally not scaffolded as a throwaway UI yet. Hovvi is nati
 
 `HovviMobileCore` is a Swift Package that pins the first native protocol models
 and JSON coding behavior. `HovviMobileUI` is the first SwiftUI target for the
-native attach shell. Run:
+native attach shell. `HovviMobileApp` is the SwiftUI app entry target that wires
+the shell view to `AttachShellModel`. Run:
 
 ```bash
-swift build
-swift run HovviMobileCoreSmoke
+swift build --package-path apps/ios
+swift build --package-path apps/ios --product HovviMobileApp
+swift run --package-path apps/ios HovviMobileCoreSmoke
 ```
 
 The package currently covers flattened relay envelopes, outgoing client message
@@ -27,7 +29,7 @@ The relay client exposes both low-level send/receive methods and app-facing requ
 - `openDatagram(deviceId:label:remoteHost:remotePort:maxDatagramBytes:timeout:)`
 - `readDatagramFrame(channelId:timeout:)`
 
-These APIs run a single receive loop, match responses by relay request id, and surface timeout/request failures explicitly. The package does not yet render a terminal.
+These APIs run a single receive loop, match responses by relay request id, and surface timeout/request failures explicitly.
 
 Use `connect(startReceiveLoop: true)` to eagerly route messages, or call the app-facing APIs after `connect()` and let them start the loop on first use. Manual `receive()` remains available when the loop is not active.
 
@@ -50,6 +52,13 @@ SwiftUI screens.
 views are presentational SwiftUI surfaces. They do not own relay or mosh state;
 they render `AttachShellSnapshot` and emit closures for connect, select, attach,
 input, resize, and retry actions.
+
+`HovviMobileApp` owns the first app-shaped wiring layer. It creates a
+`RelayClient`, connects and loads devices, selects sessions, attaches through
+`AttachShellModel`, forwards input and resize events, and runs a conservative
+receive loop while attached. Repository alpha bootstrap reads `HOVVI_RELAY_URL`,
+`HOVVI_RELAY_TOKEN` or `HOVVI_TOKEN`, and `HOVVI_CLIENT_ID`, defaulting to
+`ws://127.0.0.1:8787`, token `dev`, and client id `ios-alpha`.
 
 `TerminalScreen` keeps the live terminal screen separate from tmux scrollback.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor

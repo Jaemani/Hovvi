@@ -10,12 +10,14 @@ let package = Package(
     products: [
         .library(name: "HovviMobileCore", targets: ["HovviMobileCore"]),
         .library(name: "HovviMobileUI", targets: ["HovviMobileUI"]),
+        .executable(name: "HovviMobileApp", targets: ["HovviMobileApp"]),
         .executable(name: "HovviMobileCoreSmoke", targets: ["HovviMobileCoreSmoke"])
     ],
     targets: [
         .target(name: "HovviMoshCoreC"),
         .target(name: "HovviMobileCore", dependencies: ["HovviMoshCoreC"]),
         .target(name: "HovviMobileUI", dependencies: ["HovviMobileCore"]),
+        .executableTarget(name: "HovviMobileApp", dependencies: ["HovviMobileCore", "HovviMobileUI"]),
         .executableTarget(name: "HovviMobileCoreSmoke", dependencies: ["HovviMobileCore", "HovviMobileUI"])
     ]
 )

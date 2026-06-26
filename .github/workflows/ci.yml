@@ -31,5 +31,7 @@ jobs:
       - run: npm run native:relay-process-attach-check
       - run: swift build
         working-directory: apps/ios
+      - run: swift build --product HovviMobileApp
+        working-directory: apps/ios
       - run: swift run HovviMobileCoreSmoke
         working-directory: apps/ios

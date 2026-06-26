@@ -239,6 +239,9 @@ Acceptance criteria:
 
 Current status:
 
+- `HovviMobileApp` exists as a SwiftUI app entry target that wires
+  `HovviAttachShellView` to `AttachShellModel`, local relay bootstrap config,
+  attach actions, terminal input/resize, and a conservative receive loop.
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
   attach, input, remote receive, resize, shutdown, and mosh key redaction.
@@ -249,8 +252,8 @@ Current status:
   screen, erase line, resize, SGR text attributes, 256-color/truecolor
   foreground/background colors, and alternate-screen restore in
   `HovviMobileCoreSmoke`.
-- A real Xcode app target, mature terminal renderer, and simulator/device
-  rendering validation are still pending.
+- A signed Xcode/iOS bundle target, hosted login bootstrap, and
+  simulator/device rendering validation are still pending.
 
 ### 6. Mac Agent and CLI Hardening
 
