@@ -27,6 +27,8 @@ make -C native/mosh-core adapter-check
 make -C native/mosh-core upstream-check
 ```
 
-`adapter-check` compiles Hovvi-owned packet IO and relay datagram primitives for future relay-backed transport tests. `upstream-check` compiles isolated vendored upstream mosh crypto, transport-fragment, packet, and relay-packet smokes. Generated protobuf C++ files are written under `build/upstream/generated`, not into `vendor/mosh`. These targets do not change the scaffold ABI behavior used by `make check`.
+`adapter-check` compiles Hovvi-owned packet IO and relay datagram primitives for future relay-backed transport tests. `upstream-check` compiles isolated vendored upstream mosh crypto, transport-fragment, packet, relay-packet, and upstream ABI smokes. Generated protobuf C++ files are written under `build/upstream/generated`, not into `vendor/mosh`. These targets do not change the scaffold ABI behavior used by `make check`.
 
 The relay-packet smoke is the first upstream-backed adapter slice. It encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted bytes through Hovvi `RelayDatagramEndpoint`, decrypts them on the other side, and reconstructs upstream packets without opening UDP sockets.
+
+The upstream ABI smoke links `src/hovvi_mosh_core_upstream.cc` for repository validation only. The npm package includes only `src/hovvi_mosh_core_unavailable.c` until native/mobile GPL distribution policy is finalized.
