@@ -259,6 +259,19 @@ public actor AttachShellModel {
     }
 
     @discardableResult
+    public func tick(nowMs: UInt64) async -> AttachShellSnapshot {
+        guard let attachSession else {
+            return snapshot
+        }
+        do {
+            apply(try await attachSession.tick(nowMs: nowMs))
+        } catch {
+            fail(title: "Terminal timer failed", error: error)
+        }
+        return snapshot
+    }
+
+    @discardableResult
     public func shutdown() async -> AttachShellSnapshot {
         guard let attachSession else {
             return snapshot

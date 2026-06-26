@@ -201,6 +201,9 @@ Current status:
 - Swift mobile input uses `TerminalInputCommand` byte encoding for text,
   paste-sized text, Return, Tab, Escape, Ctrl-C, and backspace before sending
   data into the mosh input path.
+- Swift mobile attach now exposes `AttachShellModel.tick(nowMs:)`, and
+  `HovviMobileApp` runs a conservative attached-state mosh tick loop using
+  `nextTickAfterMs` when available.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.
@@ -244,11 +247,11 @@ Current status:
 
 - `HovviMobileApp` exists as a SwiftUI app entry target that wires
   `HovviAttachShellView` to `AttachShellModel`, local relay bootstrap config,
-  attach actions, byte-level terminal input/resize, and a conservative receive
-  loop.
+  attach actions, byte-level terminal input/resize, and conservative receive
+  and mosh tick loops.
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
-  attach, input, remote receive, resize, shutdown, and mosh key redaction.
+  attach, input, remote receive, resize, tick, shutdown, and mosh key redaction.
 - `HovviMobileUI` exists as a SwiftUI library target with presentational
   device/session/terminal/error views backed by `AttachShellSnapshot`.
 - `TerminalScreen` keeps live terminal output separate from tmux scrollback and

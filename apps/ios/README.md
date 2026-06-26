@@ -60,10 +60,16 @@ text use the same attach-session flow.
 
 `HovviMobileApp` owns the first app-shaped wiring layer. It creates a
 `RelayClient`, connects and loads devices, selects sessions, attaches through
-`AttachShellModel`, forwards input and resize events, and runs a conservative
-receive loop while attached. Repository alpha bootstrap reads `HOVVI_RELAY_URL`,
-`HOVVI_RELAY_TOKEN` or `HOVVI_TOKEN`, and `HOVVI_CLIENT_ID`, defaulting to
-`ws://127.0.0.1:8787`, token `dev`, and client id `ios-alpha`.
+`AttachShellModel`, forwards input and resize events, and runs conservative
+receive and mosh tick loops while attached. Repository alpha bootstrap reads
+`HOVVI_RELAY_URL`, `HOVVI_RELAY_TOKEN` or `HOVVI_TOKEN`, and
+`HOVVI_CLIENT_ID`, defaulting to `ws://127.0.0.1:8787`, token `dev`, and client
+id `ios-alpha`.
+
+`AttachShellModel.tick(nowMs:)` drives scheduled mosh core progress. The app
+tick loop follows `nextTickAfterMs` when present and otherwise polls
+conservatively while attached so input, receive, retransmit, ack, prediction,
+and shutdown progress all use the same frame application path.
 
 `TerminalScreen` keeps the live terminal screen separate from tmux scrollback.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor

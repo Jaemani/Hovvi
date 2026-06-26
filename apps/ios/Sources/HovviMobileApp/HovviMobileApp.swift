@@ -38,6 +38,8 @@ final class HovviAppController: ObservableObject {
 
     private let model: AttachShellModel
     private var receiveTask: Task<Void, Never>?
+    private var tickTask: Task<Void, Never>?
+    private var attachLoopGeneration = 0
     private var lastResize: MoshCoreTerminalSize?
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
@@ -47,8 +49,7 @@ final class HovviAppController: ObservableObject {
     }
 
     func connect() {
-        receiveTask?.cancel()
-        receiveTask = nil
+        cancelAttachLoops()
         Task {
             snapshot = await model.connectAndLoadDevices()
         }
@@ -67,12 +68,12 @@ final class HovviAppController: ObservableObject {
     }
 
     func attach() {
-        receiveTask?.cancel()
-        receiveTask = nil
+        cancelAttachLoops()
         Task {
             snapshot = await model.attach(initialSize: lastResize ?? MoshCoreTerminalSize(columns: 80, rows: 24))
             if snapshot.phase == .attached {
                 startReceiveLoop()
+                startTickLoop()
             }
         }
     }
@@ -80,6 +81,9 @@ final class HovviAppController: ObservableObject {
     func sendInput(_ bytes: Data) {
         Task {
             snapshot = await model.sendInput(bytes)
+            if snapshot.phase == .attached {
+                startTickLoop()
+            }
         }
     }
 
@@ -89,12 +93,22 @@ final class HovviAppController: ObservableObject {
         guard snapshot.phase == .attached else { return }
         Task {
             snapshot = await model.resize(to: size)
+            if snapshot.phase == .attached {
+                startTickLoop()
+            }
         }
     }
 
     func pauseReceiveLoop() {
+        cancelAttachLoops()
+    }
+
+    private func cancelAttachLoops() {
+        attachLoopGeneration += 1
         receiveTask?.cancel()
         receiveTask = nil
+        tickTask?.cancel()
+        tickTask = nil
     }
 
     private func startReceiveLoop() {
@@ -103,12 +117,53 @@ final class HovviAppController: ObservableObject {
                 let next = await model.receiveNext(timeout: .seconds(30))
                 await MainActor.run {
                     snapshot = next
+                    if next.phase == .attached {
+                        startTickLoop()
+                    }
                 }
                 if next.phase != .attached {
                     break
                 }
             }
         }
+    }
+
+    private func startTickLoop() {
+        guard tickTask == nil else { return }
+        let generation = attachLoopGeneration
+        tickTask = Task { [model] in
+            defer {
+                Task { @MainActor in
+                    if attachLoopGeneration == generation {
+                        tickTask = nil
+                    }
+                }
+            }
+            while Task.isCancelled == false {
+                let current = await model.currentSnapshot()
+                guard current.phase == .attached else { break }
+                let delayMs = current.nextTickAfterMs ?? 250
+                do {
+                    try await Task.sleep(for: .milliseconds(Int(delayMs)))
+                } catch {
+                    break
+                }
+                if Task.isCancelled {
+                    break
+                }
+                let next = await model.tick(nowMs: Self.currentMoshTimeMs())
+                await MainActor.run {
+                    snapshot = next
+                }
+                if next.phase != .attached {
+                    break
+                }
+            }
+        }
+    }
+
+    nonisolated private static func currentMoshTimeMs() -> UInt64 {
+        UInt64(Date().timeIntervalSince1970 * 1000)
     }
 }
 

@@ -662,6 +662,12 @@ try require(
 
 shellSnapshot = await shell.resize(to: MoshCoreTerminalSize(columns: 120, rows: 40))
 try require(shellSnapshot.phase == AttachShellPhase.attached, "attach shell resize should keep attached phase")
+shellSnapshot = await shell.tick(nowMs: 43)
+try require(shellSnapshot.nextTickAfterMs == 20, "attach shell tick should surface next scheduled tick")
+try require(
+    await shellRelay.sentDatagrams.map(\.bytes).contains(Data([0xA3])),
+    "attach shell tick should flush core tick packets through relay datagrams"
+)
 
 shellSnapshot = await shell.shutdown()
 try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shutdown should return to browsing")
