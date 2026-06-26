@@ -118,6 +118,12 @@ server terminal diffs, and sends user input/resize diffs with state
 acknowledgement. It remains outside the npm package until the native/GPL
 distribution policy is decided.
 
+`npm run native:mosh-server-harness-check` is the first real local server probe.
+It starts `mosh-server` bound to `127.0.0.1`, creates a temporary tmux marker
+session, sends a native relay transport resize instruction through UDP, and
+verifies rendered native output. The check is optional and skips when `tmux` or
+`mosh-server` is unavailable.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
@@ -136,9 +142,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Connect `hovvi_mosh_relay_transport_upstream.h` to the local mosh-server
-   harness UDP bridge so native frames can be exchanged with a real
-   `mosh-server`.
+1. Promote the local mosh-server probe into broader fixtures for input, output,
+   resize, paste, packet loss, reordering, and shutdown.
 2. Add packet loss, reordering, resize, paste, and shutdown tests before
    connecting the core to the app UI.
 3. Port the harness to an iOS static library build once macOS correctness tests

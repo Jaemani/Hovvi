@@ -63,13 +63,19 @@ export function buildAttachManifest({ device, sessionName, lines = 2000, mosh } 
   };
 }
 
-export function buildMoshServerCommand({ sessionName, columns = 256, lang = process.env.LANG || "en_US.UTF-8" }) {
+export function buildMoshServerCommand({
+  sessionName,
+  columns = 256,
+  lang = process.env.LANG || "en_US.UTF-8",
+  bindHost = "127.0.0.1",
+}) {
   const target = escapeTmuxTarget(sessionName);
   return {
     command: "mosh-server",
     args: [
       "new",
-      "-s",
+      "-i",
+      bindHost,
       "-c",
       String(columns),
       "-l",
@@ -111,6 +117,8 @@ export async function startMoshServer({ sessionName, timeoutMs = 5000, spawn = s
         command: command.command,
         args: command.args,
         process: child,
+        getOutput: () => output,
+        getStderr: () => stderr,
       });
     };
 

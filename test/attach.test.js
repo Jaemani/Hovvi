@@ -54,7 +54,8 @@ test("buildMoshServerCommand builds tmux attach command", () => {
     command: "mosh-server",
     args: [
       "new",
-      "-s",
+      "-i",
+      "127.0.0.1",
       "-c",
       "120",
       "-l",

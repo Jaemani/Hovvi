@@ -66,7 +66,7 @@ Message-specific fields are added next to those keys.
         "name": "mosh",
         "priority": 10,
         "status": "available",
-        "command": ["mosh-server", "new", "-s", "-c", "256", "-l", "LANG=en_US.UTF-8", "--", "tmux", "attach-session", "-t", "main"],
+"command": ["mosh-server", "new", "-i", "127.0.0.1", "-c", "256", "-l", "LANG=en_US.UTF-8", "--", "tmux", "attach-session", "-t", "main"],
         "transport": {
           "kind": "relay-datagram",
           "label": "mosh",
@@ -189,6 +189,9 @@ Message-specific fields are added next to those keys.
 ```
 
 ## Mosh Relay Datagram Boundary
+
+Hovvi-started `mosh-server` instances bind to `127.0.0.1` because the Mac agent
+owns the local UDP bridge and the relay carries encrypted datagrams outward.
 
 For attach manifests with a `mosh` method and `relay-datagram` transport, mobile clients open a `datagram.open` channel using the manifest's `deviceId`, `remoteHost`, `remotePort`, `label`, and `maxDatagramBytes`.
 

@@ -72,10 +72,11 @@ UPSTREAM_NETWORK_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_network_smoke
 UPSTREAM_PACKET_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_packet_smoke
 UPSTREAM_RELAY_PACKET_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_relay_packet_smoke
 UPSTREAM_RELAY_TRANSPORT_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_relay_transport_smoke
+UPSTREAM_MOSH_SERVER_PROBE := $(UPSTREAM_BUILD_DIR)/upstream_mosh_server_probe
 UPSTREAM_ABI_OBJ := $(UPSTREAM_BUILD_DIR)/hovvi_mosh_core_upstream.o
 UPSTREAM_ABI_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_abi_smoke
 
-.PHONY: all check adapter-check upstream-check clean
+.PHONY: all check adapter-check upstream-check mosh-server-probe clean
 .SECONDARY: $(UPSTREAM_PROTO_CC) $(UPSTREAM_PROTO_H)
 
 all: $(LIB)
@@ -95,6 +96,8 @@ upstream-check: $(UPSTREAM_CRYPTO_SMOKE) $(UPSTREAM_NETWORK_SMOKE) $(UPSTREAM_PA
 	$(UPSTREAM_RELAY_PACKET_SMOKE)
 	$(UPSTREAM_RELAY_TRANSPORT_SMOKE)
 	$(UPSTREAM_ABI_SMOKE)
+
+mosh-server-probe: $(UPSTREAM_MOSH_SERVER_PROBE)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -153,6 +156,9 @@ $(UPSTREAM_RELAY_PACKET_SMOKE): tests/upstream_relay_packet_smoke.cc adapter/hov
 
 $(UPSTREAM_RELAY_TRANSPORT_SMOKE): tests/upstream_relay_transport_smoke.cc src/hovvi_mosh_relay_transport_upstream.h adapter/hovvi_packet_io.h adapter/hovvi_relay_datagram.h $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_NETWORK_OBJ) $(UPSTREAM_TERMINAL_OBJ)
 	$(CXX) -Iinclude -Iadapter -Isrc $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) tests/upstream_relay_transport_smoke.cc $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_NETWORK_OBJ) $(UPSTREAM_TERMINAL_OBJ) $(PROTOBUF_LDLIBS) -lz -lcurses -o $(UPSTREAM_RELAY_TRANSPORT_SMOKE)
+
+$(UPSTREAM_MOSH_SERVER_PROBE): tests/upstream_mosh_server_probe.cc src/hovvi_mosh_relay_transport_upstream.h src/hovvi_udp_datagram_endpoint.h adapter/hovvi_packet_io.h adapter/hovvi_relay_datagram.h $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_NETWORK_OBJ) $(UPSTREAM_TERMINAL_OBJ)
+	$(CXX) -Iinclude -Iadapter -Isrc $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) tests/upstream_mosh_server_probe.cc $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) $(UPSTREAM_PROTO_OBJ) $(UPSTREAM_NETWORK_OBJ) $(UPSTREAM_TERMINAL_OBJ) $(PROTOBUF_LDLIBS) -lz -lcurses -o $(UPSTREAM_MOSH_SERVER_PROBE)
 
 $(UPSTREAM_ABI_OBJ): src/hovvi_mosh_core_upstream.cc include/hovvi_mosh_core.h $(UPSTREAM_PROTO_H) $(UPSTREAM_CONFIG_ROOT) $(UPSTREAM_CONFIG_NESTED)
 	mkdir -p $(dir $@)

@@ -33,14 +33,15 @@ struct RelayTransportFrame
   uint64_t ack_num = 0;
 };
 
-class RelayTransportClient
+template<class DatagramEndpoint>
+class BasicRelayTransportClient
 {
 public:
-  RelayTransportClient( const char* printable_key,
-                        hovvi::mosh::RelayDatagramEndpoint& relay,
-                        uint32_t columns,
-                        uint32_t rows,
-                        size_t mtu = 1200 )
+  BasicRelayTransportClient( const char* printable_key,
+                             DatagramEndpoint& relay,
+                             uint32_t columns,
+                             uint32_t rows,
+                             size_t mtu = 1200 )
     : relay_( relay ),
       key_( printable_key ),
       inbound_( key_ ),
@@ -151,7 +152,7 @@ private:
     }
   }
 
-  hovvi::mosh::RelayDatagramEndpoint& relay_;
+  DatagramEndpoint& relay_;
   Crypto::Base64Key key_;
   Crypto::Session inbound_;
   Crypto::Session outbound_;
@@ -165,6 +166,8 @@ private:
   Network::Fragmenter fragmenter_;
   Network::FragmentAssembly assembly_;
 };
+
+using RelayTransportClient = BasicRelayTransportClient<hovvi::mosh::RelayDatagramEndpoint>;
 
 }  // namespace hovvi::mosh::upstream
 
