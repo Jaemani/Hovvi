@@ -150,8 +150,9 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 1. Implement a native `MoshCoreEngine` for iOS/macOS builds behind the explicit
    GPL mobile distribution gate.
 2. Connect the native mosh relay transport to the JavaScript relay client
-   datagram channel for local macOS smoke coverage.
-3. Add a local relay + agent + native mosh client + server-launched tmux smoke.
+   datagram channel for local macOS packet-exchange smoke coverage.
+3. Add a local relay + agent + native mosh client + server-launched tmux terminal
+   attach smoke.
 4. Add reconnect and local relay process integration coverage around the
    mosh-server probe.
 5. Port the harness to an iOS static library build once macOS correctness tests

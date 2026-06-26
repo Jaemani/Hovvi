@@ -179,6 +179,8 @@ Current status:
 - Relay and agent lifecycle cleanup is covered by unit fixtures.
 - Relay + real agent + client datagram flow is covered with a local UDP echo
   target.
+- Agent-started attach manifests are covered through real tmux creation,
+  `mosh-server` bootstrap, and client datagram channel open/close.
 - Swift mobile core has a `MoshAttachSession` coordinator that flushes mosh core
   frames through relay datagrams with fake-engine smoke coverage.
 - Native mosh-core consumption of the client datagram channel remains pending
