@@ -24,16 +24,14 @@ Extend `TerminalAnsiColor` beyond the original 16 ANSI colors with:
 and `TerminalSurfaceView` maps indexed colors through the xterm 256-color cube
 or grayscale ramp. Truecolor values render directly through SwiftUI `Color`.
 
-Unsupported extended background color sequences are consumed so they do not
-corrupt later SGR parsing, but background color storage/rendering remains a
-separate renderer slice.
+Extended background color storage and rendering were added in ADR 0039.
 
 ## Consequences
 
 The live terminal surface can preserve common prompt and tool foreground colors
-without introducing a full terminal emulator dependency. Background colors,
-underline color, faint/blink/strikethrough, palette redefinition, and exact
-terminal theme mapping remain pending.
+without introducing a full terminal emulator dependency. Underline color,
+faint/blink/strikethrough, palette redefinition, and exact terminal theme
+mapping remain pending.
 
 ## Validation
 

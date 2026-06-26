@@ -54,7 +54,7 @@ input, resize, and retry actions.
 `TerminalScreen` keeps the live terminal screen separate from tmux scrollback.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor
 movement, clear screen, erase line, resize, basic SGR text attributes,
-256-color/truecolor foreground colors, and alternate-screen restore.
+256-color/truecolor foreground/background colors, and alternate-screen restore.
 `TerminalSurfaceView` renders the live screen when present and falls back to
 `ScrollbackBuffer` before output arrives.
 

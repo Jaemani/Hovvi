@@ -311,7 +311,7 @@ public struct TerminalSurfaceView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(lines) { line in
-                        line.textView
+                        TerminalSurfaceLineView(line: line)
                             .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -359,17 +359,36 @@ public struct TerminalSurfaceView: View {
 private struct TerminalSurfaceLine: Identifiable, Equatable {
     let id: String
     let runs: [TerminalScreenRun]
+}
 
-    var textView: Text {
-        guard runs.isEmpty == false else { return Text(" ") }
-        return runs.reduce(Text("")) { partial, run in
-            partial + run.textView
+private struct TerminalSurfaceLineView: View {
+    let line: TerminalSurfaceLine
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            if line.runs.isEmpty {
+                Text(" ")
+            } else {
+                ForEach(Array(line.runs.enumerated()), id: \.offset) { item in
+                    item.element.runView
+                }
+            }
         }
     }
 }
 
 private extension TerminalScreenRun {
-    var textView: Text {
+    @ViewBuilder
+    var runView: some View {
+        let text = styledText
+        if let color = attributes.background?.swiftUIColor {
+            text.background(color)
+        } else {
+            text
+        }
+    }
+
+    var styledText: Text {
         var text = Text(self.text.isEmpty ? " " : self.text)
         if attributes.bold {
             text = text.bold()

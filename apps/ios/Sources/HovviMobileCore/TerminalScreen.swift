@@ -30,19 +30,22 @@ public struct TerminalTextAttributes: Equatable, Sendable {
     public var underline: Bool
     public var inverse: Bool
     public var foreground: TerminalAnsiColor?
+    public var background: TerminalAnsiColor?
 
     public init(
         bold: Bool = false,
         italic: Bool = false,
         underline: Bool = false,
         inverse: Bool = false,
-        foreground: TerminalAnsiColor? = nil
+        foreground: TerminalAnsiColor? = nil,
+        background: TerminalAnsiColor? = nil
     ) {
         self.bold = bold
         self.italic = italic
         self.underline = underline
         self.inverse = inverse
         self.foreground = foreground
+        self.background = background
     }
 }
 
@@ -264,18 +267,24 @@ public struct TerminalScreen: Equatable, Sendable {
                 currentAttributes.inverse = false
             case 30...37:
                 currentAttributes.foreground = TerminalAnsiColor(standardIndex: value - 30)
+            case 40...47:
+                currentAttributes.background = TerminalAnsiColor(standardIndex: value - 40)
             case 39:
                 currentAttributes.foreground = nil
             case 38:
-                if applyExtendedForegroundSgr(values, index: &index) {
+                if applyExtendedColorSgr(values, index: &index, target: .foreground) {
                     continue
                 }
             case 48:
-                if skipExtendedColorSgr(values, index: &index) {
+                if applyExtendedColorSgr(values, index: &index, target: .background) {
                     continue
                 }
+            case 49:
+                currentAttributes.background = nil
             case 90...97:
                 currentAttributes.foreground = TerminalAnsiColor(standardIndex: value - 90 + 8)
+            case 100...107:
+                currentAttributes.background = TerminalAnsiColor(standardIndex: value - 100 + 8)
             default:
                 break
             }
@@ -283,20 +292,27 @@ public struct TerminalScreen: Equatable, Sendable {
         }
     }
 
-    private mutating func applyExtendedForegroundSgr(_ values: [Int], index: inout Int) -> Bool {
+    private mutating func applyExtendedColorSgr(
+        _ values: [Int],
+        index: inout Int,
+        target: TerminalColorAttributeTarget
+    ) -> Bool {
         guard index + 1 < values.count else { return false }
         switch values[index + 1] {
         case 5:
             guard index + 2 < values.count else { return false }
-            currentAttributes.foreground = .indexed(UInt8(clamping: values[index + 2]))
+            setColor(.indexed(UInt8(clamping: values[index + 2])), for: target)
             index += 3
             return true
         case 2:
             guard index + 4 < values.count else { return false }
-            currentAttributes.foreground = .rgb(
-                red: UInt8(clamping: values[index + 2]),
-                green: UInt8(clamping: values[index + 3]),
-                blue: UInt8(clamping: values[index + 4])
+            setColor(
+                .rgb(
+                    red: UInt8(clamping: values[index + 2]),
+                    green: UInt8(clamping: values[index + 3]),
+                    blue: UInt8(clamping: values[index + 4])
+                ),
+                for: target
             )
             index += 5
             return true
@@ -305,20 +321,18 @@ public struct TerminalScreen: Equatable, Sendable {
         }
     }
 
-    private func skipExtendedColorSgr(_ values: [Int], index: inout Int) -> Bool {
-        guard index + 1 < values.count else { return false }
-        switch values[index + 1] {
-        case 5:
-            guard index + 2 < values.count else { return false }
-            index += 3
-            return true
-        case 2:
-            guard index + 4 < values.count else { return false }
-            index += 5
-            return true
-        default:
-            return false
+    private mutating func setColor(_ color: TerminalAnsiColor, for target: TerminalColorAttributeTarget) {
+        switch target {
+        case .foreground:
+            currentAttributes.foreground = color
+        case .background:
+            currentAttributes.background = color
         }
+    }
+
+    private enum TerminalColorAttributeTarget {
+        case foreground
+        case background
     }
 
     private mutating func enterAlternateScreen() {
