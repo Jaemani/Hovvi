@@ -77,6 +77,10 @@ public actor MoshAttachSession {
         return frame
     }
 
+    public func closeTransport() async throws {
+        try await datagramSession.close()
+    }
+
     private func flush(_ frame: MoshCoreFrame) async throws -> MoshAttachFrame {
         var packetsSent = 0
         for packet in frame.outboundPackets {

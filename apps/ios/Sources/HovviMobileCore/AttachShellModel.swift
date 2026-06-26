@@ -29,6 +29,11 @@ public enum AttachShellPhase: String, Codable, Equatable, Sendable {
     case failed
 }
 
+public enum AttachShellRecoveryAction: String, Codable, Equatable, Sendable {
+    case connectRelay
+    case reattachSession
+}
+
 public struct AttachShellError: Codable, Equatable, Sendable, CustomStringConvertible {
     public let title: String
     public let message: String
@@ -64,6 +69,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
     public let nextTickAfterMs: UInt32?
     public let cleanShutdown: Bool
     public let error: AttachShellError?
+    public let recoveryAction: AttachShellRecoveryAction?
 
     public init(
         phase: AttachShellPhase = .disconnected,
@@ -76,7 +82,8 @@ public struct AttachShellSnapshot: Equatable, Sendable {
         terminalOutput: Data = Data(),
         nextTickAfterMs: UInt32? = nil,
         cleanShutdown: Bool = false,
-        error: AttachShellError? = nil
+        error: AttachShellError? = nil,
+        recoveryAction: AttachShellRecoveryAction? = nil
     ) {
         self.phase = phase
         self.devices = devices
@@ -89,6 +96,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
         self.nextTickAfterMs = nextTickAfterMs
         self.cleanShutdown = cleanShutdown
         self.error = error
+        self.recoveryAction = recoveryAction
     }
 }
 
@@ -123,7 +131,7 @@ public actor AttachShellModel {
                 selectedSessionName: snapshot.selectedSessionName
             )
         } catch {
-            fail(title: "Could not connect to relay", error: error)
+            fail(title: "Could not connect to relay", error: error, recoveryAction: .connectRelay)
         }
         return snapshot
     }
@@ -139,8 +147,7 @@ public actor AttachShellModel {
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
             selectedDeviceId: deviceId,
-            selectedSessionName: selectedSession,
-            error: snapshot.error
+            selectedSessionName: selectedSession
         )
         return snapshot
     }
@@ -151,8 +158,7 @@ public actor AttachShellModel {
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
             selectedDeviceId: snapshot.selectedDeviceId,
-            selectedSessionName: sessionName,
-            error: snapshot.error
+            selectedSessionName: sessionName
         )
         return snapshot
     }
@@ -165,7 +171,7 @@ public actor AttachShellModel {
         timeout: Duration = .seconds(5)
     ) async -> AttachShellSnapshot {
         guard let deviceId = snapshot.selectedDeviceId else {
-            fail(title: "Choose a Mac", message: "Select a connected Mac before attaching.")
+            fail(title: "Choose a Mac", message: "Select a connected Mac before attaching.", recoveryAction: .connectRelay)
             return snapshot
         }
         let sessionName = snapshot.selectedSessionName ?? "main"
@@ -206,7 +212,7 @@ public actor AttachShellModel {
             )
         } catch {
             attachSession = nil
-            fail(title: "Could not attach session", error: error)
+            fail(title: "Could not attach session", error: error, recoveryAction: .reattachSession)
         }
         return snapshot
     }
@@ -214,13 +220,15 @@ public actor AttachShellModel {
     @discardableResult
     public func sendInput(_ bytes: Data) async -> AttachShellSnapshot {
         guard let attachSession else {
-            fail(title: "No active terminal", message: "Attach to a session before sending input.")
+            fail(title: "No active terminal", message: "Attach to a session before sending input.", recoveryAction: .reattachSession)
             return snapshot
         }
         do {
             apply(try await attachSession.sendUserInput(bytes))
         } catch {
-            fail(title: "Could not send input", error: error)
+            try? await attachSession.closeTransport()
+            self.attachSession = nil
+            fail(title: "Could not send input", error: error, recoveryAction: .reattachSession)
         }
         return snapshot
     }
@@ -228,7 +236,7 @@ public actor AttachShellModel {
     @discardableResult
     public func resize(to size: MoshCoreTerminalSize) async -> AttachShellSnapshot {
         guard let attachSession else {
-            fail(title: "No active terminal", message: "Attach to a session before resizing.")
+            fail(title: "No active terminal", message: "Attach to a session before resizing.", recoveryAction: .reattachSession)
             return snapshot
         }
         do {
@@ -236,7 +244,9 @@ public actor AttachShellModel {
             screen.resize(columns: size.columns, rows: size.rows)
             apply(try await attachSession.resize(to: size), terminalScreen: screen)
         } catch {
-            fail(title: "Could not resize terminal", error: error)
+            try? await attachSession.closeTransport()
+            self.attachSession = nil
+            fail(title: "Could not resize terminal", error: error, recoveryAction: .reattachSession)
         }
         return snapshot
     }
@@ -244,7 +254,7 @@ public actor AttachShellModel {
     @discardableResult
     public func receiveNext(timeout: Duration = .seconds(30)) async -> AttachShellSnapshot {
         guard let attachSession else {
-            fail(title: "No active terminal", message: "Attach to a session before reading output.")
+            fail(title: "No active terminal", message: "Attach to a session before reading output.", recoveryAction: .reattachSession)
             return snapshot
         }
         do {
@@ -252,7 +262,9 @@ public actor AttachShellModel {
                 apply(frame)
             }
         } catch {
-            fail(title: "Terminal connection interrupted", error: error)
+            try? await attachSession.closeTransport()
+            self.attachSession = nil
+            fail(title: "Terminal connection interrupted", error: error, recoveryAction: .reattachSession)
         }
         return snapshot
     }
@@ -265,7 +277,9 @@ public actor AttachShellModel {
         do {
             apply(try await attachSession.tick(nowMs: nowMs))
         } catch {
-            fail(title: "Terminal timer failed", error: error)
+            try? await attachSession.closeTransport()
+            self.attachSession = nil
+            fail(title: "Terminal timer failed", error: error, recoveryAction: .reattachSession)
         }
         return snapshot
     }
@@ -280,8 +294,9 @@ public actor AttachShellModel {
             self.attachSession = nil
             update(phase: .browsing)
         } catch {
+            try? await attachSession.closeTransport()
             self.attachSession = nil
-            fail(title: "Could not close terminal", error: error)
+            fail(title: "Could not close terminal", error: error, recoveryAction: .reattachSession)
         }
         return snapshot
     }
@@ -305,7 +320,8 @@ public actor AttachShellModel {
             terminalOutput: frame.terminalOutput,
             nextTickAfterMs: frame.nextTickAfterMs,
             cleanShutdown: frame.cleanShutdown,
-            error: nil
+            error: nil,
+            recoveryAction: nil
         )
     }
 
@@ -313,7 +329,8 @@ public actor AttachShellModel {
         phase: AttachShellPhase? = nil,
         selectedDeviceId: String? = nil,
         selectedSessionName: String? = nil,
-        error: AttachShellError? = nil
+        error: AttachShellError? = nil,
+        recoveryAction: AttachShellRecoveryAction? = nil
     ) {
         snapshot = AttachShellSnapshot(
             phase: phase ?? snapshot.phase,
@@ -326,15 +343,16 @@ public actor AttachShellModel {
             terminalOutput: snapshot.terminalOutput,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,
-            error: error
+            error: error,
+            recoveryAction: recoveryAction
         )
     }
 
-    private func fail(title: String, error: Error) {
-        fail(title: title, message: String(describing: error))
+    private func fail(title: String, error: Error, recoveryAction: AttachShellRecoveryAction?) {
+        fail(title: title, message: String(describing: error), recoveryAction: recoveryAction)
     }
 
-    private func fail(title: String, message: String) {
+    private func fail(title: String, message: String, recoveryAction: AttachShellRecoveryAction?) {
         snapshot = AttachShellSnapshot(
             phase: .failed,
             devices: snapshot.devices,
@@ -346,7 +364,8 @@ public actor AttachShellModel {
             terminalOutput: snapshot.terminalOutput,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,
-            error: AttachShellError(title: title, message: message)
+            error: AttachShellError(title: title, message: message),
+            recoveryAction: recoveryAction
         )
     }
 }

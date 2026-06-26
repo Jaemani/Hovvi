@@ -83,7 +83,7 @@ public struct DeviceSidebar: View {
             Section {
                 statusRow
                 if let error = snapshot.error {
-                    ErrorBanner(error: error, onRetry: onRetry)
+                    ErrorBanner(error: error, actionTitle: retryTitle, onRetry: onRetry)
                         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                 }
             }
@@ -162,8 +162,19 @@ public struct DeviceSidebar: View {
             Label("Attached", systemImage: "checkmark.circle.fill")
         case .failed:
             Button(action: onRetry) {
-                Label("Retry", systemImage: "arrow.clockwise")
+                Label(retryTitle, systemImage: "arrow.clockwise")
             }
+        }
+    }
+
+    private var retryTitle: String {
+        switch snapshot.recoveryAction {
+        case .reattachSession:
+            "Reattach"
+        case .connectRelay:
+            "Reconnect"
+        case nil:
+            "Retry"
         }
     }
 }
@@ -555,10 +566,12 @@ private extension TerminalAnsiColor {
 @MainActor
 public struct ErrorBanner: View {
     public let error: AttachShellError
+    public let actionTitle: String
     public let onRetry: () -> Void
 
-    public init(error: AttachShellError, onRetry: @escaping () -> Void = {}) {
+    public init(error: AttachShellError, actionTitle: String = "Retry", onRetry: @escaping () -> Void = {}) {
         self.error = error
+        self.actionTitle = actionTitle
         self.onRetry = onRetry
     }
 
@@ -572,7 +585,7 @@ public struct ErrorBanner: View {
                 .textSelection(.enabled)
             if error.recoverable {
                 Button(action: onRetry) {
-                    Label("Retry", systemImage: "arrow.clockwise")
+                    Label(actionTitle, systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
             }

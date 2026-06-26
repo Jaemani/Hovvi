@@ -207,6 +207,10 @@ Current status:
   output. The terminal surface composes scrollback rows above live screen rows
   with collision-free IDs instead of appending live escape streams into
   scrollback history.
+- Swift mobile failed states now carry recovery actions that distinguish relay
+  reconnect from selected-session reattach. Interrupted attach operations close
+  the relay datagram transport best-effort while preserving selected session,
+  tmux scrollback, and the last live terminal screen.
 - Swift mobile attach now exposes `AttachShellModel.tick(nowMs:)`, and
   `HovviMobileApp` runs a conservative attached-state mosh tick loop using
   `nextTickAfterMs` when available.

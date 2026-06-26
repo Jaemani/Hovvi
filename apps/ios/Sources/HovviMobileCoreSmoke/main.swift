@@ -744,6 +744,38 @@ try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shut
 try require(shellSnapshot.cleanShutdown, "attach shell should expose clean shutdown")
 try require(await shellRelay.closedChannelId == "dg_shell", "attach shell shutdown should close relay datagram")
 
+let interruptedRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let interruptedShell = AttachShellModel(relay: interruptedRelay) {
+    FakeMoshCoreEngine()
+}
+var interruptedSnapshot = await interruptedShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+interruptedSnapshot = await interruptedShell.selectDevice("dev_1")
+interruptedSnapshot = await interruptedShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+interruptedSnapshot = await interruptedShell.sendInput(Data("hi".utf8))
+try require(interruptedSnapshot.phase == AttachShellPhase.attached, "interrupted shell fixture should attach before failure")
+interruptedSnapshot = await interruptedShell.receiveNext(timeout: Duration.seconds(1))
+try require(interruptedSnapshot.phase == AttachShellPhase.failed, "attach shell should fail when live receive is interrupted")
+try require(interruptedSnapshot.recoveryAction == .reattachSession, "attach shell interruption should recommend reattach")
+try require(interruptedSnapshot.selectedDeviceId == "dev_1", "attach shell failure should preserve selected device")
+try require(interruptedSnapshot.selectedSessionName == "main", "attach shell failure should preserve selected session")
+try require(
+    interruptedSnapshot.scrollback?.visibleLines.map(\.text) == ["history"],
+    "attach shell failure should preserve tmux scrollback"
+)
+try require(
+    interruptedSnapshot.terminalScreen?.visibleLines.first?.text == "local",
+    "attach shell failure should preserve the last live terminal screen"
+)
+try require(await interruptedRelay.closedChannelId == "dg_shell", "attach shell failure should close the relay datagram")
+
 let attachShellView = HovviAttachShellView(snapshot: shellSnapshot)
 let terminalSurfaceView = TerminalSurfaceView(snapshot: shellSnapshot)
 let deviceSidebar = DeviceSidebar(snapshot: shellSnapshot)

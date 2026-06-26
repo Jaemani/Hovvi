@@ -48,6 +48,9 @@ prepares the mosh attach manifest, starts `MoshAttachSession`, applies live
 terminal output into `TerminalScreen`, and exposes redacted user-facing error
 state for SwiftUI screens. Live mosh bytes are not appended to tmux-native
 scrollback history.
+Failures carry a recovery action so the app can distinguish relay reconnect
+from session reattach, while preserving the selected Mac/session and last
+terminal state after an interrupted attach.
 
 `HovviAttachShellView`, `DeviceSidebar`, `TerminalSurfaceView`, and related row
 views are presentational SwiftUI surfaces. They do not own relay or mosh state;
@@ -69,6 +72,9 @@ receive and mosh tick loops while attached. Repository alpha bootstrap reads
 `HOVVI_RELAY_URL`, `HOVVI_RELAY_TOKEN` or `HOVVI_TOKEN`, and
 `HOVVI_CLIENT_ID`, defaulting to `ws://127.0.0.1:8787`, token `dev`, and client
 id `ios-alpha`.
+The retry action follows `AttachShellRecoveryAction`, reconnecting to the relay
+for browsing failures and reattaching the selected session for live terminal
+failures.
 
 `AttachShellModel.tick(nowMs:)` drives scheduled mosh core progress. The app
 tick loop follows `nextTickAfterMs` when present and otherwise polls

@@ -16,7 +16,7 @@ struct HovviMobileApp: App {
                 onSelectDevice: { controller.selectDevice($0) },
                 onSelectSession: { controller.selectSession($0) },
                 onAttach: { controller.attach() },
-                onRetry: { controller.connect() },
+                onRetry: { controller.retry() },
                 onSendInput: { controller.sendInput($0) },
                 onResize: { controller.resize(to: $0) }
             )
@@ -75,6 +75,15 @@ final class HovviAppController: ObservableObject {
                 startReceiveLoop()
                 startTickLoop()
             }
+        }
+    }
+
+    func retry() {
+        switch snapshot.recoveryAction {
+        case .reattachSession:
+            attach()
+        case .connectRelay, nil:
+            connect()
         }
     }
 

@@ -35,6 +35,7 @@ binding. It:
   0055;
 - forwards input, resize, receive, and shutdown actions;
 - turns recoverable failures into redacted `AttachShellError` values.
+- exposes retry routing through `AttachShellRecoveryAction`, added in ADR 0056.
 
 The default engine factory creates `CAbiMoshCoreEngine`, while tests can inject a
 fake `MoshCoreEngine`. The model redacts mosh server keys from user-facing error
