@@ -406,6 +406,17 @@ let inverseRuns = inverseScreen.visibleLines[0].runs
 try require(inverseRuns.map(\.text) == ["inverse", "plain"], "terminal screen should split inverse SGR runs")
 try require(inverseRuns[0].attributes.inverse, "terminal screen should preserve inverse SGR")
 try require(inverseRuns[1].attributes.inverse == false, "terminal screen should reset inverse SGR")
+var scrollRegionScreen = TerminalScreen(columns: 8, rows: 5)
+scrollRegionScreen.apply("\u{001B}[1;1Htop")
+scrollRegionScreen.apply("\u{001B}[2;1Hone")
+scrollRegionScreen.apply("\u{001B}[3;1Htwo")
+scrollRegionScreen.apply("\u{001B}[4;1Hthree")
+scrollRegionScreen.apply("\u{001B}[5;1Hbottom")
+scrollRegionScreen.apply("\u{001B}[2;4r\u{001B}[4;1H\u{001B}[Knew\n")
+try require(
+    scrollRegionScreen.visibleLines.map(\.text) == ["top", "two", "new", "", "bottom"],
+    "terminal screen should scroll only inside the active scroll region"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")

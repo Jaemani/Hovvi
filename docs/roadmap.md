@@ -251,7 +251,8 @@ Current status:
   covers basic printable text, CR/LF/backspace, CSI cursor movement, clear
   screen, erase line, resize, SGR text attributes, 256-color/truecolor
   foreground/background colors, inverse rendering, alternate-screen restore, and
-  wide grapheme cursor advancement in `HovviMobileCoreSmoke`.
+  wide grapheme cursor advancement, and scroll-region line-feed behavior in
+  `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
   simulator/device rendering validation are still pending.
 

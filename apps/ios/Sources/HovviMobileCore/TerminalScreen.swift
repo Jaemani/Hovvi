@@ -119,6 +119,7 @@ public struct TerminalScreen: Equatable, Sendable {
 
     private var cells: [[TerminalCell]]
     private var currentAttributes = TerminalTextAttributes()
+    private var scrollRegion: TerminalScrollRegion?
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
 
     public init(columns: Int = 80, rows: Int = 24) {
@@ -160,6 +161,7 @@ public struct TerminalScreen: Equatable, Sendable {
         self.columns = newColumns
         self.rows = newRows
         self.cells = resized
+        scrollRegion = scrollRegion?.resized(toRows: newRows)
         cursorRow = min(cursorRow, newRows - 1)
         cursorColumn = min(cursorColumn, newColumns - 1)
     }
@@ -201,6 +203,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = max(0, cursorColumn - count)
             case .sgr(let values):
                 applySgr(values)
+            case .scrollRegion(let top, let bottom):
+                setScrollRegion(top: top, bottom: bottom)
             case .alternateScreen(let enabled):
                 if enabled {
                     enterAlternateScreen()
@@ -252,12 +256,23 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     private mutating func lineFeed() {
-        if cursorRow == rows - 1 {
-            cells.removeFirst()
-            cells.append(Self.blankRow(columns: columns))
+        let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
+        if cursorRow == region.bottom {
+            scrollUp(in: region)
         } else {
-            cursorRow += 1
+            cursorRow = min(rows - 1, cursorRow + 1)
         }
+    }
+
+    private mutating func scrollUp(in region: TerminalScrollRegion) {
+        guard region.top < region.bottom else {
+            cells[region.top] = Self.blankRow(columns: columns)
+            return
+        }
+        for row in region.top..<region.bottom {
+            cells[row] = cells[row + 1]
+        }
+        cells[region.bottom] = Self.blankRow(columns: columns)
     }
 
     private mutating func clearScreen() {
@@ -365,19 +380,41 @@ public struct TerminalScreen: Equatable, Sendable {
         case background
     }
 
+    private mutating func setScrollRegion(top: Int?, bottom: Int?) {
+        if top == nil, bottom == nil {
+            scrollRegion = nil
+            cursorRow = 0
+            cursorColumn = 0
+            return
+        }
+        let top = top ?? 0
+        let bottom = bottom ?? rows - 1
+        guard top >= 0, bottom < rows, top < bottom else {
+            scrollRegion = nil
+            cursorRow = 0
+            cursorColumn = 0
+            return
+        }
+        scrollRegion = TerminalScrollRegion(top: top, bottom: bottom)
+        cursorRow = 0
+        cursorColumn = 0
+    }
+
     private mutating func enterAlternateScreen() {
         if primarySnapshotBeforeAlternate == nil {
             primarySnapshotBeforeAlternate = TerminalScreenSnapshot(
                 cells: cells,
                 cursorColumn: cursorColumn,
                 cursorRow: cursorRow,
-                attributes: currentAttributes
+                attributes: currentAttributes,
+                scrollRegion: scrollRegion
             )
         }
         cells = Self.blankCells(columns: columns, rows: rows)
         cursorColumn = 0
         cursorRow = 0
         currentAttributes = TerminalTextAttributes()
+        scrollRegion = nil
     }
 
     private mutating func exitAlternateScreen() {
@@ -386,6 +423,7 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorColumn = min(snapshot.cursorColumn, columns - 1)
         cursorRow = min(snapshot.cursorRow, rows - 1)
         currentAttributes = snapshot.attributes
+        scrollRegion = snapshot.scrollRegion?.resized(toRows: rows)
         primarySnapshotBeforeAlternate = nil
     }
 
@@ -422,6 +460,7 @@ private enum TerminalToken {
     case cursorForward(Int)
     case cursorBackward(Int)
     case sgr([Int])
+    case scrollRegion(top: Int?, bottom: Int?)
     case alternateScreen(Bool)
 }
 
@@ -519,12 +558,24 @@ private struct TerminalEscapeParser {
             return .eraseLine
         case "m":
             return .sgr(values)
+        case "r":
+            return scrollRegionToken(parameters: parameters)
         case "h", "l":
             guard isAlternateScreenParameters(parameters) else { return nil }
             return .alternateScreen(final == "h")
         default:
             return nil
         }
+    }
+
+    private func scrollRegionToken(parameters: String) -> TerminalToken {
+        guard parameters.isEmpty == false else {
+            return .scrollRegion(top: nil, bottom: nil)
+        }
+        let parts = parameters.split(separator: ";", omittingEmptySubsequences: false)
+        let top = parts.first.flatMap { Int($0) }.map { max(1, $0) - 1 }
+        let bottom = parts.dropFirst().first.flatMap { Int($0) }.map { max(1, $0) - 1 }
+        return .scrollRegion(top: top, bottom: bottom)
     }
 
     private func isAlternateScreenParameters(_ parameters: String) -> Bool {
@@ -558,6 +609,20 @@ private struct TerminalScreenSnapshot: Equatable {
     var cursorColumn: Int
     var cursorRow: Int
     var attributes: TerminalTextAttributes
+    var scrollRegion: TerminalScrollRegion?
+}
+
+private struct TerminalScrollRegion: Equatable {
+    var top: Int
+    var bottom: Int
+
+    func resized(toRows rows: Int) -> TerminalScrollRegion? {
+        let maxRow = max(0, rows - 1)
+        let nextTop = min(top, maxRow)
+        let nextBottom = min(bottom, maxRow)
+        guard nextTop < nextBottom else { return nil }
+        return TerminalScrollRegion(top: nextTop, bottom: nextBottom)
+    }
 }
 
 private extension Array where Element == TerminalCell {
