@@ -223,6 +223,9 @@ Current status:
 - Mac agent session discovery now marks tmux panes running `cmux`, classifies
   those containing sessions as `kind: "cmux"`, and advertises `cmux.sessions`
   only when the optional `cmux` command is installed.
+- `hovvi doctor` now reports LaunchAgent service state and keeps relay
+  WebSocket reachability behind `hovvi doctor --network`, with URL credentials
+  redacted in diagnostics.
 - `npm run ios:simulator-preflight` now records whether the host has full Xcode,
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
@@ -327,6 +330,9 @@ Acceptance criteria:
 
 Current status:
 
+- `hovvi doctor` checks required tools, optional cmux/AI/Tailscale tools, Git
+  identity, LaunchAgent service state, opt-in GitHub auth/SSH, and opt-in relay
+  WebSocket reachability.
 - tmux sessions and panes are discovered through tmux format output.
 - Claude Code, Codex, Gemini, aider, and cursor-agent panes are marked as AI
   coding panes.

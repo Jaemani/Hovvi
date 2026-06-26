@@ -1,28 +1,49 @@
+import { platform } from "node:os";
+import WebSocket from "ws";
+import { getConfig } from "./config.js";
+import { serviceStatus } from "./service.js";
 import { commandExists, runText } from "./shell.js";
 
 const REQUIRED = ["git", "ssh", "tmux", "mosh", "mosh-server"];
 const OPTIONAL = ["gh", "cmux", "claude", "codex", "gemini", "tailscale"];
 
-export async function runDoctor({ network = false } = {}) {
+export async function runDoctor({
+  network = false,
+  commandExistsFn = commandExists,
+  runTextFn = runText,
+  getConfigFn = getConfig,
+  platformFn = platform,
+  serviceStatusFn = serviceStatus,
+  relayReachabilityFn = checkRelayReachability,
+} = {}) {
   const items = [];
 
   for (const command of REQUIRED) {
-    items.push(checkCommand(command, true));
+    items.push(checkCommand(command, true, { commandExistsFn }));
   }
 
   for (const command of OPTIONAL) {
-    items.push(checkCommand(command, false));
+    items.push(checkCommand(command, false, { commandExistsFn }));
   }
 
-  items.push(...checkGitIdentity());
+  items.push(...checkGitIdentity({ runTextFn }));
+  items.push(checkServiceState({ platformFn, serviceStatusFn }));
   if (network) {
-    items.push(checkGithubCli());
-    items.push(checkGithubSsh());
+    const config = getConfigFn();
+    const relayUrl = process.env.HOVVI_RELAY_URL || config.relay?.url || "ws://127.0.0.1:8787";
+    items.push(checkGithubCli({ runTextFn }));
+    items.push(checkGithubSsh({ runTextFn }));
+    items.push(await relayReachabilityFn(relayUrl));
   } else {
     items.push({
       name: "github network checks",
       status: "warn",
-      message: "Skipped. Run `hovvi doctor --network` to check gh auth and GitHub SSH.",
+      message: "Skipped. Run `hovvi doctor --network` to check gh auth, GitHub SSH, and relay reachability.",
+    });
+    items.push({
+      name: "relay reachability",
+      status: "warn",
+      message: "Skipped. Run `hovvi doctor --network` to connect to the configured relay.",
     });
   }
 
@@ -32,8 +53,8 @@ export async function runDoctor({ network = false } = {}) {
   };
 }
 
-function checkCommand(command, required) {
-  if (commandExists(command)) {
+function checkCommand(command, required, { commandExistsFn }) {
+  if (commandExistsFn(command)) {
     return {
       name: command,
       status: "pass",
@@ -48,11 +69,11 @@ function checkCommand(command, required) {
   };
 }
 
-function checkGitIdentity() {
+function checkGitIdentity({ runTextFn }) {
   const items = [];
-  const name = runText("git", ["config", "--get", "user.name"]);
-  const email = runText("git", ["config", "--get", "user.email"]);
-  const ident = runText("git", ["var", "GIT_AUTHOR_IDENT"]);
+  const name = runTextFn("git", ["config", "--get", "user.name"]);
+  const email = runTextFn("git", ["config", "--get", "user.email"]);
+  const ident = runTextFn("git", ["var", "GIT_AUTHOR_IDENT"]);
 
   items.push({
     name: "git user.name",
@@ -76,8 +97,36 @@ function checkGitIdentity() {
   return items;
 }
 
-function checkGithubCli() {
-  const result = runText("gh", ["auth", "status", "--hostname", "github.com"], { timeout: 10000 });
+function checkServiceState({ platformFn, serviceStatusFn }) {
+  if (platformFn() !== "darwin") {
+    return {
+      name: "launchd service",
+      status: "warn",
+      message: "not checked",
+      detail: "LaunchAgent service state is only available on macOS.",
+    };
+  }
+
+  try {
+    const result = serviceStatusFn({});
+    return {
+      name: "launchd service",
+      status: result.loaded ? "pass" : "warn",
+      message: result.loaded ? "loaded" : "not loaded",
+      detail: result.loaded ? result.label : `Install with \`hovvi service install\`. ${result.detail || ""}`.trim(),
+    };
+  } catch (error) {
+    return {
+      name: "launchd service",
+      status: "warn",
+      message: "could not inspect service",
+      detail: error.message,
+    };
+  }
+}
+
+function checkGithubCli({ runTextFn }) {
+  const result = runTextFn("gh", ["auth", "status", "--hostname", "github.com"], { timeout: 10000 });
   return {
     name: "gh auth",
     status: result.ok ? "pass" : "warn",
@@ -86,8 +135,8 @@ function checkGithubCli() {
   };
 }
 
-function checkGithubSsh() {
-  const result = runText("ssh", ["-T", "git@github.com"], { timeout: 10000 });
+function checkGithubSsh({ runTextFn }) {
+  const result = runTextFn("ssh", ["-T", "git@github.com"], { timeout: 10000 });
   const text = result.text;
   const matched = /Hi\s+([^!]+)!/.exec(text);
   return {
@@ -96,6 +145,69 @@ function checkGithubSsh() {
     message: matched ? `authenticated as ${matched[1]}` : "could not confirm account",
     detail: text || "No SSH output received.",
   };
+}
+
+export function checkRelayReachability(relayUrl, { WebSocketClass = WebSocket, timeoutMs = 3000 } = {}) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let socket;
+    const finish = (item) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        socket?.close();
+      } catch {
+      }
+      resolve(item);
+    };
+    const timer = setTimeout(() => {
+      finish({
+        name: "relay reachability",
+        status: "warn",
+        message: "timed out",
+        detail: `Could not open ${redactUrl(relayUrl)} within ${timeoutMs}ms.`,
+      });
+    }, timeoutMs);
+
+    try {
+      socket = new WebSocketClass(relayUrl);
+      socket.once("open", () => {
+        finish({
+          name: "relay reachability",
+          status: "pass",
+          message: "reachable",
+          detail: redactUrl(relayUrl),
+        });
+      });
+      socket.once("error", (error) => {
+        finish({
+          name: "relay reachability",
+          status: "warn",
+          message: "unreachable",
+          detail: `${redactUrl(relayUrl)}: ${error.message}`,
+        });
+      });
+    } catch (error) {
+      finish({
+        name: "relay reachability",
+        status: "warn",
+        message: "invalid relay URL",
+        detail: `${redactUrl(relayUrl)}: ${error.message}`,
+      });
+    }
+  });
+}
+
+function redactUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.username) url.username = "[redacted]";
+    if (url.password) url.password = "[redacted]";
+    return url.toString();
+  } catch {
+    return String(rawUrl).replace(/:\/\/[^@\s]+@/, "://[redacted]@");
+  }
 }
 
 function firstLine(text) {
