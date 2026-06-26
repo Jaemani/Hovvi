@@ -31,6 +31,7 @@ struct RelayTransportFrame
   std::string terminal_output;
   uint64_t remote_state_num = 0;
   uint64_t ack_num = 0;
+  bool shutdown_acknowledged = false;
 };
 
 template<class DatagramEndpoint>
@@ -71,6 +72,11 @@ public:
     return send_diff( stream.init_diff() );
   }
 
+  RelayTransportStatus send_shutdown()
+  {
+    return send_transport_instruction( "", uint64_t( -1 ) );
+  }
+
   RelayTransportStatus pump_inbound( RelayTransportFrame& frame )
   {
     hovvi::mosh::PacketBytes datagram;
@@ -86,14 +92,24 @@ public:
 
   uint64_t sent_state_num() const { return sent_state_num_; }
   uint64_t received_state_num() const { return received_state_num_; }
+  bool shutdown_acknowledged() const { return shutdown_acknowledged_; }
 
 private:
   RelayTransportStatus send_diff( const std::string& diff )
   {
+    const RelayTransportStatus status = send_transport_instruction( diff, sent_state_num_ + 1 );
+    if ( status == RelayTransportStatus::Ok ) {
+      sent_state_num_++;
+    }
+    return status;
+  }
+
+  RelayTransportStatus send_transport_instruction( const std::string& diff, uint64_t new_num )
+  {
     TransportBuffers::Instruction instruction;
     instruction.set_protocol_version( Network::MOSH_PROTOCOL_VERSION );
     instruction.set_old_num( sent_state_num_ );
-    instruction.set_new_num( sent_state_num_ + 1 );
+    instruction.set_new_num( new_num );
     instruction.set_ack_num( received_state_num_ );
     instruction.set_throwaway_num( sent_state_num_ );
     instruction.set_diff( diff );
@@ -108,8 +124,6 @@ private:
         return RelayTransportStatus::RelayError;
       }
     }
-
-    sent_state_num_++;
     return RelayTransportStatus::Ok;
   }
 
@@ -135,6 +149,9 @@ private:
       }
 
       received_state_num_ = instruction.new_num();
+      if ( instruction.ack_num() == uint64_t( -1 ) ) {
+        shutdown_acknowledged_ = true;
+      }
       remote_terminal_.apply_string( instruction.diff() );
       const Terminal::Framebuffer& next_frame = remote_terminal_.get_fb();
       frame.terminal_output = display_.new_frame( rendered_once_, rendered_frame_, next_frame );
@@ -142,6 +159,7 @@ private:
       rendered_once_ = true;
       frame.remote_state_num = received_state_num_;
       frame.ack_num = instruction.ack_num();
+      frame.shutdown_acknowledged = shutdown_acknowledged_;
       return RelayTransportStatus::Ok;
     } catch ( const Crypto::CryptoException& ) {
       return RelayTransportStatus::CryptoError;
@@ -163,6 +181,7 @@ private:
   size_t mtu_;
   uint64_t sent_state_num_;
   uint64_t received_state_num_;
+  bool shutdown_acknowledged_ = false;
   Network::Fragmenter fragmenter_;
   Network::FragmentAssembly assembly_;
 };

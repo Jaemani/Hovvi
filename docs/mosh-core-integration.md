@@ -120,9 +120,9 @@ distribution policy is decided.
 
 `npm run native:mosh-server-harness-check` is the first real local server probe.
 It starts `mosh-server` bound to `127.0.0.1`, creates a temporary tmux marker
-session, sends a native relay transport resize instruction through UDP, and
-verifies rendered native output. The check is optional and skips when `tmux` or
-`mosh-server` is unavailable.
+session, sends native relay transport resize/input/paste-sized input through
+UDP, verifies rendered native output, and confirms shutdown acknowledgement. The
+check is optional and skips when `tmux` or `mosh-server` is unavailable.
 
 ## Source Groups
 
@@ -142,9 +142,9 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Promote the local mosh-server probe into broader fixtures for input, output,
-   resize, paste, packet loss, reordering, and shutdown.
-2. Add packet loss, reordering, resize, paste, and shutdown tests before
+1. Add packet loss, reordering, reconnect, and stale-channel tests around the
+   local mosh-server probe and relay datagram bridge.
+2. Add relay/agent/client datagram end-to-end coverage before
    connecting the core to the app UI.
 3. Port the harness to an iOS static library build once macOS correctness tests
    pass.

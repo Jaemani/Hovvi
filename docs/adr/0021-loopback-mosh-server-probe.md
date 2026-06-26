@@ -31,9 +31,10 @@ npm run native:mosh-server-harness-check
 
 The script skips when `tmux` or `mosh-server` is unavailable. When dependencies
 exist, it creates a temporary tmux session, starts a real local `mosh-server`,
-builds the upstream native probe binary, sends a relay-backed mosh resize
-instruction to the UDP port, and verifies native frame output contains the tmux
-marker.
+builds the upstream native probe binary, sends relay-backed mosh resize/input
+instructions to the UDP port, verifies native frame output contains tmux and
+shell markers, sends a paste-sized command, and verifies shutdown
+acknowledgement.
 
 ## Rationale
 
@@ -47,8 +48,8 @@ Loopback binding matches Hovvi's relay-first threat model:
 ## Consequences
 
 - Attach manifests now describe a loopback-bound mosh server command.
-- `native:mosh-server-harness-check` proves the first real local
-  `mosh-server` exchange through upstream native transport code on machines
-  with `tmux` and `mosh-server`.
+- `native:mosh-server-harness-check` proves real local `mosh-server` output,
+  input, paste-sized input, resize, and shutdown acknowledgement through
+  upstream native transport code on machines with `tmux` and `mosh-server`.
 - This remains an optional local check rather than a CI gate because CI runners
   do not guarantee `mosh-server` availability.

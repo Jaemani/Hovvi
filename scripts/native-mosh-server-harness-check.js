@@ -4,6 +4,8 @@ import { commandExists, runText } from "../src/shell.js";
 
 const sessionName = `hovvi-native-probe-${process.pid}`;
 const marker = `HOVVI_NATIVE_PROBE_${process.pid}`;
+const inputMarker = `HOVVI_INPUT_${process.pid}`;
+const pasteMarker = `HOVVI_PASTE_${process.pid}`;
 
 if (!commandExists("tmux") || !commandExists("mosh-server")) {
   console.log("Skipping native mosh-server harness check: tmux and mosh-server are required.");
@@ -34,6 +36,10 @@ try {
         String(server.port),
         "--expect",
         marker,
+        "--input-expect",
+        inputMarker,
+        "--paste-expect",
+        pasteMarker,
         "--timeout-ms",
         "5000",
       ]);

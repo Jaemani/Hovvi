@@ -153,6 +153,21 @@ int main()
     failures++;
   }
 
+  failures += require( client.send_shutdown() == RelayTransportStatus::Ok,
+                       "client shutdown should produce relay transport datagram" )
+                ? 0
+                : 1;
+  try {
+    TransportBuffers::Instruction shutdown_instruction = decrypt_transport_instruction( server_relay, server_crypto );
+    failures += require( shutdown_instruction.new_num() == uint64_t( -1 ),
+                         "shutdown instruction should use mosh shutdown state number" )
+                  ? 0
+                  : 1;
+  } catch ( const std::exception& e ) {
+    std::cerr << "FAIL: could not decrypt shutdown instruction: " << e.what() << "\n";
+    failures++;
+  }
+
   PacketBytes bad_datagram = { 0x01, 0x02, 0x03 };
   server_relay.send( bad_datagram );
   failures += require( client.pump_inbound( frame ) == RelayTransportStatus::CryptoError,

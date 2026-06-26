@@ -72,7 +72,8 @@ session, transport, and terminal primitives.
 - Optional local native mosh-server probe exists as
   `npm run native:mosh-server-harness-check`. On Macs with `tmux` and
   `mosh-server`, it binds `mosh-server` to `127.0.0.1`, sends native relay
-  transport data to the UDP port, and verifies rendered tmux marker output.
+  transport data to the UDP port, and verifies rendered tmux output, shell
+  input, paste-sized input, resize, and shutdown acknowledgement.
 
 ## Execution Goals
 
