@@ -32,7 +32,7 @@ export function getDevice(name) {
   return config.device;
 }
 
-async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs }) {
+export async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs }) {
   const ws = new WebSocket(relayUrl);
   const forwards = new Map();
   const datagrams = new Map();

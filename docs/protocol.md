@@ -199,6 +199,13 @@ The datagram payload is an opaque mosh packet. Hovvi relay and agent code must n
 
 The `key` value is the printable mosh server AES key returned by `MOSH CONNECT`: 22 base64 characters with no `=` padding.
 
+The JavaScript relay client exposes this boundary as
+`openDatagram({ deviceId, remoteHost, remotePort, label, maxDatagramBytes })`.
+The returned channel supports `send(bytes)`, `nextMessage({ timeoutMs })`, and
+`close()`. `datagram.error` rejects pending opens or pending reads and
+`datagram.close` marks the channel closed. The relay and client must release
+channel state after either peer closes.
+
 ## Validation
 
 Relay input is schema-validated before routing. Invalid messages return:

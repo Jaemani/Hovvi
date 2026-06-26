@@ -6,6 +6,8 @@ export async function createClient({ relayUrl, token }) {
   const ws = new WebSocket(relayUrl);
   const pending = new Map();
   const streams = new Map();
+  const datagramWaiters = new Map();
+  const datagrams = new Map();
   const deviceWaiters = new Set();
   const attachWaiters = new Map();
   const scrollbackWaiters = new Map();
@@ -72,6 +74,48 @@ export async function createClient({ relayUrl, token }) {
       return;
     }
 
+    if (message.type === "datagram.ready") {
+      const waiter = datagramWaiters.get(message.channelId);
+      if (!waiter) return;
+      datagramWaiters.delete(message.channelId);
+      clearTimeout(waiter.timer);
+      waiter.resolve(waiter.channel);
+      return;
+    }
+
+    if (message.type === "datagram.error") {
+      const error = new Error(message.message || "datagram failed");
+      const waiter = datagramWaiters.get(message.channelId);
+      if (waiter) {
+        datagramWaiters.delete(message.channelId);
+        datagrams.delete(message.channelId);
+        clearTimeout(waiter.timer);
+        waiter.reject(error);
+        return;
+      }
+      const channel = datagrams.get(message.channelId);
+      if (channel) {
+        datagrams.delete(message.channelId);
+        channel._close(error);
+      }
+      return;
+    }
+
+    if (message.type === "datagram.data") {
+      const channel = datagrams.get(message.channelId);
+      if (channel) channel._push(Buffer.from(message.data || "", "base64"));
+      return;
+    }
+
+    if (message.type === "datagram.close") {
+      const channel = datagrams.get(message.channelId);
+      if (channel) {
+        datagrams.delete(message.channelId);
+        channel._close();
+      }
+      return;
+    }
+
     if (message.type === "forward.error") {
       const entry = pending.get(message.streamId);
       if (entry) {
@@ -120,7 +164,49 @@ export async function createClient({ relayUrl, token }) {
       });
     },
     close() {
+      for (const channel of datagrams.values()) channel.close();
+      for (const [channelId, waiter] of datagramWaiters) {
+        clearTimeout(waiter.timer);
+        waiter.channel._close(new Error("relay client is closed"));
+        datagrams.delete(channelId);
+        waiter.reject(new Error("relay client is closed"));
+      }
+      datagramWaiters.clear();
       ws.close();
+    },
+    openDatagram({
+      deviceId,
+      remoteHost = "127.0.0.1",
+      remotePort,
+      label = "mosh",
+      maxDatagramBytes = 1200,
+      timeoutMs = 3000,
+    }) {
+      const channelId = `dg_${randomId()}`;
+      const channel = createDatagramChannel({ ws, channelId, datagrams });
+      datagrams.set(channelId, channel);
+      const promise = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          datagramWaiters.delete(channelId);
+          datagrams.delete(channelId);
+          channel._close(new Error("Timed out waiting for datagram channel."));
+          reject(new Error("Timed out waiting for datagram channel."));
+        }, timeoutMs);
+        datagramWaiters.set(channelId, { resolve, reject, timer, channel });
+      });
+      ws.send(
+        serialize(
+          envelope("datagram.open", {
+            channelId,
+            deviceId,
+            label,
+            remoteHost,
+            remotePort,
+            maxDatagramBytes,
+          }),
+        ),
+      );
+      return promise;
     },
     openForward({ deviceId, remoteHost, remotePort }) {
       const streamId = `str_${randomId()}`;
@@ -175,6 +261,71 @@ export async function createClient({ relayUrl, token }) {
       return promise;
     },
   };
+}
+
+function createDatagramChannel({ ws, channelId, datagrams }) {
+  const queue = [];
+  const waiters = [];
+  let closed = false;
+
+  return {
+    channelId,
+    send(bytes) {
+      if (closed) throw new Error("datagram channel is closed");
+      ws.send(
+        serialize(
+          envelope("datagram.data", {
+            channelId,
+            data: Buffer.from(bytes).toString("base64"),
+          }),
+        ),
+      );
+    },
+    nextMessage({ timeoutMs = 3000 } = {}) {
+      if (queue.length > 0) return Promise.resolve(queue.shift());
+      if (closed) return Promise.reject(new Error("datagram channel is closed"));
+      return new Promise((resolve, reject) => {
+        const waiter = { resolve, reject };
+        waiter.timer = setTimeout(() => {
+          const index = waiters.indexOf(waiter);
+          if (index >= 0) waiters.splice(index, 1);
+          reject(new Error("Timed out waiting for datagram message."));
+        }, timeoutMs);
+        waiters.push(waiter);
+      });
+    },
+    close() {
+      if (closed) return;
+      closed = true;
+      datagrams.delete(channelId);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(serialize(envelope("datagram.close", { channelId })));
+      }
+      rejectWaiters(waiters, new Error("datagram channel is closed"));
+    },
+    _push(bytes) {
+      if (closed) return;
+      const waiter = waiters.shift();
+      if (waiter) {
+        clearTimeout(waiter.timer);
+        waiter.resolve(bytes);
+      } else {
+        queue.push(bytes);
+      }
+    },
+    _close(error = new Error("datagram channel is closed")) {
+      if (closed) return;
+      closed = true;
+      rejectWaiters(waiters, error);
+    },
+  };
+}
+
+function rejectWaiters(waiters, error) {
+  for (const waiter of waiters.splice(0)) {
+    clearTimeout(waiter.timer);
+    waiter.reject(error);
+  }
 }
 
 function createRelayDuplex({ ws, streamId }) {

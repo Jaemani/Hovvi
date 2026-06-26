@@ -162,6 +162,8 @@ Deliverables:
 - Strict message validation, size limits, close semantics, heartbeat handling,
   and stale channel cleanup.
 - Integration tests for local relay, agent, and client datagram flow.
+- Public relay client datagram API coverage exists for real relay + agent + UDP
+  round trips.
 
 Acceptance criteria:
 
@@ -171,6 +173,14 @@ Acceptance criteria:
 - The channel handles reconnect/close cases without leaking relay state.
 - A local end-to-end smoke can attach to a server-launched tmux session through
   the relay datagram path.
+
+Current status:
+
+- Relay and agent lifecycle cleanup is covered by unit fixtures.
+- Relay + real agent + client datagram flow is covered with a local UDP echo
+  target.
+- Native mosh-core consumption of the client datagram channel remains pending
+  before this milestone can be considered complete.
 
 ### 5. iOS Alpha Attach Shell
 
@@ -289,6 +299,8 @@ tests pass:
 - macOS harness milestone: real local `mosh-server` attach through native frames.
 - Relay integration milestone: local relay + agent + client datagram end-to-end
   smoke.
+- Relay/native attach milestone: local relay + agent + native mosh client +
+  server-launched tmux session smoke.
 - iOS alpha milestone: attach, input, resize, paste, scrollback, reconnect, and
   error states on device or simulator as appropriate.
 - Release milestone: CI green, package dry-run clean, docs updated, and release
