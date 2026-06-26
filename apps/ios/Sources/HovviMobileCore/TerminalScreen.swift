@@ -73,6 +73,7 @@ public struct TerminalScreen: Equatable, Sendable {
 
     private var cells: [[TerminalCell]]
     private var currentAttributes = TerminalTextAttributes()
+    private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
 
     public init(columns: Int = 80, rows: Int = 24) {
         self.columns = max(1, columns)
@@ -95,6 +96,10 @@ public struct TerminalScreen: Equatable, Sendable {
 
     public var hasVisibleText: Bool {
         visibleLines.contains { $0.text.isEmpty == false }
+    }
+
+    public var isAlternateScreenActive: Bool {
+        primarySnapshotBeforeAlternate != nil
     }
 
     public mutating func resize(columns: Int, rows: Int) {
@@ -150,6 +155,12 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = max(0, cursorColumn - count)
             case .sgr(let values):
                 applySgr(values)
+            case .alternateScreen(let enabled):
+                if enabled {
+                    enterAlternateScreen()
+                } else {
+                    exitAlternateScreen()
+                }
             }
         }
     }
@@ -218,12 +229,46 @@ public struct TerminalScreen: Equatable, Sendable {
         }
     }
 
+    private mutating func enterAlternateScreen() {
+        if primarySnapshotBeforeAlternate == nil {
+            primarySnapshotBeforeAlternate = TerminalScreenSnapshot(
+                cells: cells,
+                cursorColumn: cursorColumn,
+                cursorRow: cursorRow,
+                attributes: currentAttributes
+            )
+        }
+        cells = Self.blankCells(columns: columns, rows: rows)
+        cursorColumn = 0
+        cursorRow = 0
+        currentAttributes = TerminalTextAttributes()
+    }
+
+    private mutating func exitAlternateScreen() {
+        guard let snapshot = primarySnapshotBeforeAlternate else { return }
+        cells = Self.resizedCells(snapshot.cells, columns: columns, rows: rows)
+        cursorColumn = min(snapshot.cursorColumn, columns - 1)
+        cursorRow = min(snapshot.cursorRow, rows - 1)
+        currentAttributes = snapshot.attributes
+        primarySnapshotBeforeAlternate = nil
+    }
+
     private static func blankCells(columns: Int, rows: Int) -> [[TerminalCell]] {
         Array(repeating: blankRow(columns: columns), count: rows)
     }
 
     private static func blankRow(columns: Int) -> [TerminalCell] {
         Array(repeating: TerminalCell(), count: columns)
+    }
+
+    private static func resizedCells(_ cells: [[TerminalCell]], columns: Int, rows: Int) -> [[TerminalCell]] {
+        var resized = blankCells(columns: columns, rows: rows)
+        for row in 0..<min(cells.count, rows) {
+            for column in 0..<min(cells[row].count, columns) {
+                resized[row][column] = cells[row][column]
+            }
+        }
+        return resized
     }
 }
 
@@ -241,6 +286,7 @@ private enum TerminalToken {
     case cursorForward(Int)
     case cursorBackward(Int)
     case sgr([Int])
+    case alternateScreen(Bool)
 }
 
 private struct TerminalEscapeParser {
@@ -312,9 +358,21 @@ private struct TerminalEscapeParser {
             return .eraseLine
         case "m":
             return .sgr(values)
+        case "h", "l":
+            guard isAlternateScreenParameters(parameters) else { return nil }
+            return .alternateScreen(final == "h")
         default:
             return nil
         }
+    }
+
+    private func isAlternateScreenParameters(_ parameters: String) -> Bool {
+        guard parameters.hasPrefix("?") else { return false }
+        let modes = parameters
+            .dropFirst()
+            .split(separator: ";")
+            .compactMap { Int($0) }
+        return modes.contains(47) || modes.contains(1047) || modes.contains(1049)
     }
 }
 
@@ -326,6 +384,13 @@ private struct TerminalCell: Equatable {
         self.character = character
         self.attributes = attributes
     }
+}
+
+private struct TerminalScreenSnapshot: Equatable {
+    var cells: [[TerminalCell]]
+    var cursorColumn: Int
+    var cursorRow: Int
+    var attributes: TerminalTextAttributes
 }
 
 private extension Array where Element == TerminalCell {

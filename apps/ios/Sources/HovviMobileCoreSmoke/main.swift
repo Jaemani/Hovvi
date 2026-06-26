@@ -379,6 +379,15 @@ try require(attributedRuns.map(\.text) == ["plain ", "bold-red", " normal"], "te
 try require(attributedRuns[1].attributes.bold, "terminal screen should preserve bold SGR")
 try require(attributedRuns[1].attributes.foreground == .red, "terminal screen should preserve foreground SGR")
 try require(attributedRuns[2].attributes == TerminalTextAttributes(), "terminal screen should reset SGR attributes")
+var alternateScreen = TerminalScreen(columns: 10, rows: 2)
+alternateScreen.apply("primary")
+alternateScreen.apply("\u{001B}[?1049halt")
+try require(alternateScreen.isAlternateScreenActive, "terminal screen should enter alternate screen")
+try require(alternateScreen.visibleLines.map(\.text) == ["alt", ""], "alternate screen should start with a blank surface")
+alternateScreen.resize(columns: 8, rows: 2)
+alternateScreen.apply("\u{001B}[?1049l")
+try require(alternateScreen.isAlternateScreenActive == false, "terminal screen should exit alternate screen")
+try require(alternateScreen.visibleLines.map(\.text) == ["primary", ""], "terminal screen should restore primary screen after alternate exit")
 
 let relayClient = RelayClient(url: URL(string: "ws://127.0.0.1:8787")!, token: "dev", clientId: "ios-smoke")
 do {

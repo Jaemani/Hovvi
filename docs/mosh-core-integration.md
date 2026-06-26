@@ -184,6 +184,9 @@ separate data source.
 It now preserves basic SGR attributes as line runs so the SwiftUI terminal
 surface can render prompt/status/error styling without folding that state into
 plain scrollback text.
+It also snapshots and restores the primary screen for DEC private alternate
+screen mode so full-screen terminal programs can draw without corrupting the
+primary terminal surface.
 
 ## Source Groups
 
