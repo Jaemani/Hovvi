@@ -226,6 +226,8 @@ Current status:
 - `hovvi doctor` now reports LaunchAgent service state and keeps relay
   WebSocket reachability behind `hovvi doctor --network`, with URL credentials
   redacted in diagnostics.
+- `hovvi service logs` redacts relay tokens, URL credentials, bearer tokens, and
+  printable mosh keys before printing LaunchAgent log files.
 - `npm run ios:simulator-preflight` now records whether the host has full Xcode,
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
@@ -333,6 +335,9 @@ Current status:
 - `hovvi doctor` checks required tools, optional cmux/AI/Tailscale tools, Git
   identity, LaunchAgent service state, opt-in GitHub auth/SSH, and opt-in relay
   WebSocket reachability.
+- `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
+  setup failures can be debugged without exposing relay credentials or mosh
+  keys.
 - tmux sessions and panes are discovered through tmux format output.
 - Claude Code, Codex, Gemini, aider, and cursor-agent panes are marked as AI
   coding panes.

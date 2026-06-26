@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { dirname, join, resolve } from "node:path";
 import { homedir, platform, userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
+import { redactSecrets } from "./redaction.js";
 import { runText } from "./shell.js";
 
 export const DEFAULT_LABEL = "dev.hovvi.agent";
@@ -148,7 +149,7 @@ export function readServiceLogs({ stream = "err", lines = 80 } = {}) {
   const path = join(homedir(), ".hovvi", "logs", stream === "out" ? "agent.out.log" : "agent.err.log");
   if (!existsSync(path)) return "";
   const text = readFileSync(path, "utf8");
-  return text.split(/\r?\n/).slice(-lines).join("\n");
+  return redactSecrets(text.split(/\r?\n/).slice(-lines).join("\n"));
 }
 
 function launchTarget(label) {

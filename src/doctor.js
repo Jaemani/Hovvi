@@ -1,6 +1,7 @@
 import { platform } from "node:os";
 import WebSocket from "ws";
 import { getConfig } from "./config.js";
+import { redactUrlCredentials } from "./redaction.js";
 import { serviceStatus } from "./service.js";
 import { commandExists, runText } from "./shell.js";
 
@@ -166,7 +167,7 @@ export function checkRelayReachability(relayUrl, { WebSocketClass = WebSocket, t
         name: "relay reachability",
         status: "warn",
         message: "timed out",
-        detail: `Could not open ${redactUrl(relayUrl)} within ${timeoutMs}ms.`,
+        detail: `Could not open ${redactUrlCredentials(relayUrl)} within ${timeoutMs}ms.`,
       });
     }, timeoutMs);
 
@@ -177,7 +178,7 @@ export function checkRelayReachability(relayUrl, { WebSocketClass = WebSocket, t
           name: "relay reachability",
           status: "pass",
           message: "reachable",
-          detail: redactUrl(relayUrl),
+          detail: redactUrlCredentials(relayUrl),
         });
       });
       socket.once("error", (error) => {
@@ -185,7 +186,7 @@ export function checkRelayReachability(relayUrl, { WebSocketClass = WebSocket, t
           name: "relay reachability",
           status: "warn",
           message: "unreachable",
-          detail: `${redactUrl(relayUrl)}: ${error.message}`,
+          detail: `${redactUrlCredentials(relayUrl)}: ${error.message}`,
         });
       });
     } catch (error) {
@@ -193,21 +194,10 @@ export function checkRelayReachability(relayUrl, { WebSocketClass = WebSocket, t
         name: "relay reachability",
         status: "warn",
         message: "invalid relay URL",
-        detail: `${redactUrl(relayUrl)}: ${error.message}`,
+        detail: `${redactUrlCredentials(relayUrl)}: ${error.message}`,
       });
     }
   });
-}
-
-function redactUrl(rawUrl) {
-  try {
-    const url = new URL(rawUrl);
-    if (url.username) url.username = "[redacted]";
-    if (url.password) url.password = "[redacted]";
-    return url.toString();
-  } catch {
-    return String(rawUrl).replace(/:\/\/[^@\s]+@/, "://[redacted]@");
-  }
 }
 
 function firstLine(text) {
