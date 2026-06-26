@@ -70,6 +70,8 @@ Inverse SGR runs render with swapped effective foreground/background colors.
 `CSI r` scroll regions keep line-feed scrolling bounded inside active margins.
 `ESC M` reverse index scrolls down inside the active margins when the cursor is
 at the top margin.
+DEC origin mode (`CSI ? 6 h/l`) makes cursor addressing and vertical movement
+respect the active scroll region.
 `TerminalSurfaceView` renders the live screen when present and falls back to
 `ScrollbackBuffer` before output arrives.
 

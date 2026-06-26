@@ -434,6 +434,19 @@ try require(
     reverseIndexMoveScreen.cursorRow == 1 && reverseIndexMoveScreen.visibleLines[2].text == "two",
     "terminal screen reverse index away from the margin should move the cursor without scrolling"
 )
+var originModeScreen = TerminalScreen(columns: 10, rows: 5)
+originModeScreen.apply("\u{001B}[2;4r\u{001B}[?6h\u{001B}[1;1Horigin")
+try require(
+    originModeScreen.cursorRow == 1 && originModeScreen.visibleLines.map(\.text) == ["", "origin", "", "", ""],
+    "terminal screen origin mode should address rows relative to the scroll region"
+)
+originModeScreen.apply("\u{001B}[5B")
+try require(originModeScreen.cursorRow == 3, "terminal screen origin mode should clamp cursor down to the bottom margin")
+originModeScreen.apply("\u{001B}[?6l\u{001B}[1;1Htop")
+try require(
+    originModeScreen.cursorRow == 0 && originModeScreen.visibleLines[0].text == "top",
+    "terminal screen should restore absolute row addressing when origin mode is disabled"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")

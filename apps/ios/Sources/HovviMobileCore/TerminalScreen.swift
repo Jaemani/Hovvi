@@ -120,6 +120,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var cells: [[TerminalCell]]
     private var currentAttributes = TerminalTextAttributes()
     private var scrollRegion: TerminalScrollRegion?
+    private var originMode = false
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
 
     public init(columns: Int = 80, rows: Int = 24) {
@@ -190,15 +191,17 @@ public struct TerminalScreen: Equatable, Sendable {
             case .eraseLine:
                 eraseLine()
             case .cursorHome:
-                cursorRow = 0
+                cursorRow = cursorHomeRow
                 cursorColumn = 0
             case .cursorPosition(let row, let column):
-                cursorRow = min(max(0, row), rows - 1)
+                let rowBounds = cursorRowBounds
+                let targetRow = (originMode ? rowBounds.lowerBound : 0) + row
+                cursorRow = min(max(rowBounds.lowerBound, targetRow), rowBounds.upperBound)
                 cursorColumn = min(max(0, column), columns - 1)
             case .cursorUp(let count):
-                cursorRow = max(0, cursorRow - count)
+                cursorRow = max(cursorRowBounds.lowerBound, cursorRow - count)
             case .cursorDown(let count):
-                cursorRow = min(rows - 1, cursorRow + count)
+                cursorRow = min(cursorRowBounds.upperBound, cursorRow + count)
             case .cursorForward(let count):
                 cursorColumn = min(columns - 1, cursorColumn + count)
             case .cursorBackward(let count):
@@ -207,6 +210,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 applySgr(values)
             case .scrollRegion(let top, let bottom):
                 setScrollRegion(top: top, bottom: bottom)
+            case .originMode(let enabled):
+                originMode = enabled
+                cursorRow = cursorHomeRow
+                cursorColumn = 0
             case .alternateScreen(let enabled):
                 if enabled {
                     enterAlternateScreen()
@@ -308,6 +315,17 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorColumn = 0
     }
 
+    private var cursorHomeRow: Int {
+        originMode ? (scrollRegion?.top ?? 0) : 0
+    }
+
+    private var cursorRowBounds: ClosedRange<Int> {
+        if originMode, let scrollRegion {
+            return scrollRegion.top...scrollRegion.bottom
+        }
+        return 0...(rows - 1)
+    }
+
     private mutating func applySgr(_ values: [Int]) {
         let values = values.isEmpty ? [0] : values
         var index = 0
@@ -405,7 +423,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private mutating func setScrollRegion(top: Int?, bottom: Int?) {
         if top == nil, bottom == nil {
             scrollRegion = nil
-            cursorRow = 0
+            cursorRow = cursorHomeRow
             cursorColumn = 0
             return
         }
@@ -413,12 +431,12 @@ public struct TerminalScreen: Equatable, Sendable {
         let bottom = bottom ?? rows - 1
         guard top >= 0, bottom < rows, top < bottom else {
             scrollRegion = nil
-            cursorRow = 0
+            cursorRow = cursorHomeRow
             cursorColumn = 0
             return
         }
         scrollRegion = TerminalScrollRegion(top: top, bottom: bottom)
-        cursorRow = 0
+        cursorRow = cursorHomeRow
         cursorColumn = 0
     }
 
@@ -429,7 +447,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn: cursorColumn,
                 cursorRow: cursorRow,
                 attributes: currentAttributes,
-                scrollRegion: scrollRegion
+                scrollRegion: scrollRegion,
+                originMode: originMode
             )
         }
         cells = Self.blankCells(columns: columns, rows: rows)
@@ -437,6 +456,7 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorRow = 0
         currentAttributes = TerminalTextAttributes()
         scrollRegion = nil
+        originMode = false
     }
 
     private mutating func exitAlternateScreen() {
@@ -446,6 +466,7 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorRow = min(snapshot.cursorRow, rows - 1)
         currentAttributes = snapshot.attributes
         scrollRegion = snapshot.scrollRegion?.resized(toRows: rows)
+        originMode = snapshot.originMode
         primarySnapshotBeforeAlternate = nil
     }
 
@@ -484,6 +505,7 @@ private enum TerminalToken {
     case cursorBackward(Int)
     case sgr([Int])
     case scrollRegion(top: Int?, bottom: Int?)
+    case originMode(Bool)
     case alternateScreen(Bool)
 }
 
@@ -588,8 +610,7 @@ private struct TerminalEscapeParser {
         case "r":
             return scrollRegionToken(parameters: parameters)
         case "h", "l":
-            guard isAlternateScreenParameters(parameters) else { return nil }
-            return .alternateScreen(final == "h")
+            return privateModeToken(parameters: parameters, enabled: final == "h")
         default:
             return nil
         }
@@ -605,13 +626,19 @@ private struct TerminalEscapeParser {
         return .scrollRegion(top: top, bottom: bottom)
     }
 
-    private func isAlternateScreenParameters(_ parameters: String) -> Bool {
-        guard parameters.hasPrefix("?") else { return false }
+    private func privateModeToken(parameters: String, enabled: Bool) -> TerminalToken? {
+        guard parameters.hasPrefix("?") else { return nil }
         let modes = parameters
             .dropFirst()
             .split(separator: ";")
             .compactMap { Int($0) }
-        return modes.contains(47) || modes.contains(1047) || modes.contains(1049)
+        if modes.contains(47) || modes.contains(1047) || modes.contains(1049) {
+            return .alternateScreen(enabled)
+        }
+        if modes.contains(6) {
+            return .originMode(enabled)
+        }
+        return nil
     }
 }
 
@@ -637,6 +664,7 @@ private struct TerminalScreenSnapshot: Equatable {
     var cursorRow: Int
     var attributes: TerminalTextAttributes
     var scrollRegion: TerminalScrollRegion?
+    var originMode: Bool
 }
 
 private struct TerminalScrollRegion: Equatable {
