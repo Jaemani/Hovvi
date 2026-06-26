@@ -80,6 +80,16 @@ hovvi_mosh_status_t hovvi_mosh_core_resize(hovvi_mosh_core_t* core,
   return HOVVI_MOSH_UNAVAILABLE;
 }
 
+hovvi_mosh_status_t hovvi_mosh_core_tick(hovvi_mosh_core_t* core, uint64_t now_ms, hovvi_mosh_frame_t* out_frame)
+{
+  (void)now_ms;
+  if (!core || !out_frame) {
+    return HOVVI_MOSH_INVALID_ARGUMENT;
+  }
+  clear_frame(out_frame);
+  return HOVVI_MOSH_UNAVAILABLE;
+}
+
 hovvi_mosh_status_t hovvi_mosh_core_shutdown(hovvi_mosh_core_t* core, hovvi_mosh_frame_t* out_frame)
 {
   if (!core || !out_frame) {
@@ -132,4 +142,6 @@ static void clear_frame(hovvi_mosh_frame_t* frame)
   frame->terminal_output.len = 0;
   frame->outbound_packets = NULL;
   frame->outbound_packet_count = 0;
+  frame->next_tick_ms = 0;
+  frame->clean_shutdown = 0;
 }

@@ -49,6 +49,7 @@ The native core receives opaque encrypted mosh packets from Hovvi relay datagram
 
 - terminal output bytes for the mobile terminal renderer
 - outbound encrypted mosh packets to send through the relay datagram channel
+- next tick scheduling metadata for mosh retransmit, ack, prediction, and shutdown timers
 
 ## Build Scaffold
 
@@ -61,6 +62,8 @@ make -C native/mosh-core check
 ```
 
 The smoke binary must return `HOVVI_MOSH_UNAVAILABLE` for a valid create call until the upstream adapter is linked. That failure mode is intentional; it prevents the app from silently pretending that mosh protocol handling exists.
+
+The ABI includes `hovvi_mosh_core_tick` and `MoshCoreFrame.nextTickAfterMs` because upstream mosh's client loop is timer-driven. The real adapter must use this path for retransmit, ack, prediction, and shutdown progress instead of hiding timers in Swift UI code.
 
 ## Source Groups
 

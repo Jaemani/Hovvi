@@ -45,12 +45,18 @@ int main(void)
       .terminal_output = {.data = NULL, .len = 0},
       .outbound_packets = NULL,
       .outbound_packet_count = 0,
+      .next_tick_ms = 123,
+      .clean_shutdown = 1,
   };
   failures += require(hovvi_mosh_core_shutdown(NULL, &frame) == HOVVI_MOSH_INVALID_ARGUMENT,
                       "shutdown without core should be invalid");
+  failures += require(hovvi_mosh_core_tick(NULL, 42, &frame) == HOVVI_MOSH_INVALID_ARGUMENT,
+                      "tick without core should be invalid");
   hovvi_mosh_frame_free(&frame);
   failures += require(frame.terminal_output.data == NULL, "frame free clears output");
   failures += require(frame.outbound_packets == NULL, "frame free clears packets");
+  failures += require(frame.next_tick_ms == 0, "frame free clears next tick");
+  failures += require(frame.clean_shutdown == 0, "frame free clears shutdown flag");
 
   if (failures == 0) {
     puts("hovvi mosh core ABI smoke passed");

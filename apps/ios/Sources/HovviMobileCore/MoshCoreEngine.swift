@@ -13,10 +13,19 @@ public struct MoshCoreTerminalSize: Equatable, Sendable {
 public struct MoshCoreFrame: Equatable, Sendable {
     public let terminalOutput: Data
     public let outboundPackets: [Data]
+    public let nextTickAfterMs: UInt32?
+    public let cleanShutdown: Bool
 
-    public init(terminalOutput: Data = Data(), outboundPackets: [Data] = []) {
+    public init(
+        terminalOutput: Data = Data(),
+        outboundPackets: [Data] = [],
+        nextTickAfterMs: UInt32? = nil,
+        cleanShutdown: Bool = false
+    ) {
         self.terminalOutput = terminalOutput
         self.outboundPackets = outboundPackets
+        self.nextTickAfterMs = nextTickAfterMs
+        self.cleanShutdown = cleanShutdown
     }
 }
 
@@ -37,6 +46,7 @@ public protocol MoshCoreEngine: Sendable {
     func receivePacket(_ packet: MoshRelayDatagramPacket) async throws -> MoshCoreFrame
     func sendUserInput(_ bytes: Data) async throws -> MoshCoreFrame
     func resize(to size: MoshCoreTerminalSize) async throws -> MoshCoreFrame
+    func tick(nowMs: UInt64) async throws -> MoshCoreFrame
     func shutdown() async throws -> MoshCoreFrame
 }
 
@@ -71,6 +81,10 @@ public struct UnavailableMoshCoreEngine: MoshCoreEngine {
     }
 
     public func resize(to size: MoshCoreTerminalSize) async throws -> MoshCoreFrame {
+        throw MoshCoreEngineError.unavailable(reason)
+    }
+
+    public func tick(nowMs: UInt64) async throws -> MoshCoreFrame {
         throw MoshCoreEngineError.unavailable(reason)
     }
 

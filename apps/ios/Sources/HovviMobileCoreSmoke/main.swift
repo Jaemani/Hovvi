@@ -239,6 +239,15 @@ do {
 } catch MoshCoreEngineError.unavailable(let reason) {
     try require(reason == "smoke", "unavailable mosh core should expose reason")
 }
+do {
+    _ = try await unavailableMoshCore.tick(nowMs: 42)
+    throw SmokeError("unavailable mosh core tick should fail")
+} catch MoshCoreEngineError.unavailable(let reason) {
+    try require(reason == "smoke", "unavailable mosh core tick should expose reason")
+}
+let emptyMoshCoreFrame = MoshCoreFrame()
+try require(emptyMoshCoreFrame.nextTickAfterMs == nil, "empty mosh core frame should not schedule tick")
+try require(emptyMoshCoreFrame.cleanShutdown == false, "empty mosh core frame should not signal shutdown")
 
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),

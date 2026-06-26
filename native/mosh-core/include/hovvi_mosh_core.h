@@ -24,6 +24,8 @@ typedef struct {
   hovvi_mosh_bytes_t terminal_output;
   hovvi_mosh_bytes_t* outbound_packets;
   size_t outbound_packet_count;
+  uint32_t next_tick_ms;
+  uint8_t clean_shutdown;
 } hovvi_mosh_frame_t;
 
 typedef enum {
@@ -52,6 +54,8 @@ hovvi_mosh_status_t hovvi_mosh_core_send_user_input(hovvi_mosh_core_t* core,
 hovvi_mosh_status_t hovvi_mosh_core_resize(hovvi_mosh_core_t* core,
                                            hovvi_mosh_terminal_size_t size,
                                            hovvi_mosh_frame_t* out_frame);
+
+hovvi_mosh_status_t hovvi_mosh_core_tick(hovvi_mosh_core_t* core, uint64_t now_ms, hovvi_mosh_frame_t* out_frame);
 
 hovvi_mosh_status_t hovvi_mosh_core_shutdown(hovvi_mosh_core_t* core, hovvi_mosh_frame_t* out_frame);
 
