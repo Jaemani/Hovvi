@@ -25,8 +25,8 @@ bottom and blanks the inserted rows. Delete line shifts rows below the cursor up
 and blanks the region bottom. Counts are clamped to the remaining rows in the
 active region.
 
-Character-level insert/delete (`CSI @` and `CSI P`) remains separate pending
-work. This ADR covers only line operations.
+Character-level insert/delete (`CSI @` and `CSI P`) is handled separately by
+ADR 0048. This ADR covers only line operations.
 
 ## Consequences
 
@@ -34,11 +34,10 @@ work. This ADR covers only line operations.
   content outside the region.
 - The operation stays in the Swift live-screen model and does not affect
   tmux-native scrollback history.
-- Character insert/delete, tab stops, saved character sets, and broader VT
-  parity remain pending.
+- Character insert/delete was added in ADR 0048. Tab stops, saved character
+  sets, and broader VT parity remain pending.
 
 ## Validation
 
 - `swift run --package-path apps/ios HovviMobileCoreSmoke`
 - `swift build --package-path apps/ios --product HovviMobileApp`
-

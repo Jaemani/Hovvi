@@ -493,6 +493,28 @@ try require(
     lineEditScreen.visibleLines.map(\.text) == ["top", "one", "two", "", "", "bottom"],
     "terminal screen should ignore line insert outside the active scroll region"
 )
+var characterEditScreen = TerminalScreen(columns: 8, rows: 2)
+characterEditScreen.apply("abcdef")
+characterEditScreen.apply("\u{001B}[1;3H\u{001B}[2@")
+try require(
+    characterEditScreen.visibleLines.map(\.text) == ["ab  cdef", ""],
+    "terminal screen should insert blank characters at the cursor"
+)
+characterEditScreen.apply("\u{001B}[1;3H\u{001B}[3P")
+try require(
+    characterEditScreen.visibleLines.map(\.text) == ["abdef", ""],
+    "terminal screen should delete characters at the cursor"
+)
+var attributedCharacterEditScreen = TerminalScreen(columns: 8, rows: 1)
+attributedCharacterEditScreen.apply("ab\u{001B}[31m\u{001B}[1;2H\u{001B}[@")
+try require(
+    attributedCharacterEditScreen.visibleLines[0].runs.map(\.text) == ["a", " ", "b"],
+    "terminal screen inserted blanks should remain visible before shifted text"
+)
+try require(
+    attributedCharacterEditScreen.visibleLines[0].runs[1].attributes.foreground == .red,
+    "terminal screen inserted blanks should use the current attributes"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")

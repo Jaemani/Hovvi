@@ -216,6 +216,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 insertLines(count)
             case .deleteLines(let count):
                 deleteLines(count)
+            case .insertCharacters(let count):
+                insertCharacters(count)
+            case .deleteCharacters(let count):
+                deleteCharacters(count)
             case .sgr(let values):
                 applySgr(values)
             case .scrollRegion(let top, let bottom):
@@ -375,6 +379,26 @@ public struct TerminalScreen: Equatable, Sendable {
         let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
         guard cursorRow >= region.top, cursorRow <= region.bottom else { return nil }
         return region
+    }
+
+    private mutating func insertCharacters(_ count: Int) {
+        let count = min(max(1, count), columns - cursorColumn)
+        guard count > 0 else { return }
+        for column in stride(from: columns - 1, through: cursorColumn + count, by: -1) {
+            cells[cursorRow][column] = cells[cursorRow][column - count]
+        }
+        for column in cursorColumn..<cursorColumn + count {
+            cells[cursorRow][column] = TerminalCell(attributes: currentAttributes)
+        }
+    }
+
+    private mutating func deleteCharacters(_ count: Int) {
+        let count = min(max(1, count), columns - cursorColumn)
+        guard count > 0 else { return }
+        for column in cursorColumn..<columns {
+            let source = column + count
+            cells[cursorRow][column] = source < columns ? cells[cursorRow][source] : TerminalCell(attributes: currentAttributes)
+        }
     }
 
     private mutating func applySgr(_ values: [Int]) {
@@ -561,6 +585,8 @@ private enum TerminalToken {
     case restoreCursor
     case insertLines(Int)
     case deleteLines(Int)
+    case insertCharacters(Int)
+    case deleteCharacters(Int)
     case sgr([Int])
     case scrollRegion(top: Int?, bottom: Int?)
     case originMode(Bool)
@@ -655,6 +681,8 @@ private struct TerminalEscapeParser {
         let first = max(1, values.first ?? 1)
 
         switch final {
+        case "@":
+            return .insertCharacters(first)
         case "A":
             return .cursorUp(first)
         case "B":
@@ -675,6 +703,8 @@ private struct TerminalEscapeParser {
             return .insertLines(first)
         case "M":
             return .deleteLines(first)
+        case "P":
+            return .deleteCharacters(first)
         case "s":
             return .saveCursor
         case "u":
