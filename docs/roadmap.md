@@ -220,6 +220,9 @@ Current status:
   token source, keeps the local alpha development default explicit, and exposes
   redacted token text for diagnostics before hosted login replaces the bootstrap
   credential path.
+- Mac agent session discovery now marks tmux panes running `cmux`, classifies
+  those containing sessions as `kind: "cmux"`, and advertises `cmux.sessions`
+  only when the optional `cmux` command is installed.
 - `npm run ios:simulator-preflight` now records whether the host has full Xcode,
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
@@ -321,6 +324,15 @@ Acceptance criteria:
   or mosh keys.
 - Attach manifests remain backward-compatible or are versioned explicitly.
 - CI and local smoke tests cover manifest generation and failure modes.
+
+Current status:
+
+- tmux sessions and panes are discovered through tmux format output.
+- Claude Code, Codex, Gemini, aider, and cursor-agent panes are marked as AI
+  coding panes.
+- cmux panes are marked when the pane command is `cmux`, the containing tmux
+  session is classified as `cmux`, and the agent advertises `cmux.sessions` only
+  when `cmux` is installed.
 
 ### 7. Hosted Relay and Account Service
 

@@ -6,6 +6,7 @@ import { envelope, parseAndValidateEnvelope, randomId, serialize } from "./proto
 import { buildAttachManifest, startMoshServer } from "./attach.js";
 import { captureTmuxScrollback, ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
 import { createUdpDatagramBridge } from "./datagram-udp.js";
+import { commandExists } from "./shell.js";
 
 export async function runAgent({ relayUrl, token, name, publishIntervalMs = 5000, heartbeatIntervalMs = 10000 }) {
   const device = getDevice(name);
@@ -27,9 +28,17 @@ export function getDevice(name) {
   config.device.name = name || config.device.name || hostname();
   config.device.platform = platform();
   config.device.user = userInfo().username;
-  config.device.capabilities = ["tmux.sessions", "tmux.capture", "tcp.forward", "mosh.compat.target", "mosh.relay-datagram"];
+  config.device.capabilities = buildDeviceCapabilities();
   saveConfig(config);
   return config.device;
+}
+
+export function buildDeviceCapabilities({ commandExistsFn = commandExists } = {}) {
+  const capabilities = ["tmux.sessions", "tmux.capture", "tcp.forward", "mosh.compat.target", "mosh.relay-datagram"];
+  if (commandExistsFn("cmux")) {
+    capabilities.push("cmux.sessions");
+  }
+  return capabilities;
 }
 
 export async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs }) {

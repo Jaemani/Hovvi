@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { commandExists, runText } from "./shell.js";
 
 const AI_COMMANDS = new Set(["claude", "codex", "gemini", "aider", "cursor-agent"]);
+const CMUX_COMMANDS = new Set(["cmux"]);
 
 export async function listSessions() {
   if (!commandExists("tmux")) return [];
@@ -17,11 +18,13 @@ export async function listSessions() {
   return sessions.map((session) => {
     const sessionPanes = panesBySession.get(session.name) || [];
     const aiPanes = sessionPanes.filter((pane) => isAiCommand(pane.command));
+    const cmuxPanes = sessionPanes.filter((pane) => isCmuxCommand(pane.command));
     return {
       ...session,
       panes: sessionPanes,
       aiPanes,
-      kind: aiPanes.length > 0 ? "ai-dev" : "tmux",
+      cmuxPanes,
+      kind: classifySession({ aiPanes, cmuxPanes }),
     };
   });
 }
@@ -71,12 +74,24 @@ export function parseTmuxPaneLine(line) {
     cwd,
     title,
     ai: isAiCommand(command),
+    cmux: isCmuxCommand(command),
   };
 }
 
 export function isAiCommand(command = "") {
   const normalized = command.toLowerCase().split(/[\\/]/).at(-1);
   return AI_COMMANDS.has(normalized);
+}
+
+export function isCmuxCommand(command = "") {
+  const normalized = command.toLowerCase().split(/[\\/]/).at(-1);
+  return CMUX_COMMANDS.has(normalized);
+}
+
+export function classifySession({ aiPanes = [], cmuxPanes = [] } = {}) {
+  if (cmuxPanes.length > 0) return "cmux";
+  if (aiPanes.length > 0) return "ai-dev";
+  return "tmux";
 }
 
 export async function ensureTmuxSession(sessionName = "main") {
