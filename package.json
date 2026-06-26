@@ -22,7 +22,7 @@
     "native/mosh-core/Makefile",
     "native/mosh-core/include",
     "native/mosh-core/src",
-    "native/mosh-core/tests",
+    "native/mosh-core/tests/abi_smoke.c",
     "README.md",
     "CHANGELOG.md",
     "docs",
@@ -33,6 +33,7 @@
     "test": "node --test",
     "check": "node --check bin/hovvi && node --check src/*.js && node --check scripts/*.js",
     "native:check": "make -C native/mosh-core check",
+    "native:upstream-check": "make -C native/mosh-core upstream-check",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
     "prepublishOnly": "npm run check && npm test && npm run native:check && npm run mosh:vendor:verify"
   },

@@ -1,8 +1,8 @@
 # Hovvi Mosh Core Boundary
 
-This directory defines Hovvi's C ABI boundary for a future upstream-mosh-backed native core.
+This directory defines Hovvi's C ABI boundary for an upstream-mosh-backed native core.
 
-It intentionally does not vendor mosh source yet. The next step is to build an adapter that wraps upstream mosh internals behind `include/hovvi_mosh_core.h` while preserving the upstream license notices and source availability requirements.
+The current shipped ABI implementation is still an unavailable scaffold. Vendored upstream mosh source lives under `vendor/mosh` for adapter development and compliance review, but it is not linked into the MIT npm package artifact yet.
 
 The ABI is packet-oriented:
 
@@ -19,3 +19,11 @@ make -C native/mosh-core check
 ```
 
 The current implementation is an unavailable scaffold. It validates the ABI, status values, printable mosh key shape, frame cleanup, and build wiring before upstream mosh source is linked.
+
+## Upstream Compile Check
+
+```bash
+make -C native/mosh-core upstream-check
+```
+
+This compiles a narrow vendored upstream mosh crypto smoke on Apple platforms through `config/apple-common-crypto-config.h`. It verifies the AES-OCB session encrypt/decrypt path without changing the scaffold ABI behavior used by `make check`.

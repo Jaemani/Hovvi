@@ -12,6 +12,9 @@ test("planMoshVendor excludes mosh-client CLI but keeps STM client boundary file
 
   assert.equal(plan.files.includes("src/frontend/stmclient.cc"), true);
   assert.equal(plan.files.includes("src/frontend/terminaloverlay.cc"), true);
+  assert.equal(plan.files.includes("src/crypto/ae.h"), true);
+  assert.equal(plan.files.includes("src/crypto/ocb_internal.cc"), true);
+  assert.equal(plan.files.includes("src/crypto/ocb_openssl.cc"), true);
   assert.equal(plan.files.includes("src/frontend/mosh-client.cc"), false);
   assert.equal(plan.excluded.frontendClient.includes("mosh-client.cc"), true);
 });
@@ -54,10 +57,11 @@ async function makeMoshFixture() {
     "src/network/compressor.h": "",
     "src/crypto/crypto.cc": "",
     "src/crypto/crypto.h": "",
-    "src/crypto/base64.cc": "",
-    "src/crypto/base64.h": "",
     "src/crypto/ae.h": "",
     "src/crypto/ocb_internal.cc": "",
+    "src/crypto/ocb_openssl.cc": "",
+    "src/crypto/base64.cc": "",
+    "src/crypto/base64.h": "",
     "src/protobufs/transportinstruction.proto": "",
     "src/protobufs/userinput.proto": "",
     "src/protobufs/hostinput.proto": "",

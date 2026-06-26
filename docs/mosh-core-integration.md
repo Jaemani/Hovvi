@@ -65,9 +65,19 @@ The smoke binary must return `HOVVI_MOSH_UNAVAILABLE` for a valid create call un
 
 The ABI includes `hovvi_mosh_core_tick` and `MoshCoreFrame.nextTickAfterMs` because upstream mosh's client loop is timer-driven. The real adapter must use this path for retransmit, ack, prediction, and shutdown progress instead of hiding timers in Swift UI code.
 
+## Upstream Compile Smoke
+
+The first upstream-linked native check is intentionally separate from the shipped scaffold:
+
+```bash
+npm run native:upstream-check
+```
+
+This target compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_internal.cc` with a Hovvi-owned Apple CommonCrypto config shim, then runs an AES-OCB `Crypto::Session` encrypt/decrypt round trip. It proves the snapshot has the crypto implementation needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
+
 ## Source Groups
 
-- `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior.
+- `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
 - `src/network`: preserve SSP transport logic, but replace socket IO with adapter callbacks.
 - `src/statesync`: keep user stream and complete terminal state synchronization.
 - `src/terminal`: keep terminal parser, framebuffer, display diff, and resize/input semantics.
@@ -106,4 +116,4 @@ npm run mosh:vendor:verify
 
 The verification step checks both SHA-256 hashes and the exact vendored file set. Any unlisted source file in the vendor tree fails CI so adapter work cannot silently drift away from the audited snapshot.
 
-The vendored GPL source is tracked in git for adapter development and compliance review, but it is intentionally excluded from the current MIT npm CLI package. The npm artifact includes only the Hovvi-owned native ABI scaffold until the mobile/native distribution license is finalized.
+The vendored GPL source is tracked in git for adapter development and compliance review, but it is intentionally excluded from the current MIT npm CLI package. The npm artifact includes only the Hovvi-owned native ABI scaffold until the mobile/native distribution license is finalized. `native:upstream-check` is therefore a repository/CI check, not a feature of the published npm package.
