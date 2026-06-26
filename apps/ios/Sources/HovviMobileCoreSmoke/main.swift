@@ -350,6 +350,29 @@ do {
     try require(reason == "create: invalid_argument", "C ABI scaffold should map invalid argument status")
 }
 
+let explicitBootstrap = AppBootstrapConfig(
+    environment: [
+        "HOVVI_RELAY_URL": "wss://relay.example.test",
+        "HOVVI_RELAY_TOKEN": "hovvi_secret_token_123",
+        "HOVVI_CLIENT_ID": "ios-device-1",
+    ]
+)
+try require(explicitBootstrap.relayURL.absoluteString == "wss://relay.example.test", "app bootstrap should read relay URL from environment")
+try require(explicitBootstrap.relayToken == "hovvi_secret_token_123", "app bootstrap should read relay token from HOVVI_RELAY_TOKEN")
+try require(explicitBootstrap.relayTokenSource == .relayTokenEnvironment, "app bootstrap should record relay token source")
+try require(explicitBootstrap.clientId == "ios-device-1", "app bootstrap should read client id from environment")
+try require(explicitBootstrap.redactedRelayToken == "hov...123", "app bootstrap should redact relay tokens")
+try require(explicitBootstrap.usesDevelopmentDefaultToken == false, "app bootstrap should not mark explicit tokens as development defaults")
+let legacyBootstrap = AppBootstrapConfig(environment: ["HOVVI_TOKEN": "legacy_token_456"])
+try require(legacyBootstrap.relayToken == "legacy_token_456", "app bootstrap should support legacy token environment")
+try require(legacyBootstrap.relayTokenSource == .legacyTokenEnvironment, "app bootstrap should record legacy token source")
+let developmentBootstrap = AppBootstrapConfig(environment: [:])
+try require(developmentBootstrap.relayURL == AppBootstrapConfig.defaultRelayURL, "app bootstrap should default to local relay URL")
+try require(developmentBootstrap.relayToken == AppBootstrapConfig.developmentRelayToken, "app bootstrap should keep explicit development fallback")
+try require(developmentBootstrap.relayTokenSource == .developmentDefault, "app bootstrap should record development fallback")
+try require(developmentBootstrap.usesDevelopmentDefaultToken, "app bootstrap should expose development fallback use")
+try require(AppBootstrapConfig.redactToken("dev") == "[redacted]", "short bootstrap tokens should be fully redacted")
+
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
     maxLines: 3

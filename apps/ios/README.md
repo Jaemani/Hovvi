@@ -73,6 +73,9 @@ receive and mosh tick loops while attached. Repository alpha bootstrap reads
 `HOVVI_RELAY_URL`, `HOVVI_RELAY_TOKEN` or `HOVVI_TOKEN`, and
 `HOVVI_CLIENT_ID`, defaulting to `ws://127.0.0.1:8787`, token `dev`, and client
 id `ios-alpha`.
+`AppBootstrapConfig` owns that parsing in `HovviMobileCore`, records whether the
+token came from `HOVVI_RELAY_TOKEN`, legacy `HOVVI_TOKEN`, or the explicit
+development default, and exposes redacted token text for diagnostics.
 The retry action follows `AttachShellRecoveryAction`, reconnecting to the relay
 for browsing failures and reattaching the selected session for live terminal
 failures.

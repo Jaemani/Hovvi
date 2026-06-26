@@ -43,7 +43,7 @@ final class HovviAppController: ObservableObject {
     private var lastResize: MoshCoreTerminalSize?
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
-        let config = HovviAppConfig(environment: environment)
+        let config = AppBootstrapConfig(environment: environment)
         let relay = RelayClient(url: config.relayURL, token: config.relayToken, clientId: config.clientId)
         self.model = AttachShellModel(relay: relay)
     }
@@ -173,18 +173,5 @@ final class HovviAppController: ObservableObject {
 
     nonisolated private static func currentMoshTimeMs() -> UInt64 {
         UInt64(Date().timeIntervalSince1970 * 1000)
-    }
-}
-
-struct HovviAppConfig: Equatable {
-    let relayURL: URL
-    let relayToken: String
-    let clientId: String
-
-    init(environment: [String: String]) {
-        let relayURLString = environment["HOVVI_RELAY_URL"] ?? "ws://127.0.0.1:8787"
-        self.relayURL = URL(string: relayURLString) ?? URL(string: "ws://127.0.0.1:8787")!
-        self.relayToken = environment["HOVVI_RELAY_TOKEN"] ?? environment["HOVVI_TOKEN"] ?? "dev"
-        self.clientId = environment["HOVVI_CLIENT_ID"] ?? "ios-alpha"
     }
 }

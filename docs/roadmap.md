@@ -216,6 +216,10 @@ Current status:
 - Swift mobile attach shell fixtures now provide deterministic browsing,
   attached coding-agent, failed reattach, and capped viewport states for future
   simulator/device rendering validation without depending on a live relay.
+- Swift mobile bootstrap config now lives in `HovviMobileCore`, records relay
+  token source, keeps the local alpha development default explicit, and exposes
+  redacted token text for diagnostics before hosted login replaces the bootstrap
+  credential path.
 - `npm run ios:simulator-preflight` now records whether the host has full Xcode,
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
@@ -275,6 +279,9 @@ Current status:
   `HovviAttachShellView` to `AttachShellModel`, local relay bootstrap config,
   attach actions, byte-level terminal input/resize, and conservative receive
   and mosh tick loops.
+- `AppBootstrapConfig` parses the local alpha relay URL, token, token source,
+  and client id in `HovviMobileCore` with smoke coverage for redaction and
+  fallback behavior.
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
   attach, input, remote receive, resize, tick, shutdown, and mosh key redaction.
