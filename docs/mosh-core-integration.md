@@ -181,6 +181,9 @@ input, resize callbacks, and recoverable error presentation.
 `TerminalScreen` separates live terminal state from tmux scrollback so future
 mobile scroll behavior can preserve the active screen while scrollback remains a
 separate data source.
+It now preserves basic SGR attributes as line runs so the SwiftUI terminal
+surface can render prompt/status/error styling without folding that state into
+plain scrollback text.
 
 ## Source Groups
 

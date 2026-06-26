@@ -311,7 +311,7 @@ public struct TerminalSurfaceView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(lines) { line in
-                        Text(line.text.isEmpty ? " " : line.text)
+                        line.textView
                             .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -337,9 +337,11 @@ public struct TerminalSurfaceView: View {
 
     private var lines: [TerminalSurfaceLine] {
         if let screen = snapshot.terminalScreen, screen.hasVisibleText {
-            return screen.visibleLines.map { TerminalSurfaceLine(id: $0.id, text: $0.text) }
+            return screen.visibleLines.map { TerminalSurfaceLine(id: $0.id, runs: $0.runs) }
         }
-        return (snapshot.scrollback?.visibleLines ?? []).map { TerminalSurfaceLine(id: $0.id, text: $0.text) }
+        return (snapshot.scrollback?.visibleLines ?? []).map {
+            TerminalSurfaceLine(id: $0.id, runs: [TerminalScreenRun(text: $0.text)])
+        }
     }
 
     private var emptyDescription: String {
@@ -356,7 +358,72 @@ public struct TerminalSurfaceView: View {
 
 private struct TerminalSurfaceLine: Identifiable, Equatable {
     let id: String
-    let text: String
+    let runs: [TerminalScreenRun]
+
+    var textView: Text {
+        guard runs.isEmpty == false else { return Text(" ") }
+        return runs.reduce(Text("")) { partial, run in
+            partial + run.textView
+        }
+    }
+}
+
+private extension TerminalScreenRun {
+    var textView: Text {
+        var text = Text(self.text.isEmpty ? " " : self.text)
+        if attributes.bold {
+            text = text.bold()
+        }
+        if attributes.italic {
+            text = text.italic()
+        }
+        if attributes.underline {
+            text = text.underline()
+        }
+        if let color = attributes.foreground?.swiftUIColor {
+            text = text.foregroundColor(color)
+        }
+        return text
+    }
+}
+
+private extension TerminalAnsiColor {
+    var swiftUIColor: Color {
+        switch self {
+        case .black:
+            return .black
+        case .red:
+            return .red
+        case .green:
+            return .green
+        case .yellow:
+            return .yellow
+        case .blue:
+            return .blue
+        case .magenta:
+            return .purple
+        case .cyan:
+            return .cyan
+        case .white:
+            return .primary
+        case .brightBlack:
+            return .secondary
+        case .brightRed:
+            return .red
+        case .brightGreen:
+            return .green
+        case .brightYellow:
+            return .yellow
+        case .brightBlue:
+            return .blue
+        case .brightMagenta:
+            return .purple
+        case .brightCyan:
+            return .cyan
+        case .brightWhite:
+            return .primary
+        }
+    }
 }
 
 @MainActor

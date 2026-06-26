@@ -4,12 +4,65 @@ public struct TerminalScreenLine: Equatable, Identifiable, Sendable {
     public let id: String
     public let row: Int
     public let text: String
+    public let runs: [TerminalScreenRun]
 
-    public init(row: Int, text: String) {
+    public init(row: Int, text: String, runs: [TerminalScreenRun]) {
         self.id = "screen-\(row)"
         self.row = row
         self.text = text
+        self.runs = runs
     }
+}
+
+public struct TerminalScreenRun: Equatable, Sendable {
+    public let text: String
+    public let attributes: TerminalTextAttributes
+
+    public init(text: String, attributes: TerminalTextAttributes = TerminalTextAttributes()) {
+        self.text = text
+        self.attributes = attributes
+    }
+}
+
+public struct TerminalTextAttributes: Equatable, Sendable {
+    public var bold: Bool
+    public var italic: Bool
+    public var underline: Bool
+    public var inverse: Bool
+    public var foreground: TerminalAnsiColor?
+
+    public init(
+        bold: Bool = false,
+        italic: Bool = false,
+        underline: Bool = false,
+        inverse: Bool = false,
+        foreground: TerminalAnsiColor? = nil
+    ) {
+        self.bold = bold
+        self.italic = italic
+        self.underline = underline
+        self.inverse = inverse
+        self.foreground = foreground
+    }
+}
+
+public enum TerminalAnsiColor: Int, Equatable, Sendable {
+    case black = 0
+    case red = 1
+    case green = 2
+    case yellow = 3
+    case blue = 4
+    case magenta = 5
+    case cyan = 6
+    case white = 7
+    case brightBlack = 8
+    case brightRed = 9
+    case brightGreen = 10
+    case brightYellow = 11
+    case brightBlue = 12
+    case brightMagenta = 13
+    case brightCyan = 14
+    case brightWhite = 15
 }
 
 public struct TerminalScreen: Equatable, Sendable {
@@ -18,22 +71,25 @@ public struct TerminalScreen: Equatable, Sendable {
     public private(set) var cursorColumn: Int
     public private(set) var cursorRow: Int
 
-    private var cells: [[Character]]
+    private var cells: [[TerminalCell]]
+    private var currentAttributes = TerminalTextAttributes()
 
     public init(columns: Int = 80, rows: Int = 24) {
         self.columns = max(1, columns)
         self.rows = max(1, rows)
         self.cursorColumn = 0
         self.cursorRow = 0
-        self.cells = Array(
-            repeating: Array(repeating: " ", count: self.columns),
-            count: self.rows
-        )
+        self.cells = Self.blankCells(columns: self.columns, rows: self.rows)
     }
 
     public var visibleLines: [TerminalScreenLine] {
         cells.enumerated().map { row, cells in
-            TerminalScreenLine(row: row, text: String(cells).trimmedRight())
+            let runs = cells.trimmingRightSpaces().groupedRuns()
+            return TerminalScreenLine(
+                row: row,
+                text: runs.map(\.text).joined(),
+                runs: runs
+            )
         }
     }
 
@@ -44,10 +100,7 @@ public struct TerminalScreen: Equatable, Sendable {
     public mutating func resize(columns: Int, rows: Int) {
         let newColumns = max(1, columns)
         let newRows = max(1, rows)
-        var resized = Array(
-            repeating: Array(repeating: Character(" "), count: newColumns),
-            count: newRows
-        )
+        var resized = Self.blankCells(columns: newColumns, rows: newRows)
         for row in 0..<min(self.rows, newRows) {
             for column in 0..<min(self.columns, newColumns) {
                 resized[row][column] = cells[row][column]
@@ -95,12 +148,14 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = min(columns - 1, cursorColumn + count)
             case .cursorBackward(let count):
                 cursorColumn = max(0, cursorColumn - count)
+            case .sgr(let values):
+                applySgr(values)
             }
         }
     }
 
     private mutating func put(_ character: Character) {
-        cells[cursorRow][cursorColumn] = character
+        cells[cursorRow][cursorColumn] = TerminalCell(character: character, attributes: currentAttributes)
         if cursorColumn == columns - 1 {
             cursorColumn = 0
             lineFeed()
@@ -112,21 +167,63 @@ public struct TerminalScreen: Equatable, Sendable {
     private mutating func lineFeed() {
         if cursorRow == rows - 1 {
             cells.removeFirst()
-            cells.append(Array(repeating: " ", count: columns))
+            cells.append(Self.blankRow(columns: columns))
         } else {
             cursorRow += 1
         }
     }
 
     private mutating func clearScreen() {
-        cells = Array(repeating: Array(repeating: " ", count: columns), count: rows)
+        cells = Self.blankCells(columns: columns, rows: rows)
         cursorRow = 0
         cursorColumn = 0
     }
 
     private mutating func eraseLine() {
-        cells[cursorRow] = Array(repeating: " ", count: columns)
+        cells[cursorRow] = Self.blankRow(columns: columns)
         cursorColumn = 0
+    }
+
+    private mutating func applySgr(_ values: [Int]) {
+        let values = values.isEmpty ? [0] : values
+        for value in values {
+            switch value {
+            case 0:
+                currentAttributes = TerminalTextAttributes()
+            case 1:
+                currentAttributes.bold = true
+            case 3:
+                currentAttributes.italic = true
+            case 4:
+                currentAttributes.underline = true
+            case 7:
+                currentAttributes.inverse = true
+            case 22:
+                currentAttributes.bold = false
+            case 23:
+                currentAttributes.italic = false
+            case 24:
+                currentAttributes.underline = false
+            case 27:
+                currentAttributes.inverse = false
+            case 30...37:
+                currentAttributes.foreground = TerminalAnsiColor(rawValue: value - 30)
+            case 39:
+                currentAttributes.foreground = nil
+            case 90...97:
+                currentAttributes.foreground = TerminalAnsiColor(rawValue: value - 90 + 8)
+            default:
+                continue
+            }
+        }
+    }
+
+    private static func blankCells(columns: Int, rows: Int) -> [[TerminalCell]] {
+        Array(repeating: blankRow(columns: columns), count: rows)
+    }
+
+    private static func blankRow(columns: Int) -> [TerminalCell] {
+        Array(repeating: TerminalCell(), count: columns)
     }
 }
 
@@ -143,6 +240,7 @@ private enum TerminalToken {
     case cursorDown(Int)
     case cursorForward(Int)
     case cursorBackward(Int)
+    case sgr([Int])
 }
 
 private struct TerminalEscapeParser {
@@ -212,18 +310,53 @@ private struct TerminalEscapeParser {
             return (values.first ?? 0) == 2 ? .clearScreen : nil
         case "K":
             return .eraseLine
+        case "m":
+            return .sgr(values)
         default:
             return nil
         }
     }
 }
 
-private extension String {
-    func trimmedRight() -> String {
+private struct TerminalCell: Equatable {
+    var character: Character
+    var attributes: TerminalTextAttributes
+
+    init(character: Character = " ", attributes: TerminalTextAttributes = TerminalTextAttributes()) {
+        self.character = character
+        self.attributes = attributes
+    }
+}
+
+private extension Array where Element == TerminalCell {
+    func trimmingRightSpaces() -> [TerminalCell] {
         var value = self
-        while value.last == " " {
+        while value.last?.character == " " {
             value.removeLast()
         }
         return value
+    }
+
+    func groupedRuns() -> [TerminalScreenRun] {
+        var runs: [TerminalScreenRun] = []
+        var text = ""
+        var attributes = first?.attributes ?? TerminalTextAttributes()
+
+        for cell in self {
+            if cell.attributes == attributes {
+                text.append(cell.character)
+            } else {
+                if text.isEmpty == false {
+                    runs.append(TerminalScreenRun(text: text, attributes: attributes))
+                }
+                attributes = cell.attributes
+                text = String(cell.character)
+            }
+        }
+
+        if text.isEmpty == false {
+            runs.append(TerminalScreenRun(text: text, attributes: attributes))
+        }
+        return runs
     }
 }

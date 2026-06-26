@@ -27,6 +27,7 @@ The initial model supports:
 - clear screen with `CSI 2 J`;
 - erase current line with `CSI K`;
 - resize while preserving visible cells.
+- basic SGR text attribute preservation was added in ADR 0036.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. `TerminalSurfaceView` renders the live terminal screen when
@@ -37,8 +38,8 @@ it has visible text, and falls back to scrollback lines otherwise.
 The iOS shell now has a distinct live-screen surface, which is the right boundary
 for future ANSI parsing, keyboard, paste, and simulator screenshot validation.
 This is not yet a complete terminal emulator. Full ANSI/VT behavior, text
-attributes, alternate screen, wide grapheme handling, selection, and performance
-profiling remain pending.
+alternate screen, wide grapheme handling, selection, 256-color/truecolor SGR,
+and performance profiling remain pending.
 
 ## Validation
 

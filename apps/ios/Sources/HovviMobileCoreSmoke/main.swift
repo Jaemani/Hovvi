@@ -372,6 +372,13 @@ terminalScreen.apply("\u{001B}[Kline")
 try require(terminalScreen.visibleLines[0].text == "line", "terminal screen should erase current line")
 terminalScreen.resize(columns: 4, rows: 2)
 try require(terminalScreen.visibleLines.map(\.text) == ["line", ""], "terminal screen resize should preserve visible cells")
+var attributedScreen = TerminalScreen(columns: 24, rows: 2)
+attributedScreen.apply("plain \u{001B}[1;31mbold-red\u{001B}[0m normal")
+let attributedRuns = attributedScreen.visibleLines[0].runs
+try require(attributedRuns.map(\.text) == ["plain ", "bold-red", " normal"], "terminal screen should split SGR runs")
+try require(attributedRuns[1].attributes.bold, "terminal screen should preserve bold SGR")
+try require(attributedRuns[1].attributes.foreground == .red, "terminal screen should preserve foreground SGR")
+try require(attributedRuns[2].attributes == TerminalTextAttributes(), "terminal screen should reset SGR attributes")
 
 let relayClient = RelayClient(url: URL(string: "ws://127.0.0.1:8787")!, token: "dev", clientId: "ios-smoke")
 do {
