@@ -143,14 +143,48 @@ public struct AttachMethod: Codable, Equatable, Sendable {
     public let priority: Int
     public let status: String
     public let command: [String]
+    public let transport: AttachTransport?
     public let notes: String?
 
-    public init(name: String, priority: Int, status: String, command: [String], notes: String? = nil) {
+    public init(
+        name: String,
+        priority: Int,
+        status: String,
+        command: [String],
+        transport: AttachTransport? = nil,
+        notes: String? = nil
+    ) {
         self.name = name
         self.priority = priority
         self.status = status
         self.command = command
+        self.transport = transport
         self.notes = notes
+    }
+}
+
+public struct AttachTransport: Codable, Equatable, Sendable {
+    public let kind: String
+    public let label: String?
+    public let remoteHost: String?
+    public let remotePort: Int?
+    public let key: String?
+    public let maxDatagramBytes: Int?
+
+    public init(
+        kind: String,
+        label: String? = nil,
+        remoteHost: String? = nil,
+        remotePort: Int? = nil,
+        key: String? = nil,
+        maxDatagramBytes: Int? = nil
+    ) {
+        self.kind = kind
+        self.label = label
+        self.remoteHost = remoteHost
+        self.remotePort = remotePort
+        self.key = key
+        self.maxDatagramBytes = maxDatagramBytes
     }
 }
 

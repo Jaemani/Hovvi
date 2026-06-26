@@ -1,8 +1,31 @@
+import { spawn as spawnChild } from "node:child_process";
 import { userInfo } from "node:os";
 
-export function buildAttachManifest({ device, sessionName, lines = 2000 }) {
+export function buildAttachManifest({ device, sessionName, lines = 2000, mosh } = {}) {
   const target = escapeTmuxTarget(sessionName);
   const user = userInfo().username;
+  const moshCommand = buildMoshServerCommand({ sessionName: target });
+  const moshMethod = {
+    name: "mosh",
+    priority: 10,
+    status: mosh?.port && mosh?.key ? "available" : mosh?.error ? "unavailable" : "planned",
+    command: [moshCommand.command, ...moshCommand.args],
+    notes: mosh?.error
+      ? `mosh-server bootstrap failed: ${mosh.error}`
+      : "Compatibility target for mobile attach. Relay datagrams carry the resulting encrypted mosh packets.",
+  };
+
+  if (mosh?.port && mosh?.key) {
+    moshMethod.transport = {
+      kind: "relay-datagram",
+      label: "mosh",
+      remoteHost: "127.0.0.1",
+      remotePort: mosh.port,
+      key: mosh.key,
+      maxDatagramBytes: 1200,
+    };
+  }
+
   return {
     kind: "mosh-tmux",
     version: 1,
@@ -11,26 +34,7 @@ export function buildAttachManifest({ device, sessionName, lines = 2000 }) {
     sessionName,
     user,
     methods: [
-      {
-        name: "mosh",
-        priority: 10,
-        status: "planned",
-        command: [
-          "mosh-server",
-          "new",
-          "-s",
-          "-c",
-          "256",
-          "-l",
-          `LANG=${process.env.LANG || "en_US.UTF-8"}`,
-          "--",
-          "tmux",
-          "attach-session",
-          "-t",
-          target,
-        ],
-        notes: "Compatibility target for mobile attach. The relay datagram transport must carry the resulting encrypted mosh packets.",
-      },
+      moshMethod,
       {
         name: "ssh-tcp-forward",
         priority: 20,
@@ -56,6 +60,85 @@ export function buildAttachManifest({ device, sessionName, lines = 2000 }) {
       command: ["tmux", "-CC", "attach-session", "-t", target],
     },
   };
+}
+
+export function buildMoshServerCommand({ sessionName, columns = 256, lang = process.env.LANG || "en_US.UTF-8" }) {
+  const target = escapeTmuxTarget(sessionName);
+  return {
+    command: "mosh-server",
+    args: [
+      "new",
+      "-s",
+      "-c",
+      String(columns),
+      "-l",
+      `LANG=${lang}`,
+      "--",
+      "tmux",
+      "attach-session",
+      "-t",
+      target,
+    ],
+  };
+}
+
+export async function startMoshServer({ sessionName, timeoutMs = 5000, spawn = spawnChild } = {}) {
+  const command = buildMoshServerCommand({ sessionName });
+  const child = spawn(command.command, command.args, {
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let output = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill?.();
+      reject(new Error(`Timed out waiting for mosh-server bootstrap for ${sessionName}.`));
+    }, timeoutMs);
+
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        ...result,
+        pid: child.pid,
+        command: command.command,
+        args: command.args,
+        process: child,
+      });
+    };
+
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    };
+
+    const readConnectLine = (chunk) => {
+      output += chunk.toString("utf8");
+      const parsed = parseMoshConnectLine(output);
+      if (parsed) finish(parsed);
+    };
+
+    child.stdout?.on("data", readConnectLine);
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString("utf8");
+      readConnectLine(chunk);
+    });
+    child.once?.("error", fail);
+    child.once?.("exit", (code, signal) => {
+      if (settled) return;
+      const reason = signal ? `signal ${signal}` : `code ${code}`;
+      const detail = stderr.trim() || output.trim() || "no output";
+      fail(new Error(`mosh-server exited before bootstrap (${reason}): ${detail}`));
+    });
+  });
 }
 
 export function escapeTmuxTarget(sessionName) {

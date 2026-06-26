@@ -47,8 +47,16 @@ let manifestJson = """
       {
         "name": "mosh",
         "priority": 10,
-        "status": "planned",
-        "command": ["mosh-server", "new"]
+        "status": "available",
+        "command": ["mosh-server", "new"],
+        "transport": {
+          "kind": "relay-datagram",
+          "label": "mosh",
+          "remoteHost": "127.0.0.1",
+          "remotePort": 60001,
+          "key": "abcDEF+/=",
+          "maxDatagramBytes": 1200
+        }
       }
     ],
     "scrollback": {
@@ -72,6 +80,8 @@ let manifestEnvelope = try decodeEnvelope(
 try require(manifestEnvelope.payload.requestId == "req-1", "attach request id should decode")
 try require(manifestEnvelope.payload.manifest.kind == "mosh-tmux", "attach manifest kind should decode")
 try require(manifestEnvelope.payload.manifest.scrollback.lines == 2000, "scrollback lines should decode")
+try require(manifestEnvelope.payload.manifest.methods[0].transport?.remotePort == 60001, "mosh transport port should decode")
+try require(manifestEnvelope.payload.manifest.methods[0].transport?.key == "abcDEF+/=", "mosh transport key should decode")
 
 do {
     _ = try decodeEnvelope(DevicesSnapshot.self, from: data, expectedType: "other")

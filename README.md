@@ -149,6 +149,8 @@ Relay protocol inputs are schema-validated before routing to an agent. Invalid m
 
 Mobile clients should use `session.scrollback.fetch` for native scrollback instead of reconstructing history from terminal frames.
 
+`prepare-attach` asks the Mac agent to build an attach manifest. When `mosh-server` is available, the agent bootstraps `mosh-server new ... -- tmux attach-session -t <session>` and returns a `mosh` method with `relay-datagram` transport details: `remotePort`, encrypted mosh `key`, and the datagram size target. If bootstrap fails, the manifest still includes SSH relay forwarding and local tmux fallbacks.
+
 ## Product Direction
 
 - Name: Hovvi

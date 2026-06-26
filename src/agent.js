@@ -3,7 +3,7 @@ import { hostname, platform, userInfo } from "node:os";
 import WebSocket from "ws";
 import { getConfig, saveConfig } from "./config.js";
 import { envelope, parseAndValidateEnvelope, randomId, serialize } from "./protocol.js";
-import { buildAttachManifest } from "./attach.js";
+import { buildAttachManifest, startMoshServer } from "./attach.js";
 import { captureTmuxScrollback, ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
 import { createUdpDatagramBridge } from "./datagram-udp.js";
 
@@ -27,7 +27,7 @@ export function getDevice(name) {
   config.device.name = name || config.device.name || hostname();
   config.device.platform = platform();
   config.device.user = userInfo().username;
-  config.device.capabilities = ["tmux.sessions", "tmux.capture", "tcp.forward", "mosh.compat.target"];
+  config.device.capabilities = ["tmux.sessions", "tmux.capture", "tcp.forward", "mosh.compat.target", "mosh.relay-datagram"];
   saveConfig(config);
   return config.device;
 }
@@ -36,6 +36,7 @@ async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartb
   const ws = new WebSocket(relayUrl);
   const forwards = new Map();
   const datagrams = new Map();
+  const moshServers = new Map();
   let publishTimer;
   let heartbeatTimer;
 
@@ -45,7 +46,7 @@ async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartb
   });
 
   ws.send(serialize(envelope("hello", { role: "agent", token, device })));
-  ws.on("message", (data) => handleAgentMessage(ws, forwards, datagrams, device, data));
+  ws.on("message", (data) => handleAgentMessage(ws, forwards, datagrams, moshServers, device, data));
   ws.on("close", () => {
     clearInterval(publishTimer);
     clearInterval(heartbeatTimer);
@@ -53,6 +54,8 @@ async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartb
     forwards.clear();
     for (const bridge of datagrams.values()) bridge.close();
     datagrams.clear();
+    for (const server of moshServers.values()) server.process?.kill?.();
+    moshServers.clear();
   });
 
   const heartbeat = () => {
@@ -84,7 +87,7 @@ async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartb
   });
 }
 
-function handleAgentMessage(ws, forwards, datagrams, device, data) {
+function handleAgentMessage(ws, forwards, datagrams, moshServers, device, data) {
   let message;
   try {
     message = parseAndValidateEnvelope(data);
@@ -98,7 +101,7 @@ function handleAgentMessage(ws, forwards, datagrams, device, data) {
     case "datagram.open":
       return openDatagram(ws, datagrams, message);
     case "session.attach.prepare":
-      return prepareAttach(ws, device, message);
+      return prepareAttach(ws, device, moshServers, message);
     case "session.scrollback.fetch":
       return fetchScrollback(ws, message);
     case "forward.data":
@@ -135,7 +138,7 @@ async function fetchScrollback(ws, message) {
   }
 }
 
-async function prepareAttach(ws, device, message) {
+async function prepareAttach(ws, device, moshServers, message) {
   try {
     const sessionName = message.sessionName || "main";
     if (message.create) {
@@ -143,10 +146,21 @@ async function prepareAttach(ws, device, message) {
     } else if (!hasTmuxSession(sessionName)) {
       throw new Error(`tmux session not found: ${sessionName}`);
     }
+    let mosh;
+    try {
+      const server = await startMoshServer({ sessionName });
+      const serverKey = `${message.id}:${server.port}`;
+      moshServers.set(serverKey, server);
+      server.process?.once?.("exit", () => moshServers.delete(serverKey));
+      mosh = { port: server.port, key: server.key, pid: server.pid };
+    } catch (error) {
+      mosh = { error: error.message };
+    }
     const manifest = buildAttachManifest({
       device,
       sessionName,
       lines: Number(message.lines || 2000),
+      mosh,
     });
     ws.send(serialize(envelope("session.attach.ready", { requestId: message.id, manifest })));
   } catch (error) {

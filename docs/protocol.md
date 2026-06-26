@@ -61,7 +61,22 @@ Message-specific fields are added next to those keys.
     "version": 1,
     "sessionName": "main",
     "user": "jaeman",
-    "methods": [],
+    "methods": [
+      {
+        "name": "mosh",
+        "priority": 10,
+        "status": "available",
+        "command": ["mosh-server", "new", "-s", "-c", "256", "-l", "LANG=en_US.UTF-8", "--", "tmux", "attach-session", "-t", "main"],
+        "transport": {
+          "kind": "relay-datagram",
+          "label": "mosh",
+          "remoteHost": "127.0.0.1",
+          "remotePort": 60001,
+          "key": "base64-mosh-key",
+          "maxDatagramBytes": 1200
+        }
+      }
+    ],
     "scrollback": {
       "source": "tmux.capture-pane",
       "command": ["tmux", "capture-pane", "-t", "main", "-p"],
