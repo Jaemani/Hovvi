@@ -440,6 +440,8 @@ These are intentionally not on the immediate path:
 ## Traceability
 
 - Architecture decisions live in `docs/adr/`.
+- Roadmap execution and verification rules live in
+  `docs/execution-harness.md`.
 - Mosh integration details live in `docs/mosh-core-integration.md`.
 - Relay wire format lives in `docs/protocol.md`.
 - Referenced upstream projects and documents live in `docs/references.md`.

@@ -40,3 +40,13 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 - For debugging, use raw command without rtk prefix
 - `rtk proxy <cmd>` runs command without filtering but tracks usage
 <!-- /headroom:rtk-instructions -->
+
+## Hovvi Roadmap Execution
+
+- Before non-trivial roadmap work, read `docs/roadmap.md` and
+  `docs/execution-harness.md`.
+- Treat tests, builds, package dry-runs, CI, protocol docs, and ADRs as the
+  verifier. Self-review alone is not completion evidence.
+- Stop before crossing any roadmap decision gate in `docs/roadmap.md`.
+- Add or update an ADR when changing architecture, behavior, packaging,
+  security, license boundaries, or process policy.
