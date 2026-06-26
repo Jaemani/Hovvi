@@ -195,6 +195,9 @@ Current status:
   frames through relay datagrams with fake-engine smoke coverage.
 - Swift mobile core can call the C ABI scaffold through `CAbiMoshCoreEngine`;
   upstream GPL static-library linkage remains separated.
+- JavaScript relay clients now reject pending list/attach/scrollback/forward and
+  datagram operations on unexpected relay disconnect, and later calls fail
+  immediately instead of waiting for per-operation timeouts.
 - Native relay packet exchange is proven locally on Macs with `tmux` and
   `mosh-server`; iOS C ABI linkage and terminal UI quality remain pending before
   the mobile attach milestone can be considered complete.

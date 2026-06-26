@@ -13,6 +13,7 @@ export async function createClient({ relayUrl, token }) {
   const scrollbackWaiters = new Map();
   let devices = [];
   let haveDeviceSnapshot = false;
+  let failed = false;
 
   await new Promise((resolve, reject) => {
     ws.once("open", resolve);
@@ -143,18 +144,87 @@ export async function createClient({ relayUrl, token }) {
     }
   });
 
+  ws.on("close", () => {
+    failAll(new Error("relay client disconnected"));
+  });
+  ws.on("error", (error) => {
+    failAll(error);
+  });
+
   ws.send(serialize(envelope("hello", { role: "client", token })));
+
+  function ensureOpen() {
+    if (failed || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+      throw new Error("relay client is closed");
+    }
+  }
+
+  function failAll(error, { sendDatagramClose = false } = {}) {
+    if (failed) return;
+    failed = true;
+
+    for (const [streamId, entry] of pending) {
+      pending.delete(streamId);
+      streams.delete(streamId);
+      entry.stream.destroy();
+      entry.reject(error);
+    }
+
+    for (const [streamId, stream] of streams) {
+      streams.delete(streamId);
+      stream.destroy(error);
+    }
+
+    for (const waiter of deviceWaiters) {
+      clearTimeout(waiter.timer);
+      waiter.reject(error);
+    }
+    deviceWaiters.clear();
+
+    for (const [requestId, waiter] of attachWaiters) {
+      attachWaiters.delete(requestId);
+      clearTimeout(waiter.timer);
+      waiter.reject(error);
+    }
+
+    for (const [requestId, waiter] of scrollbackWaiters) {
+      scrollbackWaiters.delete(requestId);
+      clearTimeout(waiter.timer);
+      waiter.reject(error);
+    }
+
+    for (const [channelId, waiter] of datagramWaiters) {
+      datagramWaiters.delete(channelId);
+      datagrams.delete(channelId);
+      clearTimeout(waiter.timer);
+      if (sendDatagramClose) waiter.channel.close();
+      else waiter.channel._close(error);
+      waiter.reject(error);
+    }
+
+    for (const [channelId, channel] of datagrams) {
+      datagrams.delete(channelId);
+      if (sendDatagramClose) channel.close();
+      else channel._close(error);
+    }
+  }
 
   const api = {
     devices: () => devices,
     listDevices({ timeoutMs = 3000 } = {}) {
+      try {
+        ensureOpen();
+      } catch (error) {
+        return Promise.reject(error);
+      }
       if (haveDeviceSnapshot) return Promise.resolve(devices);
       return new Promise((resolve, reject) => {
-        const waiter = { resolve, reject };
+        const waiter = { resolve, reject, timer: undefined };
         const timer = setTimeout(() => {
           deviceWaiters.delete(waiter);
           reject(new Error("Timed out waiting for relay device snapshot."));
         }, timeoutMs);
+        waiter.timer = timer;
         waiter.resolve = (value) => {
           clearTimeout(timer);
           resolve(value);
@@ -164,14 +234,7 @@ export async function createClient({ relayUrl, token }) {
       });
     },
     close() {
-      for (const channel of datagrams.values()) channel.close();
-      for (const [channelId, waiter] of datagramWaiters) {
-        clearTimeout(waiter.timer);
-        waiter.channel._close(new Error("relay client is closed"));
-        datagrams.delete(channelId);
-        waiter.reject(new Error("relay client is closed"));
-      }
-      datagramWaiters.clear();
+      failAll(new Error("relay client is closed"), { sendDatagramClose: true });
       ws.close();
     },
     openDatagram({
@@ -182,6 +245,11 @@ export async function createClient({ relayUrl, token }) {
       maxDatagramBytes = 1200,
       timeoutMs = 3000,
     }) {
+      try {
+        ensureOpen();
+      } catch (error) {
+        return Promise.reject(error);
+      }
       const channelId = `dg_${randomId()}`;
       const channel = createDatagramChannel({ ws, channelId, datagrams });
       datagrams.set(channelId, channel);
@@ -209,6 +277,11 @@ export async function createClient({ relayUrl, token }) {
       return promise;
     },
     openForward({ deviceId, remoteHost, remotePort }) {
+      try {
+        ensureOpen();
+      } catch (error) {
+        return Promise.reject(error);
+      }
       const streamId = `str_${randomId()}`;
       const stream = createRelayDuplex({ ws, streamId });
       streams.set(streamId, stream);
@@ -228,6 +301,11 @@ export async function createClient({ relayUrl, token }) {
       return promise;
     },
     prepareAttach({ deviceId, sessionName = "main", lines = 2000, create = false, timeoutMs = 5000 }) {
+      try {
+        ensureOpen();
+      } catch (error) {
+        return Promise.reject(error);
+      }
       const request = envelope("session.attach.prepare", {
         deviceId,
         sessionName,
@@ -266,6 +344,11 @@ export async function createClient({ relayUrl, token }) {
       return { manifest, method, transport, channel };
     },
     fetchScrollback({ deviceId, sessionName = "main", lines = 2000, timeoutMs = 5000 }) {
+      try {
+        ensureOpen();
+      } catch (error) {
+        return Promise.reject(error);
+      }
       const request = envelope("session.scrollback.fetch", {
         deviceId,
         sessionName,

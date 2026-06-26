@@ -158,6 +158,10 @@ Relay datagram lifecycle coverage now includes idle timeout cleanup and peer
 disconnect cleanup through `sweepStaleDatagrams`. Upstream relay transport
 coverage includes out-of-order multi-fragment server instructions; incomplete
 fragment sets must not render terminal output until assembly completes.
+Client-side relay lifecycle coverage also rejects pending device snapshot,
+attach, scrollback, forward, and datagram operations when the relay WebSocket
+disconnects unexpectedly, so future reconnect wrappers can restart from a clean
+client state instead of inheriting stale promises.
 
 ## Source Groups
 
@@ -181,8 +185,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
    GPL mobile distribution gate.
 2. Add Swift Package linker wiring for the repository-only upstream C ABI
    library without changing npm package contents.
-3. Add reconnect and local relay process integration coverage around the
-   mosh-server probe.
+3. Add a reconnecting wrapper and local relay process integration coverage around
+   the mosh-server probe.
 4. Port the harness to an iOS static library build once macOS correctness tests
    pass.
 

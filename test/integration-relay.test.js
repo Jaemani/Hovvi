@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSocket } from "node:dgram";
-import WebSocket from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 import { connectAgent } from "../src/agent.js";
 import { createRelayServer } from "../src/relay.js";
 import { createClient } from "../src/relay-client.js";
@@ -88,12 +88,90 @@ test("client datagram channel reaches an agent-owned UDP target through the rela
   }
 });
 
+test("client rejects pending requests when relay disconnects unexpectedly", async () => {
+  const relay = await openClosingRelay("devices.list");
+  const client = await createClient({ relayUrl: relay.url, token: "dev" });
+
+  try {
+    await assert.rejects(client.listDevices({ timeoutMs: 5000 }), /relay client disconnected/);
+    await assert.rejects(client.prepareAttach({ deviceId: "mac-1", timeoutMs: 5000 }), /relay client is closed/);
+  } finally {
+    client.close();
+    await relay.close();
+  }
+});
+
+test("client rejects pending datagram opens when relay disconnects unexpectedly", async () => {
+  const relay = await openClosingRelay("datagram.open");
+  const client = await createClient({ relayUrl: relay.url, token: "dev" });
+
+  try {
+    await assert.rejects(
+      client.openDatagram({
+        deviceId: "mac-1",
+        remoteHost: "127.0.0.1",
+        remotePort: 60000,
+        timeoutMs: 5000,
+      }),
+      /relay client disconnected/,
+    );
+  } finally {
+    client.close();
+    await relay.close();
+  }
+});
+
+test("client rejects pending attach, scrollback, and forward requests when relay disconnects unexpectedly", async () => {
+  await assertRejectsPendingRequest("session.attach.prepare", (client) =>
+    client.prepareAttach({ deviceId: "mac-1", timeoutMs: 5000 }),
+  );
+  await assertRejectsPendingRequest("session.scrollback.fetch", (client) =>
+    client.fetchScrollback({ deviceId: "mac-1", timeoutMs: 5000 }),
+  );
+  await assertRejectsPendingRequest("forward.open", (client) =>
+    client.openForward({ deviceId: "mac-1", remoteHost: "127.0.0.1", remotePort: 22 }),
+  );
+});
+
 function openAgent(url) {
   const ws = new WebSocket(url);
   return new Promise((resolve, reject) => {
     ws.once("open", () => resolve(ws));
     ws.once("error", reject);
   });
+}
+
+function openClosingRelay(closeOnType) {
+  const wss = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+  wss.on("connection", (ws) => {
+    ws.on("message", (data) => {
+      const message = parseEnvelope(data);
+      if (message.type === closeOnType) ws.close();
+    });
+  });
+  return new Promise((resolve, reject) => {
+    wss.once("error", reject);
+    wss.once("listening", () => {
+      wss.off("error", reject);
+      const address = wss.address();
+      resolve({
+        url: `ws://127.0.0.1:${address.port}`,
+        close: () => new Promise((closeResolve) => wss.close(closeResolve)),
+      });
+    });
+  });
+}
+
+async function assertRejectsPendingRequest(closeOnType, operation) {
+  const relay = await openClosingRelay(closeOnType);
+  const client = await createClient({ relayUrl: relay.url, token: "dev" });
+
+  try {
+    await assert.rejects(operation(client), /relay client disconnected/);
+  } finally {
+    client.close();
+    await relay.close();
+  }
 }
 
 function waitForMessage(ws, type) {
