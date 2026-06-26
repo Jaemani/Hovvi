@@ -407,6 +407,69 @@ do {
 } catch RelayClientError.notConnected {
 }
 
+let shellRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 2, text: "before\n")
+)
+let shell = AttachShellModel(relay: shellRelay) {
+    FakeMoshCoreEngine()
+}
+
+var shellSnapshot = await shell.connectAndLoadDevices(timeout: Duration.seconds(1))
+try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell should enter browsing phase after loading devices")
+try require(shellSnapshot.devices.first?.id == "dev_1", "attach shell should expose relay devices")
+
+shellSnapshot = await shell.selectDevice("dev_1")
+try require(shellSnapshot.selectedDeviceId == "dev_1", "attach shell should select device")
+try require(shellSnapshot.selectedSessionName == "main", "attach shell should default to first session")
+shellSnapshot = await shell.selectSession("main")
+try require(shellSnapshot.selectedSessionName == "main", "attach shell should select session")
+
+shellSnapshot = await shell.attach(
+    lines: 40,
+    initialSize: MoshCoreTerminalSize(columns: 90, rows: 25),
+    timeout: Duration.seconds(1)
+)
+try require(shellSnapshot.phase == AttachShellPhase.attached, "attach shell should enter attached phase")
+try require(shellSnapshot.manifest?.sessionName == "main", "attach shell should keep attach manifest")
+try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before"], "attach shell should load tmux scrollback")
+try require(await shellRelay.connectCalled, "attach shell should connect relay")
+try require(await shellRelay.scrollbackRequests == ["dev_1:main:40"], "attach shell should fetch selected scrollback")
+try require(await shellRelay.attachRequests == ["dev_1:main:40:false"], "attach shell should prepare selected attach")
+try require(
+    await shellRelay.sentDatagrams == [SentDatagram(channelId: "dg_shell", bytes: Data([0xA0]), sequence: 0)],
+    "attach shell should send startup mosh packet through relay"
+)
+
+shellSnapshot = await shell.sendInput(Data("hi".utf8))
+try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before", "local"], "attach shell should append local output")
+try require(shellSnapshot.terminalOutput == Data("local".utf8), "attach shell should expose latest terminal output")
+
+await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
+shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))
+try require(
+    (shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before", "localremote"],
+    "attach shell should append remote output into scrollback buffer"
+)
+
+shellSnapshot = await shell.resize(to: MoshCoreTerminalSize(columns: 120, rows: 40))
+try require(shellSnapshot.phase == AttachShellPhase.attached, "attach shell resize should keep attached phase")
+
+shellSnapshot = await shell.shutdown()
+try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shutdown should return to browsing")
+try require(shellSnapshot.cleanShutdown, "attach shell should expose clean shutdown")
+try require(await shellRelay.closedChannelId == "dg_shell", "attach shell shutdown should close relay datagram")
+
+let redactedShellError = AttachShellError(
+    title: "Secret",
+    message: "mosh key MDEyMzQ1Njc4OWFiY2RlZg must not be shown"
+)
+try require(
+    redactedShellError.message.contains("MDEyMzQ1Njc4OWFiY2RlZg") == false,
+    "attach shell errors should redact mosh keys"
+)
+
 print("HovviMobileCore smoke passed")
 
 struct SmokeError: Error, CustomStringConvertible {
@@ -507,5 +570,87 @@ actor FakeMoshCoreEngine: MoshCoreEngine {
     func shutdown() async throws -> MoshCoreFrame {
         events.append("shutdown")
         return MoshCoreFrame(outboundPackets: [Data([0xA4])], cleanShutdown: true)
+    }
+}
+
+actor FakeAttachShellRelay: AttachShellRelaying {
+    private let devices: [Device]
+    private let manifest: AttachManifest
+    private let scrollback: ScrollbackResult
+    private var frames: [RelayDatagramFrame] = []
+    private(set) var connectCalled = false
+    private(set) var scrollbackRequests: [String] = []
+    private(set) var attachRequests: [String] = []
+    private(set) var sentDatagrams: [SentDatagram] = []
+    private(set) var closedChannelId: String?
+
+    init(devices: [Device], manifest: AttachManifest, scrollback: ScrollbackResult) {
+        self.devices = devices
+        self.manifest = manifest
+        self.scrollback = scrollback
+    }
+
+    func connect(startReceiveLoop: Bool) async throws {
+        try require(startReceiveLoop, "attach shell relay should start receive loop")
+        connectCalled = true
+    }
+
+    func listDevices(timeout: Duration) async throws -> [Device] {
+        devices
+    }
+
+    func prepareAttachManifest(
+        deviceId: String,
+        sessionName: String,
+        lines: Int,
+        create: Bool,
+        timeout: Duration
+    ) async throws -> AttachManifest {
+        attachRequests.append("\(deviceId):\(sessionName):\(lines):\(create)")
+        return manifest
+    }
+
+    func fetchScrollbackResult(
+        deviceId: String,
+        sessionName: String,
+        lines: Int,
+        timeout: Duration
+    ) async throws -> ScrollbackResult {
+        scrollbackRequests.append("\(deviceId):\(sessionName):\(lines)")
+        return scrollback
+    }
+
+    func openDatagram(
+        deviceId: String,
+        label: String?,
+        remoteHost: String?,
+        remotePort: Int?,
+        maxDatagramBytes: Int?,
+        timeout: Duration
+    ) async throws -> String {
+        try require(deviceId == "dev_1", "attach shell relay should open selected device datagram")
+        try require(label == "mosh", "attach shell relay should open mosh datagram")
+        return "dg_shell"
+    }
+
+    func sendDatagram(channelId: String, bytes: Data, sequence: Int?) async throws {
+        try require(channelId == "dg_shell", "attach shell relay should send to opened datagram")
+        sentDatagrams.append(SentDatagram(channelId: channelId, bytes: bytes, sequence: sequence))
+    }
+
+    func readDatagramFrame(channelId: String, timeout: Duration) async throws -> RelayDatagramFrame {
+        try require(channelId == "dg_shell", "attach shell relay should read from opened datagram")
+        guard frames.isEmpty == false else {
+            throw SmokeError("attach shell relay has no datagram frame")
+        }
+        return frames.removeFirst()
+    }
+
+    func closeDatagram(channelId: String) async throws {
+        closedChannelId = channelId
+    }
+
+    func enqueue(frame: RelayDatagramFrame) {
+        frames.append(frame)
     }
 }

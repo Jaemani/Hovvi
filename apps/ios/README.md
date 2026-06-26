@@ -37,6 +37,12 @@ channels, sequences outbound packets, and reads opaque inbound mosh packets.
 `MoshAttachSession` composes that datagram session with a `MoshCoreEngine` and
 flushes core frames back through the relay.
 
+`AttachShellModel` is the first UI-facing attach coordinator. It is an actor that
+loads relay devices, tracks selected Mac/session, fetches tmux scrollback,
+prepares the mosh attach manifest, starts `MoshAttachSession`, applies terminal
+output into `ScrollbackBuffer`, and exposes redacted user-facing error state for
+SwiftUI screens.
+
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the
 repository-only upstream static library remains a separate validation artifact

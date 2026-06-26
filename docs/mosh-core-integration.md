@@ -171,6 +171,11 @@ client state instead of inheriting stale promises.
 it drops a disconnected underlying client and reconnects on the next command
 without silently retrying an attach that may have started a server.
 
+On iOS, `AttachShellModel` is the first UI-facing coordinator above the relay
+and mosh attach layers. It fetches scrollback, prepares the attach manifest,
+starts `MoshAttachSession`, applies terminal output into `ScrollbackBuffer`, and
+surfaces redacted recoverable errors for native screens.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.

@@ -215,6 +215,9 @@ Build the first usable iOS path after the native mosh engine is proven on macOS.
 Deliverables:
 
 - Native Swift app shell for sign-in, device list, session list, and attach.
+- UI-facing `AttachShellModel` for device loading, session selection, scrollback
+  fetch, attach lifecycle, input, resize, receive, shutdown, and redacted error
+  state.
 - `MoshCoreEngine` integration through the C ABI.
 - `MoshAttachSession` coordinator from manifest datagram session to mosh core
   frames.
@@ -233,6 +236,13 @@ Acceptance criteria:
 - Session list distinguishes attachable tmux/cmux sessions and detected AI
   coding sessions.
 - Recoverable errors are user-facing and actionable without exposing secrets.
+
+Current status:
+
+- `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
+  coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
+  attach, input, remote receive, resize, shutdown, and mosh key redaction.
+- A real SwiftUI app target and terminal renderer are still pending.
 
 ### 6. Mac Agent and CLI Hardening
 
