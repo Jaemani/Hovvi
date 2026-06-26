@@ -73,11 +73,16 @@ The native checks are intentionally separated by ownership and license boundary:
 npm run native:check
 npm run native:adapter-check
 npm run native:upstream-check
+npm run native:relay-attach-check
 ```
 
 - `native:check` validates the shipped unavailable C ABI scaffold.
 - `native:adapter-check` validates Hovvi-owned packet IO and relay datagram primitives that may be included in the MIT npm package.
 - `native:upstream-check` compiles vendored GPL upstream source for repository/CI validation only.
+- `native:relay-attach-check` runs the repository-only native mosh probe through
+  a local relay, JavaScript relay datagram channel, agent UDP bridge, and
+  agent-started `mosh-server`. It skips when `tmux`, `mosh-server`, or the
+  vendored upstream mosh snapshot is unavailable.
 
 The upstream-linked check currently runs five isolated smokes:
 
@@ -124,6 +129,13 @@ session, sends native relay transport resize/input/paste-sized input through
 UDP, verifies rendered native output, and confirms shutdown acknowledgement. The
 check is optional and skips when `tmux` or `mosh-server` is unavailable.
 
+`npm run native:relay-attach-check` extends that proof through the relay-first
+product path. It starts a local relay and agent, prepares an agent-started mosh
+attach manifest, opens the JavaScript relay datagram channel, places a local UDP
+shim in front of that channel, and runs the native mosh-server probe through the
+full relay path. It skips outside repository checkouts that do not include the
+vendored upstream mosh snapshot.
+
 Relay datagram lifecycle coverage now includes idle timeout cleanup and peer
 disconnect cleanup through `sweepStaleDatagrams`. Upstream relay transport
 coverage includes out-of-order multi-fragment server instructions; incomplete
@@ -149,13 +161,11 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 1. Implement a native `MoshCoreEngine` for iOS/macOS builds behind the explicit
    GPL mobile distribution gate.
-2. Connect the native mosh relay transport to the JavaScript relay client
-   datagram channel for local macOS packet-exchange smoke coverage.
-3. Add a local relay + agent + native mosh client + server-launched tmux terminal
-   attach smoke.
-4. Add reconnect and local relay process integration coverage around the
+2. Implement a native C ABI engine build target that links the upstream relay
+   transport for local and iOS validation without changing npm package contents.
+3. Add reconnect and local relay process integration coverage around the
    mosh-server probe.
-5. Port the harness to an iOS static library build once macOS correctness tests
+4. Port the harness to an iOS static library build once macOS correctness tests
    pass.
 
 ## Vendoring Command

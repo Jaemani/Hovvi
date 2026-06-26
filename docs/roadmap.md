@@ -183,10 +183,14 @@ Current status:
   `mosh-server` bootstrap, and client datagram channel open/close.
 - JavaScript clients expose `prepareMoshDatagramAttach` so manifest selection,
   key validation, and channel opening are one reusable attach contract.
+- `npm run native:relay-attach-check` runs the repository-only native mosh probe
+  through a local UDP shim, JavaScript relay datagram channel, relay, agent UDP
+  bridge, and agent-started `mosh-server`.
 - Swift mobile core has a `MoshAttachSession` coordinator that flushes mosh core
   frames through relay datagrams with fake-engine smoke coverage.
-- Native mosh-core consumption of the client datagram channel remains pending
-  before this milestone can be considered complete.
+- Native relay packet exchange is proven locally on Macs with `tmux` and
+  `mosh-server`; iOS C ABI linkage and terminal UI quality remain pending before
+  the mobile attach milestone can be considered complete.
 
 ### 5. iOS Alpha Attach Shell
 
