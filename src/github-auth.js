@@ -2,10 +2,17 @@ const DEVICE_CODE_URL = "https://github.com/login/device/code";
 const TOKEN_URL = "https://github.com/login/oauth/access_token";
 const USER_URL = "https://api.github.com/user";
 
-export async function runGithubDeviceLogin({ clientId, onUserCode }) {
-  const device = await postForm(DEVICE_CODE_URL, {
+export async function runGithubDeviceLogin({
+  clientId,
+  onUserCode,
+  fetchImpl = fetch,
+  sleep = defaultSleep,
+  now = () => Date.now(),
+  scope = "read:user user:email",
+}) {
+  const device = await postForm(fetchImpl, DEVICE_CODE_URL, {
     client_id: clientId,
-    scope: "read:user user:email",
+    scope,
   });
 
   onUserCode?.({
@@ -13,13 +20,13 @@ export async function runGithubDeviceLogin({ clientId, onUserCode }) {
     userCode: device.user_code,
   });
 
-  const started = Date.now();
+  const started = now();
   const expiresInMs = Number(device.expires_in) * 1000;
   let intervalMs = Number(device.interval || 5) * 1000;
 
-  while (Date.now() - started < expiresInMs) {
+  while (now() - started < expiresInMs) {
     await sleep(intervalMs);
-    const token = await postForm(TOKEN_URL, {
+    const token = await postForm(fetchImpl, TOKEN_URL, {
       client_id: clientId,
       device_code: device.device_code,
       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
@@ -34,7 +41,7 @@ export async function runGithubDeviceLogin({ clientId, onUserCode }) {
       throw new Error(`${token.error}: ${token.error_description || "GitHub OAuth failed"}`);
     }
 
-    const user = await fetchJson(USER_URL, {
+    const user = await fetchJson(fetchImpl, USER_URL, {
       headers: {
         Authorization: `Bearer ${token.access_token}`,
         "User-Agent": "hovvi-cli",
@@ -51,8 +58,8 @@ export async function runGithubDeviceLogin({ clientId, onUserCode }) {
   throw new Error("GitHub device login expired.");
 }
 
-async function postForm(url, values) {
-  return fetchJson(url, {
+async function postForm(fetchImpl, url, values) {
+  return fetchJson(fetchImpl, url, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -63,8 +70,8 @@ async function postForm(url, values) {
   });
 }
 
-async function fetchJson(url, options) {
-  const response = await fetch(url, options);
+async function fetchJson(fetchImpl, url, options) {
+  const response = await fetchImpl(url, options);
   const text = await response.text();
   let json;
   try {
@@ -78,6 +85,6 @@ async function fetchJson(url, options) {
   return json;
 }
 
-function sleep(ms) {
+function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
