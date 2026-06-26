@@ -76,20 +76,23 @@ npm run native:upstream-check
 ```
 
 - `native:check` validates the shipped unavailable C ABI scaffold.
-- `native:adapter-check` validates Hovvi-owned packet IO primitives that may be included in the MIT npm package.
+- `native:adapter-check` validates Hovvi-owned packet IO and relay datagram primitives that may be included in the MIT npm package.
 - `native:upstream-check` compiles vendored GPL upstream source for repository/CI validation only.
 
-The upstream-linked check currently runs three isolated smokes:
+The upstream-linked check currently runs four isolated smokes:
 
 - crypto: compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_internal.cc` with a Hovvi-owned Apple CommonCrypto config shim, then runs an AES-OCB `Crypto::Session` encrypt/decrypt round trip
 - network: generates `transportinstruction.pb.cc/.h` under `build/upstream/generated`, compiles upstream `compressor.cc` and `transportfragment.cc`, then runs a `Network::Fragmenter`/`FragmentAssembly` round trip
 - packet: compiles upstream `network.cc` and `timestamp.cc`, then verifies `Network::Packet` serialization, valid port range parsing, and timestamp wraparound math
+- relay packet: encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted datagrams through Hovvi `RelayDatagramEndpoint`, decrypts on the other side, reconstructs `Network::Packet`, and verifies datagram size rejection
 
 The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto, transport-fragment, and packet pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
 
 `Network::Transport` still owns a socket-backed `Connection` directly. A deterministic relay-backed transport test needs a Hovvi-owned adapter seam before it should instantiate the full upstream transport loop.
 
 The first Hovvi-owned seam is `native/mosh-core/adapter/hovvi_packet_io.h`, a bidirectional in-process datagram queue used to preserve packet boundaries and ordering in future relay-backed tests.
+
+`native/mosh-core/adapter/hovvi_relay_datagram.h` is the first relay-oriented layer above that queue. It wraps a packet endpoint, enforces a maximum datagram size before send, and returns explicit statuses for success, empty receive, disconnected peer, and oversize datagrams.
 
 ## Source Groups
 
@@ -109,8 +112,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Add a Hovvi-owned packet IO seam around upstream `Connection::send`/`recv` so the next native smoke can run transport send/receive over in-process relay queues without opening UDP sockets.
-2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through in-process datagram queues.
+1. Add an upstream-backed C ABI engine mode that consumes relay datagrams and emits outbound datagrams through `hovvi_mosh_core_*` frames while keeping the unavailable scaffold for unsupported builds.
+2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through relay/datagram queues.
 3. Port the harness to an iOS static library build once macOS correctness tests pass.
 4. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.
 

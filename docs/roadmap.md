@@ -50,8 +50,11 @@ session, transport, and terminal primitives.
   - AES-OCB crypto session round trip
   - network fragmentation and reassembly
   - packet encode/decode and timestamp behavior
+  - encrypted upstream packet flow through Hovvi relay datagram endpoints
 - Hovvi-owned in-process packet IO exists in
   `native/mosh-core/adapter/hovvi_packet_io.h`.
+- Hovvi-owned relay datagram size/status handling exists in
+  `native/mosh-core/adapter/hovvi_relay_datagram.h`.
 
 ## Execution Goals
 

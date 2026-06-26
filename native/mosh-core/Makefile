@@ -51,6 +51,7 @@ UPSTREAM_PACKET_OBJ := $(patsubst $(UPSTREAM_VENDOR_DIR)/%.cc,$(UPSTREAM_BUILD_D
 UPSTREAM_CRYPTO_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_crypto_smoke
 UPSTREAM_NETWORK_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_network_smoke
 UPSTREAM_PACKET_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_packet_smoke
+UPSTREAM_RELAY_PACKET_SMOKE := $(UPSTREAM_BUILD_DIR)/upstream_relay_packet_smoke
 
 .PHONY: all check adapter-check upstream-check clean
 .SECONDARY: $(UPSTREAM_PROTO_CC) $(UPSTREAM_PROTO_H)
@@ -63,10 +64,11 @@ check: $(SMOKE)
 adapter-check: $(ADAPTER_SMOKE)
 	$(ADAPTER_SMOKE)
 
-upstream-check: $(UPSTREAM_CRYPTO_SMOKE) $(UPSTREAM_NETWORK_SMOKE) $(UPSTREAM_PACKET_SMOKE)
+upstream-check: $(UPSTREAM_CRYPTO_SMOKE) $(UPSTREAM_NETWORK_SMOKE) $(UPSTREAM_PACKET_SMOKE) $(UPSTREAM_RELAY_PACKET_SMOKE)
 	$(UPSTREAM_CRYPTO_SMOKE)
 	$(UPSTREAM_NETWORK_SMOKE)
 	$(UPSTREAM_PACKET_SMOKE)
+	$(UPSTREAM_RELAY_PACKET_SMOKE)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -80,7 +82,7 @@ $(LIB): $(OBJ)
 $(SMOKE): tests/abi_smoke.c $(LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/abi_smoke.c $(LIB) -o $(SMOKE)
 
-$(ADAPTER_SMOKE): tests/packet_io_smoke.cc adapter/hovvi_packet_io.h | $(BUILD_DIR)
+$(ADAPTER_SMOKE): tests/packet_io_smoke.cc adapter/hovvi_packet_io.h adapter/hovvi_relay_datagram.h | $(BUILD_DIR)
 	$(CXX) -Iadapter $(ADAPTER_CXXFLAGS) tests/packet_io_smoke.cc -o $(ADAPTER_SMOKE)
 
 $(UPSTREAM_CONFIG_ROOT): $(UPSTREAM_CONFIG_SRC) | $(BUILD_DIR)
@@ -113,6 +115,9 @@ $(UPSTREAM_NETWORK_SMOKE): tests/upstream_network_smoke.cc $(UPSTREAM_PROTO_OBJ)
 
 $(UPSTREAM_PACKET_SMOKE): tests/upstream_packet_smoke.cc $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ)
 	$(CXX) $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) tests/upstream_packet_smoke.cc $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) -o $(UPSTREAM_PACKET_SMOKE)
+
+$(UPSTREAM_RELAY_PACKET_SMOKE): tests/upstream_relay_packet_smoke.cc adapter/hovvi_packet_io.h adapter/hovvi_relay_datagram.h $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ)
+	$(CXX) -Iadapter $(UPSTREAM_CPPFLAGS) $(UPSTREAM_CXXFLAGS) tests/upstream_relay_packet_smoke.cc $(UPSTREAM_PACKET_OBJ) $(UPSTREAM_CRYPTO_OBJ) -o $(UPSTREAM_RELAY_PACKET_SMOKE)
 
 clean:
 	rm -rf $(BUILD_DIR)
