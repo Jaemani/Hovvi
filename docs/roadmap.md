@@ -246,6 +246,9 @@ Current status:
   tmux scrollback, and the last live terminal screen.
 - Swift mobile attach errors redact relay URL credentials, relay tokens, bearer
   tokens, and printable mosh keys before reaching SwiftUI.
+- Swift mobile reconnect and explicit reattach now close any stale relay datagram
+  transport and clear the stale mosh session before starting a new browsing or
+  attach lifecycle.
 - Swift mobile resize handling now deduplicates unchanged terminal sizes in the
   core attach model, preventing duplicate mosh resize packets from repeated UI
   geometry callbacks.

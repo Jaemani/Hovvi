@@ -146,6 +146,7 @@ public actor AttachShellModel {
 
     @discardableResult
     public func connectAndLoadDevices(timeout: Duration = .seconds(3)) async -> AttachShellSnapshot {
+        await closeCurrentAttachTransportBestEffort()
         update(phase: .connecting, error: nil)
         do {
             try await relay.connect(startReceiveLoop: true)
@@ -233,6 +234,7 @@ public actor AttachShellModel {
             return snapshot
         }
         let sessionName = snapshot.selectedSessionName ?? "main"
+        await closeCurrentAttachTransportBestEffort()
         update(phase: .attaching, selectedDeviceId: deviceId, selectedSessionName: sessionName, error: nil)
 
         do {
@@ -384,6 +386,14 @@ public actor AttachShellModel {
             error: nil,
             recoveryAction: nil
         )
+    }
+
+    private func closeCurrentAttachTransportBestEffort() async {
+        guard let attachSession else {
+            return
+        }
+        try? await attachSession.closeTransport()
+        self.attachSession = nil
     }
 
     private func update(

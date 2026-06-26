@@ -898,6 +898,51 @@ try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shut
 try require(shellSnapshot.cleanShutdown, "attach shell should expose clean shutdown")
 try require(await shellRelay.closedChannelId == "dg_shell", "attach shell shutdown should close relay datagram")
 
+let cleanupRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let cleanupShell = AttachShellModel(relay: cleanupRelay) {
+    FakeMoshCoreEngine()
+}
+var cleanupSnapshot = await cleanupShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+cleanupSnapshot = await cleanupShell.selectDevice("dev_1")
+cleanupSnapshot = await cleanupShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(cleanupSnapshot.phase == AttachShellPhase.attached, "cleanup shell should attach before reconnect")
+cleanupSnapshot = await cleanupShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+try require(cleanupSnapshot.phase == AttachShellPhase.browsing, "cleanup shell reconnect should return to browsing")
+try require(
+    await cleanupRelay.closedChannelIds == ["dg_shell"],
+    "attach shell reconnect should close stale relay datagram transport"
+)
+cleanupSnapshot = await cleanupShell.sendInput(Data("stale".utf8))
+try require(cleanupSnapshot.phase == AttachShellPhase.failed, "attach shell reconnect should detach stale mosh session")
+try require(cleanupSnapshot.error?.title == "No active terminal", "stale input after reconnect should fail before mosh input")
+cleanupSnapshot = await cleanupShell.selectDevice("dev_1")
+cleanupSnapshot = await cleanupShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(cleanupSnapshot.phase == AttachShellPhase.attached, "cleanup shell should attach after reconnect")
+let reattachCloseCount = await cleanupRelay.closedChannelIds.count
+cleanupSnapshot = await cleanupShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(cleanupSnapshot.phase == AttachShellPhase.attached, "attach shell should support explicit reattach")
+try require(
+    await cleanupRelay.closedChannelIds.count == reattachCloseCount + 1,
+    "attach shell reattach should close previous relay datagram transport"
+)
+_ = await cleanupShell.shutdown()
+
 let interruptedRelay = FakeAttachShellRelay(
     devices: snapshot.devices,
     manifest: manifestEnvelope.payload.manifest,
@@ -1079,7 +1124,10 @@ actor FakeAttachShellRelay: AttachShellRelaying {
     private(set) var scrollbackRequests: [String] = []
     private(set) var attachRequests: [String] = []
     private(set) var sentDatagrams: [SentDatagram] = []
-    private(set) var closedChannelId: String?
+    private(set) var closedChannelIds: [String] = []
+    var closedChannelId: String? {
+        closedChannelIds.last
+    }
 
     init(devices: [Device], manifest: AttachManifest, scrollback: ScrollbackResult) {
         self.devices = devices
@@ -1148,7 +1196,7 @@ actor FakeAttachShellRelay: AttachShellRelaying {
     }
 
     func closeDatagram(channelId: String) async throws {
-        closedChannelId = channelId
+        closedChannelIds.append(channelId)
     }
 
     func enqueue(frame: RelayDatagramFrame) {
