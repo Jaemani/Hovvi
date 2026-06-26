@@ -21,6 +21,8 @@ PROTOBUF_LDLIBS ?= $(if $(PROTOBUF_PKG_LIBS),$(PROTOBUF_PKG_LIBS),$(PROTOBUF_LDF
 LIB := $(BUILD_DIR)/libhovvi_mosh_core.a
 SMOKE := $(BUILD_DIR)/abi_smoke
 ADAPTER_SMOKE := $(BUILD_DIR)/packet_io_smoke
+ADAPTER_RELAY_SESSION_SMOKE := $(BUILD_DIR)/relay_session_smoke
+ADAPTER_SMOKES := $(ADAPTER_SMOKE) $(ADAPTER_RELAY_SESSION_SMOKE)
 SRC := src/hovvi_mosh_core_unavailable.c
 OBJ := $(BUILD_DIR)/hovvi_mosh_core_unavailable.o
 UPSTREAM_VENDOR_DIR := vendor/mosh
@@ -79,8 +81,9 @@ all: $(LIB)
 check: $(SMOKE)
 	$(SMOKE)
 
-adapter-check: $(ADAPTER_SMOKE)
+adapter-check: $(ADAPTER_SMOKES)
 	$(ADAPTER_SMOKE)
+	$(ADAPTER_RELAY_SESSION_SMOKE)
 
 upstream-check: $(UPSTREAM_CRYPTO_SMOKE) $(UPSTREAM_NETWORK_SMOKE) $(UPSTREAM_PACKET_SMOKE) $(UPSTREAM_RELAY_PACKET_SMOKE) $(UPSTREAM_ABI_SMOKE)
 	$(UPSTREAM_CRYPTO_SMOKE)
@@ -103,6 +106,9 @@ $(SMOKE): tests/abi_smoke.c $(LIB)
 
 $(ADAPTER_SMOKE): tests/packet_io_smoke.cc adapter/hovvi_packet_io.h adapter/hovvi_relay_datagram.h | $(BUILD_DIR)
 	$(CXX) -Iadapter $(ADAPTER_CXXFLAGS) tests/packet_io_smoke.cc -o $(ADAPTER_SMOKE)
+
+$(ADAPTER_RELAY_SESSION_SMOKE): tests/relay_session_smoke.cc adapter/hovvi_packet_io.h adapter/hovvi_relay_datagram.h adapter/hovvi_mosh_relay_session.h | $(BUILD_DIR)
+	$(CXX) -Iadapter $(ADAPTER_CXXFLAGS) tests/relay_session_smoke.cc -o $(ADAPTER_RELAY_SESSION_SMOKE)
 
 $(UPSTREAM_CONFIG_ROOT): $(UPSTREAM_CONFIG_SRC) | $(BUILD_DIR)
 	mkdir -p $(dir $@)

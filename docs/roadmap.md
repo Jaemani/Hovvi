@@ -58,6 +58,8 @@ session, transport, and terminal primitives.
   `native/mosh-core/adapter/hovvi_packet_io.h`.
 - Hovvi-owned relay datagram size/status handling exists in
   `native/mosh-core/adapter/hovvi_relay_datagram.h`.
+- Hovvi-owned relay session pumping exists in
+  `native/mosh-core/adapter/hovvi_mosh_relay_session.h`.
 
 ## Execution Goals
 

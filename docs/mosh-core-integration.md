@@ -95,6 +95,8 @@ The first Hovvi-owned seam is `native/mosh-core/adapter/hovvi_packet_io.h`, a bi
 
 `native/mosh-core/adapter/hovvi_relay_datagram.h` is the first relay-oriented layer above that queue. It wraps a packet endpoint, enforces a maximum datagram size before send, and returns explicit statuses for success, empty receive, disconnected peer, and oversize datagrams.
 
+`native/mosh-core/adapter/hovvi_mosh_relay_session.h` defines the Hovvi-owned session pump between a mosh core driver and a relay datagram endpoint. It drains outbound core packets, pumps inbound datagrams, preserves tick/shutdown frame metadata, and maps core/relay failures into explicit session statuses without linking upstream mosh.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
@@ -113,7 +115,7 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Add a relay-backed connection seam or harness that can exercise upstream `Network::Transport` semantics without UDP sockets.
+1. Add a C ABI driver adapter for `MoshRelaySession` so the session pump can drive `hovvi_mosh_core_*` directly.
 2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through relay/datagram queues.
 3. Port the harness to an iOS static library build once macOS correctness tests pass.
 4. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.

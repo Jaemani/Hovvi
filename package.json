@@ -25,6 +25,7 @@
     "native/mosh-core/src/hovvi_mosh_core_unavailable.c",
     "native/mosh-core/tests/abi_smoke.c",
     "native/mosh-core/tests/packet_io_smoke.cc",
+    "native/mosh-core/tests/relay_session_smoke.cc",
     "README.md",
     "CHANGELOG.md",
     "docs",
