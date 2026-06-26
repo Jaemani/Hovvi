@@ -147,12 +147,14 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Connect the native mosh relay transport to the JavaScript relay client
-   datagram channel.
-2. Add a local relay + agent + native mosh client + server-launched tmux smoke.
-3. Add reconnect and local relay process integration coverage around the
+1. Implement a native `MoshCoreEngine` for iOS/macOS builds behind the explicit
+   GPL mobile distribution gate.
+2. Connect the native mosh relay transport to the JavaScript relay client
+   datagram channel for local macOS smoke coverage.
+3. Add a local relay + agent + native mosh client + server-launched tmux smoke.
+4. Add reconnect and local relay process integration coverage around the
    mosh-server probe.
-4. Port the harness to an iOS static library build once macOS correctness tests
+5. Port the harness to an iOS static library build once macOS correctness tests
    pass.
 
 ## Vendoring Command

@@ -220,12 +220,71 @@ let openedMoshChannel = try await moshSession.connect()
 try require(openedMoshChannel == "dg_fake", "mosh session should open relay datagram channel")
 let firstMoshSequence = try await moshSession.sendPacket(Data([0x01, 0x02, 0x03]))
 try require(firstMoshSequence == 0, "mosh session should sequence outgoing relay packets")
+try require(
+    await fakeRelay.sentDatagrams == [SentDatagram(channelId: "dg_fake", bytes: Data([0x01, 0x02, 0x03]), sequence: 0)],
+    "fake relay should record sent mosh packet bytes"
+)
 await fakeRelay.enqueue(frame: .data(Data([0x04, 0x05]), sequence: 12))
 let receivedMoshPacket = try await moshSession.receivePacket(timeout: .seconds(1))
 try require(receivedMoshPacket?.bytes == Data([0x04, 0x05]), "mosh session should receive relay datagram packet")
 try require(receivedMoshPacket?.relaySequence == 12, "mosh session should preserve relay sequence")
 try await moshSession.close()
 try require(await fakeRelay.closedChannelId == "dg_fake", "mosh session should close relay datagram channel")
+
+let attachRelay = FakeDatagramRelay()
+let attachDatagramSession = try MoshRelayDatagramSession(
+    relay: attachRelay,
+    deviceId: "dev_1",
+    transport: moshTransport
+)
+let attachEngine = FakeMoshCoreEngine()
+let attachSession = MoshAttachSession(datagramSession: attachDatagramSession, engine: attachEngine)
+
+let connectedFrame = try await attachSession.connect(initialSize: MoshCoreTerminalSize(columns: 100, rows: 30))
+try require(connectedFrame.packetsSent == 1, "attach connect should flush startup packet")
+try require(connectedFrame.nextTickAfterMs == 10, "attach connect should surface next tick")
+try require(
+    await attachEngine.events.first == "start:100x30:\(moshTransport.key ?? "")",
+    "attach connect should start core with manifest key and terminal size"
+)
+try require(
+    await attachRelay.sentDatagrams == [SentDatagram(channelId: "dg_fake", bytes: Data([0xA0]), sequence: 0)],
+    "attach connect should send core startup packet through relay"
+)
+
+let inputFrame = try await attachSession.sendUserInput(Data("hi".utf8))
+try require(inputFrame.terminalOutput == Data("local".utf8), "attach input should surface local terminal output")
+try require(inputFrame.packetsSent == 1, "attach input should flush input packet")
+
+await attachRelay.enqueue(frame: .data(Data([0xB0]), sequence: 9))
+let remoteFrame = try await attachSession.receiveNext(timeout: .seconds(1))
+try require(remoteFrame?.terminalOutput == Data("remote".utf8), "attach receive should apply remote packet to core")
+try require(remoteFrame?.packetsSent == 1, "attach receive should flush acknowledgement packet")
+
+let resizeFrame = try await attachSession.resize(to: MoshCoreTerminalSize(columns: 120, rows: 40))
+try require(resizeFrame.packetsSent == 1, "attach resize should flush resize packet")
+
+let tickFrame = try await attachSession.tick(nowMs: 42)
+try require(tickFrame.nextTickAfterMs == 20, "attach tick should surface next tick")
+
+let shutdownFrame = try await attachSession.shutdown()
+try require(shutdownFrame.cleanShutdown, "attach shutdown should surface clean shutdown")
+try require(await attachRelay.closedChannelId == "dg_fake", "attach shutdown should close datagram session")
+try require(
+    await attachRelay.sentDatagrams.map(\.bytes) == [
+        Data([0xA0]),
+        Data([0xA1]),
+        Data([0xA2]),
+        Data([120, 40]),
+        Data([0xA3]),
+        Data([0xA4])
+    ],
+    "attach session should preserve outbound packet order"
+)
+try require(
+    await attachRelay.sentDatagrams.map(\.sequence) == [0, 1, 2, 3, 4, 5],
+    "attach session should preserve relay sequence order"
+)
 
 let unavailableMoshCore = UnavailableMoshCoreEngine(reason: "smoke")
 do {
@@ -334,8 +393,15 @@ func require(_ condition: Bool, _ message: String) throws {
     }
 }
 
+struct SentDatagram: Equatable, Sendable {
+    let channelId: String
+    let bytes: Data
+    let sequence: Int?
+}
+
 actor FakeDatagramRelay: RelayDatagramTransporting {
     private(set) var closedChannelId: String?
+    private(set) var sentDatagrams: [SentDatagram] = []
     private var frames: [RelayDatagramFrame] = []
 
     func openDatagram(
@@ -356,8 +422,7 @@ actor FakeDatagramRelay: RelayDatagramTransporting {
 
     func sendDatagram(channelId: String, bytes: Data, sequence: Int?) async throws {
         try require(channelId == "dg_fake", "fake relay should receive mosh channel id")
-        try require(bytes == Data([0x01, 0x02, 0x03]), "fake relay should receive mosh packet bytes")
-        try require(sequence == 0, "fake relay should receive relay sequence")
+        sentDatagrams.append(SentDatagram(channelId: channelId, bytes: bytes, sequence: sequence))
     }
 
     func readDatagramFrame(channelId: String, timeout: Duration) async throws -> RelayDatagramFrame {
@@ -374,5 +439,43 @@ actor FakeDatagramRelay: RelayDatagramTransporting {
 
     func enqueue(frame: RelayDatagramFrame) {
         frames.append(frame)
+    }
+}
+
+actor FakeMoshCoreEngine: MoshCoreEngine {
+    private(set) var events: [String] = []
+
+    func start(configuration: MoshCoreConfiguration) async throws -> MoshCoreFrame {
+        events.append(
+            "start:\(configuration.initialSize.columns)x\(configuration.initialSize.rows):\(configuration.serverKey.rawValue)"
+        )
+        return MoshCoreFrame(outboundPackets: [Data([0xA0])], nextTickAfterMs: 10)
+    }
+
+    func receivePacket(_ packet: MoshRelayDatagramPacket) async throws -> MoshCoreFrame {
+        events.append("receive:\(packet.bytes.map(String.init).joined(separator: ",")):\(packet.relaySequence ?? -1)")
+        try require(packet.bytes == Data([0xB0]), "fake core should receive remote relay packet")
+        try require(packet.relaySequence == 9, "fake core should receive relay sequence")
+        return MoshCoreFrame(terminalOutput: Data("remote".utf8), outboundPackets: [Data([0xA2])])
+    }
+
+    func sendUserInput(_ bytes: Data) async throws -> MoshCoreFrame {
+        events.append("input:\(String(decoding: bytes, as: UTF8.self))")
+        return MoshCoreFrame(terminalOutput: Data("local".utf8), outboundPackets: [Data([0xA1])])
+    }
+
+    func resize(to size: MoshCoreTerminalSize) async throws -> MoshCoreFrame {
+        events.append("resize:\(size.columns)x\(size.rows)")
+        return MoshCoreFrame(outboundPackets: [Data([UInt8(size.columns), UInt8(size.rows)])])
+    }
+
+    func tick(nowMs: UInt64) async throws -> MoshCoreFrame {
+        events.append("tick:\(nowMs)")
+        return MoshCoreFrame(outboundPackets: [Data([0xA3])], nextTickAfterMs: 20)
+    }
+
+    func shutdown() async throws -> MoshCoreFrame {
+        events.append("shutdown")
+        return MoshCoreFrame(outboundPackets: [Data([0xA4])], cleanShutdown: true)
     }
 }

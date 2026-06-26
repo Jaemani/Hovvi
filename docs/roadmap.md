@@ -179,6 +179,8 @@ Current status:
 - Relay and agent lifecycle cleanup is covered by unit fixtures.
 - Relay + real agent + client datagram flow is covered with a local UDP echo
   target.
+- Swift mobile core has a `MoshAttachSession` coordinator that flushes mosh core
+  frames through relay datagrams with fake-engine smoke coverage.
 - Native mosh-core consumption of the client datagram channel remains pending
   before this milestone can be considered complete.
 
@@ -190,6 +192,8 @@ Deliverables:
 
 - Native Swift app shell for sign-in, device list, session list, and attach.
 - `MoshCoreEngine` integration through the C ABI.
+- `MoshAttachSession` coordinator from manifest datagram session to mosh core
+  frames.
 - Terminal renderer with live screen, resize, keyboard input, paste, and
   scrollback integration.
 - tmux-native scrollback fetch via `session.scrollback.fetch`.
