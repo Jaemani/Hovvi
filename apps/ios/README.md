@@ -73,7 +73,7 @@ and shutdown progress all use the same frame application path.
 
 `TerminalScreen` keeps the live terminal screen separate from tmux scrollback.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor
-movement, clear screen, erase line, resize, basic SGR text attributes,
+movement, erase display/line modes, resize, basic SGR text attributes,
 256-color/truecolor foreground/background colors, and alternate-screen restore.
 Printable parsing preserves Swift grapheme clusters and advances common CJK and
 emoji output as wide terminal cells.
@@ -93,6 +93,8 @@ stops and `CSI g` tab clearing, and clamp to the right edge when no later tab
 stop exists.
 Erase-character sequences (`CSI X`) blank cells from the cursor without
 shifting the remaining row text.
+Erase display/line sequences (`CSI J/K`) support modes 0, 1, and 2 while
+preserving cursor position.
 `TerminalSurfaceView` renders the live screen when present and falls back to
 `ScrollbackBuffer` before output arrives.
 

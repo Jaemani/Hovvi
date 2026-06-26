@@ -372,10 +372,10 @@ terminalScreen.apply("\rHELLO\r\nworld")
 try require(terminalScreen.visibleLines.map(\.text) == ["HELLO", "world", ""], "terminal screen should handle carriage return and newline")
 terminalScreen.apply("\u{001B}[1;3HZ")
 try require(terminalScreen.visibleLines[0].text == "HEZLO", "terminal screen should move cursor with CSI row column")
-terminalScreen.apply("\u{001B}[2Jclear")
+terminalScreen.apply("\u{001B}[2J\u{001B}[Hclear")
 try require(terminalScreen.visibleLines.map(\.text) == ["clear", "", ""], "terminal screen should clear screen")
-terminalScreen.apply("\u{001B}[Kline")
-try require(terminalScreen.visibleLines[0].text == "line", "terminal screen should erase current line")
+terminalScreen.apply("\u{001B}[2K\u{001B}[Hline")
+try require(terminalScreen.visibleLines[0].text == "line", "terminal screen should erase the current line")
 terminalScreen.resize(columns: 4, rows: 2)
 try require(terminalScreen.visibleLines.map(\.text) == ["line", ""], "terminal screen resize should preserve visible cells")
 var wideScreen = TerminalScreen(columns: 4, rows: 2)
@@ -418,7 +418,7 @@ scrollRegionScreen.apply("\u{001B}[2;1Hone")
 scrollRegionScreen.apply("\u{001B}[3;1Htwo")
 scrollRegionScreen.apply("\u{001B}[4;1Hthree")
 scrollRegionScreen.apply("\u{001B}[5;1Hbottom")
-scrollRegionScreen.apply("\u{001B}[2;4r\u{001B}[4;1H\u{001B}[Knew\n")
+scrollRegionScreen.apply("\u{001B}[2;4r\u{001B}[4;1H\u{001B}[2Knew\n")
 try require(
     scrollRegionScreen.visibleLines.map(\.text) == ["top", "two", "new", "", "bottom"],
     "terminal screen should scroll only inside the active scroll region"
@@ -532,7 +532,7 @@ try require(
     tabStopScreen.visibleLines[1].text == "c   d",
     "terminal screen should honor ESC H custom tab stops"
 )
-tabStopScreen.apply("\u{001B}[2;5H\u{001B}[g\u{001B}[2;1H\u{001B}[Ke\tf")
+tabStopScreen.apply("\u{001B}[2;5H\u{001B}[g\u{001B}[2;1H\u{001B}[2Ke\tf")
 try require(
     tabStopScreen.visibleLines[1].text == "e       f",
     "terminal screen should clear the tab stop at the cursor with CSI g"
@@ -553,6 +553,46 @@ try require(
 try require(
     eraseCharacterScreen.visibleLines[0].runs[1].attributes.foreground == .red,
     "terminal screen erased characters should use the current attributes"
+)
+var eraseModeScreen = TerminalScreen(columns: 8, rows: 3)
+eraseModeScreen.apply("abcdef")
+eraseModeScreen.apply("\u{001B}[1;3H\u{001B}[K")
+try require(
+    eraseModeScreen.visibleLines.map(\.text) == ["ab", "", ""],
+    "terminal screen CSI K should erase from cursor to end of line"
+)
+eraseModeScreen.apply("\u{001B}[1;1Habcdef")
+eraseModeScreen.apply("\u{001B}[1;4H\u{001B}[1K")
+try require(
+    eraseModeScreen.visibleLines.map(\.text) == ["    ef", "", ""],
+    "terminal screen CSI 1 K should erase from line start through cursor"
+)
+eraseModeScreen.apply("\u{001B}[1;1Habcdef")
+eraseModeScreen.apply("\u{001B}[1;4H\u{001B}[2K")
+try require(
+    eraseModeScreen.visibleLines.map(\.text) == ["", "", ""],
+    "terminal screen CSI 2 K should erase the entire current line"
+)
+eraseModeScreen.apply("\u{001B}[1;1Hone")
+eraseModeScreen.apply("\u{001B}[2;1Htwoxy")
+eraseModeScreen.apply("\u{001B}[3;1Hthree")
+eraseModeScreen.apply("\u{001B}[2;3H\u{001B}[J")
+try require(
+    eraseModeScreen.visibleLines.map(\.text) == ["one", "tw", ""],
+    "terminal screen CSI J should erase from cursor to end of display"
+)
+eraseModeScreen.apply("\u{001B}[1;1Hone")
+eraseModeScreen.apply("\u{001B}[2;1Htwoxy")
+eraseModeScreen.apply("\u{001B}[3;1Hthree")
+eraseModeScreen.apply("\u{001B}[2;3H\u{001B}[1J")
+try require(
+    eraseModeScreen.visibleLines.map(\.text) == ["", "   xy", "three"],
+    "terminal screen CSI 1 J should erase from display start through cursor"
+)
+eraseModeScreen.apply("\u{001B}[2J")
+try require(
+    eraseModeScreen.visibleLines.map(\.text) == ["", "", ""],
+    "terminal screen CSI 2 J should erase the entire display"
 )
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")

@@ -198,10 +198,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = max(0, cursorColumn - 1)
             case .horizontalTab:
                 horizontalTab()
-            case .clearScreen:
-                clearScreen()
-            case .eraseLine:
-                eraseLine()
+            case .eraseDisplay(let mode):
+                eraseDisplay(mode)
+            case .eraseLine(let mode):
+                eraseLine(mode)
             case .eraseCharacters(let count):
                 eraseCharacters(count)
             case .cursorHome:
@@ -342,15 +342,44 @@ public struct TerminalScreen: Equatable, Sendable {
         cells[region.top] = Self.blankRow(columns: columns)
     }
 
-    private mutating func clearScreen() {
-        cells = Self.blankCells(columns: columns, rows: rows)
-        cursorRow = 0
-        cursorColumn = 0
+    private mutating func eraseDisplay(_ mode: TerminalEraseMode) {
+        switch mode {
+        case .toEnd:
+            for column in cursorColumn..<columns {
+                cells[cursorRow][column] = TerminalCell(attributes: currentAttributes)
+            }
+            if cursorRow + 1 < rows {
+                for row in cursorRow + 1..<rows {
+                    cells[row] = Self.blankRow(columns: columns, attributes: currentAttributes)
+                }
+            }
+        case .toStart:
+            if cursorRow > 0 {
+                for row in 0..<cursorRow {
+                    cells[row] = Self.blankRow(columns: columns, attributes: currentAttributes)
+                }
+            }
+            for column in 0...cursorColumn {
+                cells[cursorRow][column] = TerminalCell(attributes: currentAttributes)
+            }
+        case .all:
+            cells = Self.blankCells(columns: columns, rows: rows, attributes: currentAttributes)
+        }
     }
 
-    private mutating func eraseLine() {
-        cells[cursorRow] = Self.blankRow(columns: columns)
-        cursorColumn = 0
+    private mutating func eraseLine(_ mode: TerminalEraseMode) {
+        switch mode {
+        case .toEnd:
+            for column in cursorColumn..<columns {
+                cells[cursorRow][column] = TerminalCell(attributes: currentAttributes)
+            }
+        case .toStart:
+            for column in 0...cursorColumn {
+                cells[cursorRow][column] = TerminalCell(attributes: currentAttributes)
+            }
+        case .all:
+            cells[cursorRow] = Self.blankRow(columns: columns, attributes: currentAttributes)
+        }
     }
 
     private mutating func eraseCharacters(_ count: Int) {
@@ -592,12 +621,19 @@ public struct TerminalScreen: Equatable, Sendable {
         primarySnapshotBeforeAlternate = nil
     }
 
-    private static func blankCells(columns: Int, rows: Int) -> [[TerminalCell]] {
-        Array(repeating: blankRow(columns: columns), count: rows)
+    private static func blankCells(
+        columns: Int,
+        rows: Int,
+        attributes: TerminalTextAttributes = TerminalTextAttributes()
+    ) -> [[TerminalCell]] {
+        Array(repeating: blankRow(columns: columns, attributes: attributes), count: rows)
     }
 
-    private static func blankRow(columns: Int) -> [TerminalCell] {
-        Array(repeating: TerminalCell(), count: columns)
+    private static func blankRow(
+        columns: Int,
+        attributes: TerminalTextAttributes = TerminalTextAttributes()
+    ) -> [TerminalCell] {
+        Array(repeating: TerminalCell(attributes: attributes), count: columns)
     }
 
     private static func defaultTabStops(columns: Int) -> Set<Int> {
@@ -623,8 +659,8 @@ private enum TerminalToken {
     case carriageReturn
     case backspace
     case horizontalTab
-    case clearScreen
-    case eraseLine
+    case eraseDisplay(TerminalEraseMode)
+    case eraseLine(TerminalEraseMode)
     case eraseCharacters(Int)
     case cursorHome
     case cursorPosition(row: Int, column: Int)
@@ -756,9 +792,9 @@ private struct TerminalEscapeParser {
             let column = max(1, values.dropFirst().first ?? 1) - 1
             return values.isEmpty ? .cursorHome : .cursorPosition(row: row, column: column)
         case "J":
-            return (values.first ?? 0) == 2 ? .clearScreen : nil
+            return eraseDisplayToken(values: values)
         case "K":
-            return .eraseLine
+            return eraseLineToken(values: values)
         case "L":
             return .insertLines(first)
         case "M":
@@ -819,11 +855,38 @@ private struct TerminalEscapeParser {
             return nil
         }
     }
+
+    private func eraseDisplayToken(values: [Int]) -> TerminalToken? {
+        TerminalEraseMode(rawValue: values.first ?? 0).map { .eraseDisplay($0) }
+    }
+
+    private func eraseLineToken(values: [Int]) -> TerminalToken? {
+        TerminalEraseMode(rawValue: values.first ?? 0).map { .eraseLine($0) }
+    }
 }
 
 private enum TerminalTabClearMode {
     case current
     case all
+}
+
+private enum TerminalEraseMode {
+    case toEnd
+    case toStart
+    case all
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case 0:
+            self = .toEnd
+        case 1:
+            self = .toStart
+        case 2:
+            self = .all
+        default:
+            return nil
+        }
+    }
 }
 
 private struct TerminalCell: Equatable {

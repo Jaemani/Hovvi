@@ -24,8 +24,8 @@ The initial model supports:
 - printable UTF-8 scalar writes;
 - carriage return, line feed, and backspace;
 - basic CSI cursor movement;
-- clear screen with `CSI 2 J`;
-- erase current line with `CSI K`;
+- erase display with `CSI J`;
+- erase line with `CSI K`;
 - resize while preserving visible cells;
 - basic SGR text attribute preservation was added in ADR 0036;
 - alternate-screen preservation was added in ADR 0037.
@@ -40,6 +40,7 @@ The initial model supports:
 - insert/delete line was added in ADR 0047.
 - character insert/delete was added in ADR 0048.
 - tab stops and erase character were added in ADR 0049.
+- erase display/line modes were added in ADR 0052.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. `TerminalSurfaceView` renders the live terminal screen when

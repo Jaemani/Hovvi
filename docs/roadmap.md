@@ -256,7 +256,7 @@ Current status:
   device/session/terminal/error views backed by `AttachShellSnapshot`.
 - `TerminalScreen` keeps live terminal output separate from tmux scrollback and
   covers basic printable text, CR/LF/backspace, CSI cursor movement, clear
-  screen, erase line, resize, SGR text attributes, 256-color/truecolor
+  screen, erase display/line modes, resize, SGR text attributes, 256-color/truecolor
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior, and
   reverse-index bounded scrolling, DEC origin mode, saved cursor state, and
