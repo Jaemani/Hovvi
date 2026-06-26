@@ -14,6 +14,7 @@ export function redactUrlCredentials(rawUrl) {
 export function redactSecrets(text) {
   return String(text)
     .replace(/(MOSH CONNECT\s+\d+\s+)[A-Za-z0-9+/]{22}/g, `$1${REDACTED}`)
+    .replace(/(MOSH_KEY["']?\s*[:=]\s*["']?)[A-Za-z0-9+/]{22}/gi, `$1${REDACTED}`)
     .replace(/(HOVVI_RELAY_TOKEN\s*=\s*)[^\s"'`]+/gi, `$1${REDACTED}`)
     .replace(/(HOVVI_RELAY_TOKEN["']?\s*[:=]\s*["']?)[^"',\s}]+/gi, `$1${REDACTED}`)
     .replace(/((?:access_)?token["']?\s*[:=]\s*["']?)[^"',\s}]+/gi, `$1${REDACTED}`)

@@ -343,6 +343,9 @@ Current status:
 - `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
   setup failures can be debugged without exposing relay credentials or mosh
   keys.
+- Agent reconnect diagnostics are redacted before launchd writes stderr logs,
+  including relay URL credentials, tokens, bearer tokens, and printable
+  `MOSH_KEY` values.
 - `hovvi service status` summarizes launchd lifecycle fields from
   `launchctl print`, and `hovvi doctor` warns when the LaunchAgent is loaded but
   has unhealthy lifecycle state.

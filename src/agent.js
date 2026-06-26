@@ -7,6 +7,7 @@ import { buildAttachManifest, startMoshServer } from "./attach.js";
 import { captureTmuxScrollback, ensureTmuxSession, hasTmuxSession, listSessions } from "./sessions.js";
 import { createUdpDatagramBridge } from "./datagram-udp.js";
 import { commandExists } from "./shell.js";
+import { redactSecrets } from "./redaction.js";
 
 export async function runAgent({ relayUrl, token, name, publishIntervalMs = 5000, heartbeatIntervalMs = 10000 }) {
   const device = getDevice(name);
@@ -15,10 +16,14 @@ export async function runAgent({ relayUrl, token, name, publishIntervalMs = 5000
     try {
       await connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs });
     } catch (error) {
-      process.stderr.write(`Agent disconnected: ${error.message}\n`);
+      process.stderr.write(`${formatAgentDisconnectError(error)}\n`);
       await sleep(2000);
     }
   }
+}
+
+export function formatAgentDisconnectError(error) {
+  return `Agent disconnected: ${redactSecrets(error?.message || String(error))}`;
 }
 
 export function getDevice(name) {
