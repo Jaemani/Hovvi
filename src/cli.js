@@ -10,6 +10,7 @@ import {
   installService,
   readServiceLogs,
   restartService,
+  formatServiceStatus,
   serviceStatus,
   startService,
   stopService,
@@ -419,6 +420,8 @@ async function serviceCommand(args) {
     case "status": {
       const result = serviceStatus({ label });
       process.stdout.write(`${result.loaded ? "loaded" : "not loaded"} ${label}\n`);
+      const summary = formatServiceStatus(result);
+      if (summary) process.stdout.write(`${summary}\n`);
       if (!result.loaded && result.detail) process.stdout.write(`${result.detail}\n`);
       return;
     }

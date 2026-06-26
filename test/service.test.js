@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { redactSecrets } from "../src/redaction.js";
-import { buildLaunchAgentPlist } from "../src/service.js";
+import { buildLaunchAgentPlist, formatServiceStatus, parseLaunchctlPrint } from "../src/service.js";
 
 test("launchd plist includes agent command and environment", () => {
   const plist = buildLaunchAgentPlist({
@@ -42,4 +42,38 @@ test("service log redaction removes relay tokens, URL credentials, and mosh keys
   assert.match(redacted, /HOVVI_RELAY_TOKEN=\[redacted\]/);
   assert.match(redacted, /wss:\/\/%5Bredacted%5D:%5Bredacted%5D@relay\.example\.com\/path/);
   assert.match(redacted, /MOSH CONNECT 60001 \[redacted\]/);
+});
+
+test("launchctl print parser extracts lifecycle failure diagnostics", () => {
+  const parsed = parseLaunchctlPrint(
+    [
+      "state = waiting",
+      "pid = 4321",
+      "last exit code = 78",
+      "last termination reason = namespace SIGNAL, code 15 Terminated",
+      "throttle interval = 10",
+    ].join("\n"),
+  );
+
+  assert.deepEqual(parsed, {
+    state: "waiting",
+    pid: 4321,
+    lastExitCode: 78,
+    lastTerminationReason: "namespace SIGNAL, code 15 Terminated",
+    throttleInterval: 10,
+    healthy: false,
+  });
+});
+
+test("service status formatter summarizes launchd lifecycle state", () => {
+  const summary = formatServiceStatus({
+    launchctl: {
+      state: "running",
+      pid: 123,
+      lastExitCode: 0,
+      throttleInterval: 10,
+    },
+  });
+
+  assert.equal(summary, "state=running pid=123 lastExitCode=0 throttleInterval=10s");
 });

@@ -112,11 +112,15 @@ function checkServiceState({ platformFn, serviceStatusFn }) {
 
   try {
     const result = serviceStatusFn({});
+    const serviceDetail = formatLaunchdServiceDetail(result);
+    const unhealthy = result.loaded && result.launchctl?.healthy === false;
     return {
       name: "launchd service",
-      status: result.loaded ? "pass" : "warn",
-      message: result.loaded ? "loaded" : "not loaded",
-      detail: result.loaded ? result.label : `Install with \`hovvi service install\`. ${result.detail || ""}`.trim(),
+      status: result.loaded && !unhealthy ? "pass" : "warn",
+      message: result.loaded ? (unhealthy ? "loaded but unhealthy" : "loaded") : "not loaded",
+      detail: result.loaded
+        ? serviceDetail || result.label
+        : `Install with \`hovvi service install\`. ${result.detail || ""}`.trim(),
     };
   } catch (error) {
     return {
@@ -126,6 +130,20 @@ function checkServiceState({ platformFn, serviceStatusFn }) {
       detail: error.message,
     };
   }
+}
+
+function formatLaunchdServiceDetail(result) {
+  const parts = [result.label].filter(Boolean);
+  if (result.launchctl?.state) parts.push(`state=${result.launchctl.state}`);
+  if (Number.isInteger(result.launchctl?.pid)) parts.push(`pid=${result.launchctl.pid}`);
+  if (Number.isInteger(result.launchctl?.lastExitCode)) parts.push(`lastExitCode=${result.launchctl.lastExitCode}`);
+  if (result.launchctl?.lastTerminationReason) {
+    parts.push(`lastTerminationReason=${result.launchctl.lastTerminationReason}`);
+  }
+  if (Number.isInteger(result.launchctl?.throttleInterval)) {
+    parts.push(`throttleInterval=${result.launchctl.throttleInterval}s`);
+  }
+  return parts.join(" ");
 }
 
 function checkFirewallState({ platformFn, runTextFn }) {

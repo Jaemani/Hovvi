@@ -230,6 +230,9 @@ Current status:
   `hovvi doctor --network`, with URL credentials redacted in diagnostics.
 - `hovvi service logs` redacts relay tokens, URL credentials, bearer tokens, and
   printable mosh keys before printing LaunchAgent log files.
+- `hovvi service status` and `hovvi doctor` now surface structured launchd
+  lifecycle diagnostics, including state, pid, last exit code, termination
+  reason, and throttle interval when available.
 - `npm run ios:simulator-preflight` now records whether the host has full Xcode,
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
@@ -340,6 +343,9 @@ Current status:
 - `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
   setup failures can be debugged without exposing relay credentials or mosh
   keys.
+- `hovvi service status` summarizes launchd lifecycle fields from
+  `launchctl print`, and `hovvi doctor` warns when the LaunchAgent is loaded but
+  has unhealthy lifecycle state.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.

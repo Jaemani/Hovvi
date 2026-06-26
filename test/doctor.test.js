@@ -103,6 +103,33 @@ test("runDoctor skips macOS firewall state outside network mode", async () => {
   assert.match(findItem(report, "github network checks").message, /firewall state/);
 });
 
+test("runDoctor warns when launchd service is loaded but unhealthy", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({
+      label: "dev.hovvi.agent",
+      loaded: true,
+      detail: "state = waiting\nlast exit code = 78",
+      launchctl: {
+        state: "waiting",
+        lastExitCode: 78,
+        throttleInterval: 10,
+        healthy: false,
+      },
+    }),
+  });
+
+  assert.deepEqual(findItem(report, "launchd service"), {
+    name: "launchd service",
+    status: "warn",
+    message: "loaded but unhealthy",
+    detail: "dev.hovvi.agent state=waiting lastExitCode=78 throttleInterval=10s",
+  });
+});
+
 test("checkRelayReachability redacts URL credentials", async () => {
   const result = await checkRelayReachability("ws://user:secret@example.test:8787", {
     WebSocketClass: OpenWebSocket,

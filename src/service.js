@@ -82,11 +82,13 @@ export function serviceStatus({ label = DEFAULT_LABEL }) {
   assertMacos();
   const guiTarget = launchTarget(label);
   const result = runText("launchctl", ["print", guiTarget.service], { timeout: 10000 });
+  const launchctl = parseLaunchctlPrint(result.text);
   return {
     label,
     loaded: result.ok,
     plistPath: servicePlistPath(label),
     detail: result.text,
+    launchctl,
   };
 }
 
@@ -152,6 +154,39 @@ export function readServiceLogs({ stream = "err", lines = 80 } = {}) {
   return redactSecrets(text.split(/\r?\n/).slice(-lines).join("\n"));
 }
 
+export function parseLaunchctlPrint(text = "") {
+  const state = matchValue(text, /^state = (.+)$/m);
+  const pid = matchInteger(text, /^pid = (-?\d+)$/m);
+  const lastExitCode = matchInteger(text, /^last exit code = (-?\d+)$/m);
+  const lastTerminationReason = matchValue(text, /^last termination reason = (.+)$/m);
+  const throttleInterval = matchInteger(text, /^throttle interval = (-?\d+)$/m);
+
+  return {
+    state,
+    pid,
+    lastExitCode,
+    lastTerminationReason,
+    throttleInterval,
+    healthy: isHealthyLaunchctlState({ state, lastExitCode }),
+  };
+}
+
+export function formatServiceStatus(status) {
+  const parts = [];
+  if (status.launchctl?.state) parts.push(`state=${status.launchctl.state}`);
+  if (Number.isInteger(status.launchctl?.pid)) parts.push(`pid=${status.launchctl.pid}`);
+  if (Number.isInteger(status.launchctl?.lastExitCode)) {
+    parts.push(`lastExitCode=${status.launchctl.lastExitCode}`);
+  }
+  if (status.launchctl?.lastTerminationReason) {
+    parts.push(`lastTerminationReason=${status.launchctl.lastTerminationReason}`);
+  }
+  if (Number.isInteger(status.launchctl?.throttleInterval)) {
+    parts.push(`throttleInterval=${status.launchctl.throttleInterval}s`);
+  }
+  return parts.join(" ");
+}
+
 function launchTarget(label) {
   const uid = userInfo().uid;
   return {
@@ -176,4 +211,22 @@ function xml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+function matchValue(text, pattern) {
+  const match = pattern.exec(text);
+  return match?.[1]?.trim();
+}
+
+function matchInteger(text, pattern) {
+  const value = matchValue(text, pattern);
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function isHealthyLaunchctlState({ state, lastExitCode }) {
+  if (Number.isInteger(lastExitCode) && lastExitCode !== 0) return false;
+  if (!state) return true;
+  return /running/i.test(state);
 }
