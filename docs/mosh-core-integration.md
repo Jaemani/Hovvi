@@ -85,7 +85,7 @@ The upstream-linked check currently runs five isolated smokes:
 - network: generates `transportinstruction.pb.cc/.h` under `build/upstream/generated`, compiles upstream `compressor.cc` and `transportfragment.cc`, then runs a `Network::Fragmenter`/`FragmentAssembly` round trip
 - packet: compiles upstream `network.cc` and `timestamp.cc`, then verifies `Network::Packet` serialization, valid port range parsing, and timestamp wraparound math
 - relay packet: encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted datagrams through Hovvi `RelayDatagramEndpoint`, decrypts on the other side, reconstructs `Network::Packet`, and verifies datagram size rejection
-- upstream ABI: compiles the repository-only upstream C++ implementation behind `hovvi_mosh_core.h`, creates a core with upstream key/session state, decrypts a server-directed packet, and verifies crypto/protocol errors at the ABI boundary
+- upstream ABI: compiles the repository-only upstream C++ implementation behind `hovvi_mosh_core.h`, creates a core with upstream key/session/terminal state, renders validated server host diffs into terminal output bytes, emits encrypted outbound packets for input and resize, and verifies crypto/protocol errors at the ABI boundary
 
 The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto, transport-fragment, and packet pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
 
@@ -113,7 +113,7 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Link upstream state sync and terminal output behind the C ABI so `receive_packet`, `send_user_input`, `resize`, and `tick` can return real terminal/outbound packet frames instead of `HOVVI_MOSH_UNAVAILABLE`.
+1. Add timer, acknowledgement, retransmission, prediction, and shutdown behavior behind `hovvi_mosh_core_tick` using the upstream transport semantics instead of ad hoc mobile timers.
 2. Add a macOS command-line harness that links the adapter and talks to a real local `mosh-server` through relay/datagram queues.
 3. Port the harness to an iOS static library build once macOS correctness tests pass.
 4. Add packet loss, reordering, resize, paste, and shutdown tests before connecting the core to the app UI.

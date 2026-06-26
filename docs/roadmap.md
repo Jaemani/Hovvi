@@ -52,6 +52,7 @@ session, transport, and terminal primitives.
   - packet encode/decode and timestamp behavior
   - encrypted upstream packet flow through Hovvi relay datagram endpoints
   - upstream-backed ABI create/decrypt/protocol error behavior
+  - upstream-backed terminal output and outbound input/resize packet behavior
 - Hovvi-owned in-process packet IO exists in
   `native/mosh-core/adapter/hovvi_packet_io.h`.
 - Hovvi-owned relay datagram size/status handling exists in

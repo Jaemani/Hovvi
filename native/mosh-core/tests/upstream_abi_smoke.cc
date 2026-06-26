@@ -1,6 +1,8 @@
 #include "hovvi_mosh_core.h"
 #include "src/crypto/crypto.h"
 #include "src/network/network.h"
+#include "src/statesync/completeterminal.h"
+#include "src/statesync/user.h"
 
 #include <cstdint>
 #include <iostream>
@@ -43,8 +45,12 @@ int main()
   Crypto::Base64Key key( key_text );
   Crypto::Session server_crypto( key );
 
-  Network::Packet server_packet( Network::TO_CLIENT, 111, 222, "server payload" );
+  Network::Packet server_packet( Network::TO_CLIENT, 111, 222, "" );
+  Terminal::Complete server_terminal( size.columns, size.rows );
+  server_terminal.act( "server payload" );
+  Network::Packet terminal_packet( Network::TO_CLIENT, 112, 223, server_terminal.init_diff() );
   const std::string encrypted = server_crypto.encrypt( server_packet.toMessage() );
+  const std::string encrypted_terminal = server_crypto.encrypt( terminal_packet.toMessage() );
 
   hovvi_mosh_frame_t frame;
   hovvi_mosh_bytes_t packet = {
@@ -56,8 +62,36 @@ int main()
                        "server packet should decrypt through ABI" )
                 ? 0
                 : 1;
-  failures += require( frame.terminal_output.data == nullptr, "packet-only slice should not emit terminal output" ) ? 0 : 1;
   failures += require( frame.outbound_packets == nullptr, "packet-only slice should not emit outbound packets" ) ? 0 : 1;
+  hovvi_mosh_frame_free( &frame );
+
+  Network::Packet malformed_host_diff( Network::TO_CLIENT, 113, 224, "not a host diff" );
+  const std::string encrypted_malformed_host_diff = server_crypto.encrypt( malformed_host_diff.toMessage() );
+  packet = {
+    .data = reinterpret_cast<const uint8_t*>( encrypted_malformed_host_diff.data() ),
+    .len = encrypted_malformed_host_diff.size(),
+  };
+  failures += require( hovvi_mosh_core_receive_packet( core, packet, &frame ) == HOVVI_MOSH_PROTOCOL_ERROR,
+                       "malformed host diff should be protocol error" )
+                ? 0
+                : 1;
+  hovvi_mosh_frame_free( &frame );
+
+  packet = {
+    .data = reinterpret_cast<const uint8_t*>( encrypted_terminal.data() ),
+    .len = encrypted_terminal.size(),
+  };
+  failures += require( hovvi_mosh_core_receive_packet( core, packet, &frame ) == HOVVI_MOSH_OK,
+                       "terminal packet should render through ABI" )
+                ? 0
+                : 1;
+  const std::string terminal_output( reinterpret_cast<const char*>( frame.terminal_output.data ),
+                                     frame.terminal_output.len );
+  failures += require( terminal_output.find( "server payload" ) != std::string::npos,
+                       "terminal output should contain rendered server bytes" )
+                ? 0
+                : 1;
+  failures += require( frame.outbound_packets == nullptr, "terminal receive should not emit outbound packets" ) ? 0 : 1;
   hovvi_mosh_frame_free( &frame );
 
   const uint8_t invalid_packet[] = { 0x01, 0x02, 0x03 };
@@ -83,11 +117,42 @@ int main()
                 : 1;
   hovvi_mosh_frame_free( &frame );
 
-  failures += require( hovvi_mosh_core_send_user_input( core, { .data = nullptr, .len = 0 }, &frame )
-                         == HOVVI_MOSH_UNAVAILABLE,
-                       "input remains unavailable until state sync is linked" )
+  const uint8_t user_input[] = { 'o', 'k' };
+  failures += require( hovvi_mosh_core_send_user_input( core,
+                                                        { .data = user_input, .len = sizeof( user_input ) },
+                                                        &frame )
+                         == HOVVI_MOSH_OK,
+                       "input should emit outbound encrypted mosh packet" )
                 ? 0
                 : 1;
+  failures += require( frame.outbound_packet_count == 1, "input should emit one outbound packet" ) ? 0 : 1;
+  if ( frame.outbound_packet_count == 1 ) {
+    const Crypto::Message input_message
+      = server_crypto.decrypt( reinterpret_cast<const char*>( frame.outbound_packets[0].data ),
+                               frame.outbound_packets[0].len );
+    const Network::Packet input_packet( input_message );
+    Network::UserStream input_stream;
+    input_stream.apply_string( input_packet.payload );
+    failures += require( input_packet.direction == Network::TO_SERVER, "input packet should target server" ) ? 0 : 1;
+    failures += require( input_stream.size() == 2, "input stream should contain two bytes" ) ? 0 : 1;
+  }
+  hovvi_mosh_frame_free( &frame );
+
+  failures += require( hovvi_mosh_core_resize( core, { .columns = 100, .rows = 40 }, &frame ) == HOVVI_MOSH_OK,
+                       "resize should emit outbound encrypted mosh packet" )
+                ? 0
+                : 1;
+  failures += require( frame.outbound_packet_count == 1, "resize should emit one outbound packet" ) ? 0 : 1;
+  if ( frame.outbound_packet_count == 1 ) {
+    const Crypto::Message resize_message
+      = server_crypto.decrypt( reinterpret_cast<const char*>( frame.outbound_packets[0].data ),
+                               frame.outbound_packets[0].len );
+    const Network::Packet resize_packet( resize_message );
+    Network::UserStream resize_stream;
+    resize_stream.apply_string( resize_packet.payload );
+    failures += require( resize_packet.direction == Network::TO_SERVER, "resize packet should target server" ) ? 0 : 1;
+    failures += require( resize_stream.size() == 1, "resize stream should contain one event" ) ? 0 : 1;
+  }
   hovvi_mosh_frame_free( &frame );
 
   hovvi_mosh_core_destroy( core );
