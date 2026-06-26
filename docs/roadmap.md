@@ -203,6 +203,10 @@ Current status:
   data into the mosh input path.
 - Swift mobile paste input tracks terminal bracketed-paste mode (`CSI ? 2004
   h/l`) and wraps multi-line input only when the remote terminal enables it.
+- Swift mobile keeps tmux-native scrollback separate from live mosh terminal
+  output. The terminal surface composes scrollback rows above live screen rows
+  with collision-free IDs instead of appending live escape streams into
+  scrollback history.
 - Swift mobile attach now exposes `AttachShellModel.tick(nowMs:)`, and
   `HovviMobileApp` runs a conservative attached-state mosh tick loop using
   `nextTickAfterMs` when available.

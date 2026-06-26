@@ -189,8 +189,7 @@ public actor AttachShellModel {
             let session = MoshAttachSession(datagramSession: datagramSession, engine: makeEngine())
             attachSession = session
             let frame = try await session.connect(initialSize: initialSize, timeout: timeout)
-            var buffer = ScrollbackBuffer(result: scrollback)
-            buffer.appendPlainText(String(decoding: frame.terminalOutput, as: UTF8.self))
+            let buffer = ScrollbackBuffer(result: scrollback)
             var screen = TerminalScreen(columns: initialSize.columns, rows: initialSize.rows)
             screen.apply(frame.terminalOutput)
             snapshot = AttachShellSnapshot(
@@ -288,13 +287,8 @@ public actor AttachShellModel {
     }
 
     private func apply(_ frame: MoshAttachFrame, terminalScreen existingScreen: TerminalScreen? = nil) {
-        var scrollback = snapshot.scrollback
         var terminalScreen = existingScreen ?? snapshot.terminalScreen
         if frame.terminalOutput.isEmpty == false {
-            if scrollback == nil {
-                scrollback = ScrollbackBuffer(sessionName: snapshot.selectedSessionName ?? "main")
-            }
-            scrollback?.appendPlainText(String(decoding: frame.terminalOutput, as: UTF8.self))
             if terminalScreen == nil {
                 terminalScreen = TerminalScreen()
             }
@@ -306,7 +300,7 @@ public actor AttachShellModel {
             selectedDeviceId: snapshot.selectedDeviceId,
             selectedSessionName: snapshot.selectedSessionName,
             manifest: snapshot.manifest,
-            scrollback: scrollback,
+            scrollback: snapshot.scrollback,
             terminalScreen: terminalScreen,
             terminalOutput: frame.terminalOutput,
             nextTickAfterMs: frame.nextTickAfterMs,

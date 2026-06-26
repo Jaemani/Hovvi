@@ -365,12 +365,14 @@ public struct TerminalSurfaceView: View {
     }
 
     private var lines: [TerminalSurfaceLine] {
-        if let screen = snapshot.terminalScreen, screen.hasVisibleText {
-            return screen.visibleLines.map { TerminalSurfaceLine(id: $0.id, runs: $0.runs) }
+        let scrollbackLines = (snapshot.scrollback?.visibleLines ?? []).map {
+            TerminalSurfaceLine(id: "scrollback-\($0.id)", runs: [TerminalScreenRun(text: $0.text)])
         }
-        return (snapshot.scrollback?.visibleLines ?? []).map {
-            TerminalSurfaceLine(id: $0.id, runs: [TerminalScreenRun(text: $0.text)])
+        guard let screen = snapshot.terminalScreen, screen.hasVisibleText else {
+            return scrollbackLines
         }
+        let screenLines = screen.visibleLines.map { TerminalSurfaceLine(id: "live-\($0.id)", runs: $0.runs) }
+        return scrollbackLines + screenLines
     }
 
     private var emptyDescription: String {

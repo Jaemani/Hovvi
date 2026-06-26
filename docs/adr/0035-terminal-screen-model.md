@@ -45,8 +45,9 @@ The initial model supports:
 - bracketed paste mode was added in ADR 0054.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
-`ScrollbackBuffer`. `TerminalSurfaceView` renders the live terminal screen when
-it has visible text, and falls back to scrollback lines otherwise.
+`ScrollbackBuffer`. ADR 0055 keeps live terminal output out of the scrollback
+buffer while `TerminalSurfaceView` composes scrollback rows with the current live
+screen rows for display.
 
 ## Consequences
 

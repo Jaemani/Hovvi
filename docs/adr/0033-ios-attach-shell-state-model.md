@@ -31,7 +31,8 @@ binding. It:
 - fetches tmux scrollback before attach;
 - prepares an attach manifest;
 - creates a relay datagram session and `MoshAttachSession`;
-- applies terminal output into `ScrollbackBuffer`;
+- keeps tmux scrollback and live terminal output separated as described in ADR
+  0055;
 - forwards input, resize, receive, and shutdown actions;
 - turns recoverable failures into redacted `AttachShellError` values.
 

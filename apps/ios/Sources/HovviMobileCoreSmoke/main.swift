@@ -715,15 +715,19 @@ try require(
 )
 
 shellSnapshot = await shell.sendInput(Data("hi".utf8))
-try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before", "local"], "attach shell should append local output")
+try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before"], "attach shell should keep live output out of tmux scrollback")
 try require(shellSnapshot.terminalScreen?.visibleLines.first?.text == "local", "attach shell should update live terminal screen")
 try require(shellSnapshot.terminalOutput == Data("local".utf8), "attach shell should expose latest terminal output")
 
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))
 try require(
-    (shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before", "localremote"],
-    "attach shell should append remote output into scrollback buffer"
+    (shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before"],
+    "attach shell should keep remote live output out of tmux scrollback"
+)
+try require(
+    shellSnapshot.terminalScreen?.visibleLines.first?.text == "localremote",
+    "attach shell should merge remote output into the live terminal screen"
 )
 
 shellSnapshot = await shell.resize(to: MoshCoreTerminalSize(columns: 120, rows: 40))

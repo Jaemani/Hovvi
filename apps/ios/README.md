@@ -44,9 +44,10 @@ flushes core frames back through the relay.
 
 `AttachShellModel` is the first UI-facing attach coordinator. It is an actor that
 loads relay devices, tracks selected Mac/session, fetches tmux scrollback,
-prepares the mosh attach manifest, starts `MoshAttachSession`, applies terminal
-output into `ScrollbackBuffer`, and exposes redacted user-facing error state for
-SwiftUI screens.
+prepares the mosh attach manifest, starts `MoshAttachSession`, applies live
+terminal output into `TerminalScreen`, and exposes redacted user-facing error
+state for SwiftUI screens. Live mosh bytes are not appended to tmux-native
+scrollback history.
 
 `HovviAttachShellView`, `DeviceSidebar`, `TerminalSurfaceView`, and related row
 views are presentational SwiftUI surfaces. They do not own relay or mosh state;
@@ -101,8 +102,9 @@ Erase-character sequences (`CSI X`) blank cells from the cursor without
 shifting the remaining row text.
 Erase display/line sequences (`CSI J/K`) support modes 0, 1, and 2 while
 preserving cursor position.
-`TerminalSurfaceView` renders the live screen when present and falls back to
-`ScrollbackBuffer` before output arrives.
+`TerminalSurfaceView` composes tmux-native scrollback rows above the current
+live screen rows with separate stable IDs. Before live output arrives, it falls
+back to scrollback only.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the
