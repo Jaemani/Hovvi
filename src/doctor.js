@@ -32,8 +32,11 @@ export async function runDoctor({
   if (network) {
     const config = getConfigFn();
     const relayUrl = process.env.HOVVI_RELAY_URL || config.relay?.url || "ws://127.0.0.1:8787";
-    items.push(checkGithubCli({ runTextFn }));
-    items.push(checkGithubSsh({ runTextFn }));
+    const githubCli = checkGithubCli({ runTextFn });
+    const githubSsh = checkGithubSsh({ runTextFn });
+    items.push(githubCli);
+    items.push(githubSsh);
+    items.push(checkGithubAccountConsistency({ githubCli, githubSsh }));
     items.push(checkFirewallState({ platformFn, runTextFn }));
     items.push(await relayReachabilityFn(relayUrl));
   } else {
@@ -200,24 +203,57 @@ function checkFirewallState({ platformFn, runTextFn }) {
 
 function checkGithubCli({ runTextFn }) {
   const result = runTextFn("gh", ["auth", "status", "--hostname", "github.com"], { timeout: 10000 });
+  const account = parseGithubCliAccount(result.text);
   return {
     name: "gh auth",
     status: result.ok ? "pass" : "warn",
     message: result.ok ? "logged in" : "not logged in",
     detail: result.ok ? firstLine(result.text) : "Run `gh auth login --hostname github.com` if GitHub CLI is needed.",
+    account,
   };
 }
 
 function checkGithubSsh({ runTextFn }) {
   const result = runTextFn("ssh", ["-T", "git@github.com"], { timeout: 10000 });
   const text = result.text;
-  const matched = /Hi\s+([^!]+)!/.exec(text);
+  const account = parseGithubSshAccount(text);
   return {
     name: "github ssh",
-    status: matched ? "pass" : "warn",
-    message: matched ? `authenticated as ${matched[1]}` : "could not confirm account",
+    status: account ? "pass" : "warn",
+    message: account ? `authenticated as ${account}` : "could not confirm account",
     detail: text || "No SSH output received.",
+    account,
   };
+}
+
+function checkGithubAccountConsistency({ githubCli, githubSsh }) {
+  if (githubCli.account && githubSsh.account) {
+    const same = githubCli.account.toLowerCase() === githubSsh.account.toLowerCase();
+    return {
+      name: "github account consistency",
+      status: same ? "pass" : "warn",
+      message: same ? `matched as ${githubCli.account}` : "gh and SSH accounts differ",
+      detail: same ? undefined : `gh=${githubCli.account} ssh=${githubSsh.account}`,
+    };
+  }
+
+  return {
+    name: "github account consistency",
+    status: "warn",
+    message: "could not compare accounts",
+    detail: "Run `hovvi doctor --network` after both `gh auth status` and `ssh -T git@github.com` can confirm accounts.",
+  };
+}
+
+function parseGithubCliAccount(text = "") {
+  return (
+    /Logged in to github\.com account\s+([^\s]+)/i.exec(text)?.[1] ||
+    /Logged in to github\.com as\s+([^\s]+)/i.exec(text)?.[1]
+  );
+}
+
+function parseGithubSshAccount(text = "") {
+  return /Hi\s+([^!]+)!/.exec(text)?.[1]?.trim();
 }
 
 export function checkRelayReachability(relayUrl, { WebSocketClass = WebSocket, timeoutMs = 3000 } = {}) {

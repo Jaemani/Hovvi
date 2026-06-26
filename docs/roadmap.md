@@ -340,6 +340,8 @@ Current status:
 - `hovvi doctor` checks required tools, optional cmux/AI/Tailscale tools, Git
   identity, LaunchAgent service state, opt-in GitHub auth/SSH, opt-in macOS
   Application Firewall state, and opt-in relay WebSocket reachability.
+- `hovvi doctor --network` warns when GitHub CLI and GitHub SSH authenticate as
+  different accounts, making account mismatch visible during setup.
 - `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
   setup failures can be debugged without exposing relay credentials or mosh
   keys.

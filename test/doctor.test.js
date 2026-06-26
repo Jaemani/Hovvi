@@ -57,6 +57,42 @@ test("runDoctor checks configured relay only in network mode", async () => {
     message: "reachable",
     detail: "ws://token@example.test:8787",
   });
+  assert.deepEqual(findItem(report, "github account consistency"), {
+    name: "github account consistency",
+    status: "pass",
+    message: "matched as Jaemani",
+    detail: undefined,
+  });
+});
+
+test("runDoctor warns when GitHub CLI and SSH accounts differ", async () => {
+  const report = await runDoctor({
+    network: true,
+    commandExistsFn: () => true,
+    runTextFn(command, args) {
+      if (command === "gh") return ok("Logged in to github.com account Jaemani");
+      if (command === "ssh") return ok("Hi other-user! You've successfully authenticated.");
+      if (command.endsWith("socketfilterfw")) return ok("Firewall is disabled. (State = 0)");
+      return fakeGitIdentity(command, args);
+    },
+    getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+    relayReachabilityFn: async (relayUrl) => ({
+      name: "relay reachability",
+      status: "pass",
+      message: "reachable",
+      detail: relayUrl,
+    }),
+  });
+
+  assert.equal(report.ok, true);
+  assert.deepEqual(findItem(report, "github account consistency"), {
+    name: "github account consistency",
+    status: "warn",
+    message: "gh and SSH accounts differ",
+    detail: "gh=Jaemani ssh=other-user",
+  });
 });
 
 test("runDoctor warns when macOS firewall is enabled", async () => {
