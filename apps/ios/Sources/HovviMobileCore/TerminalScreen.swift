@@ -123,6 +123,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var originMode = false
     private var savedCursor: TerminalSavedCursor?
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
+    private var tabStops: Set<Int>
 
     public init(columns: Int = 80, rows: Int = 24) {
         self.columns = max(1, columns)
@@ -130,6 +131,7 @@ public struct TerminalScreen: Equatable, Sendable {
         self.cursorColumn = 0
         self.cursorRow = 0
         self.cells = Self.blankCells(columns: self.columns, rows: self.rows)
+        self.tabStops = Self.defaultTabStops(columns: self.columns)
     }
 
     public var visibleLines: [TerminalScreenLine] {
@@ -160,9 +162,15 @@ public struct TerminalScreen: Equatable, Sendable {
                 resized[row][column] = cells[row][column]
             }
         }
+        let oldDefaultTabStops = Self.defaultTabStops(columns: self.columns)
         self.columns = newColumns
         self.rows = newRows
         self.cells = resized
+        if tabStops == oldDefaultTabStops {
+            tabStops = Self.defaultTabStops(columns: newColumns)
+        } else {
+            tabStops = Set(tabStops.filter { $0 < newColumns })
+        }
         scrollRegion = scrollRegion?.resized(toRows: newRows)
         savedCursor = savedCursor?.resized(columns: newColumns, rows: newRows)
         cursorRow = min(cursorRow, newRows - 1)
@@ -188,10 +196,14 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = 0
             case .backspace:
                 cursorColumn = max(0, cursorColumn - 1)
+            case .horizontalTab:
+                horizontalTab()
             case .clearScreen:
                 clearScreen()
             case .eraseLine:
                 eraseLine()
+            case .eraseCharacters(let count):
+                eraseCharacters(count)
             case .cursorHome:
                 cursorRow = cursorHomeRow
                 cursorColumn = 0
@@ -220,6 +232,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 insertCharacters(count)
             case .deleteCharacters(let count):
                 deleteCharacters(count)
+            case .setHorizontalTabStop:
+                tabStops.insert(cursorColumn)
+            case .clearTabStops(let mode):
+                clearTabStops(mode)
             case .sgr(let values):
                 applySgr(values)
             case .scrollRegion(let top, let bottom):
@@ -278,6 +294,14 @@ public struct TerminalScreen: Equatable, Sendable {
         }
     }
 
+    private mutating func horizontalTab() {
+        guard let nextTabStop = tabStops.sorted().first(where: { $0 > cursorColumn }) else {
+            cursorColumn = columns - 1
+            return
+        }
+        cursorColumn = min(nextTabStop, columns - 1)
+    }
+
     private mutating func lineFeed() {
         let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
         if cursorRow == region.bottom {
@@ -327,6 +351,14 @@ public struct TerminalScreen: Equatable, Sendable {
     private mutating func eraseLine() {
         cells[cursorRow] = Self.blankRow(columns: columns)
         cursorColumn = 0
+    }
+
+    private mutating func eraseCharacters(_ count: Int) {
+        let count = min(max(1, count), columns - cursorColumn)
+        guard count > 0 else { return }
+        for column in cursorColumn..<cursorColumn + count {
+            cells[cursorRow][column] = TerminalCell(attributes: currentAttributes)
+        }
     }
 
     private var cursorHomeRow: Int {
@@ -398,6 +430,15 @@ public struct TerminalScreen: Equatable, Sendable {
         for column in cursorColumn..<columns {
             let source = column + count
             cells[cursorRow][column] = source < columns ? cells[cursorRow][source] : TerminalCell(attributes: currentAttributes)
+        }
+    }
+
+    private mutating func clearTabStops(_ mode: TerminalTabClearMode) {
+        switch mode {
+        case .current:
+            tabStops.remove(cursorColumn)
+        case .all:
+            tabStops.removeAll()
         }
     }
 
@@ -524,7 +565,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 attributes: currentAttributes,
                 scrollRegion: scrollRegion,
                 originMode: originMode,
-                savedCursor: savedCursor
+                savedCursor: savedCursor,
+                tabStops: tabStops
             )
         }
         cells = Self.blankCells(columns: columns, rows: rows)
@@ -534,6 +576,7 @@ public struct TerminalScreen: Equatable, Sendable {
         scrollRegion = nil
         originMode = false
         savedCursor = nil
+        tabStops = Self.defaultTabStops(columns: columns)
     }
 
     private mutating func exitAlternateScreen() {
@@ -545,6 +588,7 @@ public struct TerminalScreen: Equatable, Sendable {
         scrollRegion = snapshot.scrollRegion?.resized(toRows: rows)
         originMode = snapshot.originMode
         savedCursor = snapshot.savedCursor?.resized(columns: columns, rows: rows)
+        tabStops = Set(snapshot.tabStops.filter { $0 < columns })
         primarySnapshotBeforeAlternate = nil
     }
 
@@ -554,6 +598,11 @@ public struct TerminalScreen: Equatable, Sendable {
 
     private static func blankRow(columns: Int) -> [TerminalCell] {
         Array(repeating: TerminalCell(), count: columns)
+    }
+
+    private static func defaultTabStops(columns: Int) -> Set<Int> {
+        guard columns > 8 else { return [] }
+        return Set(stride(from: 8, to: columns, by: 8))
     }
 
     private static func resizedCells(_ cells: [[TerminalCell]], columns: Int, rows: Int) -> [[TerminalCell]] {
@@ -573,8 +622,10 @@ private enum TerminalToken {
     case reverseIndex
     case carriageReturn
     case backspace
+    case horizontalTab
     case clearScreen
     case eraseLine
+    case eraseCharacters(Int)
     case cursorHome
     case cursorPosition(row: Int, column: Int)
     case cursorUp(Int)
@@ -587,6 +638,8 @@ private enum TerminalToken {
     case deleteLines(Int)
     case insertCharacters(Int)
     case deleteCharacters(Int)
+    case setHorizontalTabStop
+    case clearTabStops(TerminalTabClearMode)
     case sgr([Int])
     case scrollRegion(top: Int?, bottom: Int?)
     case originMode(Bool)
@@ -626,6 +679,9 @@ private struct TerminalEscapeParser {
         case 0x08:
             advanceOneScalar()
             return .backspace
+        case 0x09:
+            advanceOneScalar()
+            return .horizontalTab
         case 0x1B:
             advanceOneScalar()
             return parseEscape()
@@ -640,6 +696,10 @@ private struct TerminalEscapeParser {
         if text[index] == "M" {
             index = text.index(after: index)
             return .reverseIndex
+        }
+        if text[index] == "H" {
+            index = text.index(after: index)
+            return .setHorizontalTabStop
         }
         if text[index] == "7" {
             index = text.index(after: index)
@@ -705,6 +765,10 @@ private struct TerminalEscapeParser {
             return .deleteLines(first)
         case "P":
             return .deleteCharacters(first)
+        case "X":
+            return .eraseCharacters(first)
+        case "g":
+            return tabClearToken(values: values)
         case "s":
             return .saveCursor
         case "u":
@@ -744,6 +808,22 @@ private struct TerminalEscapeParser {
         }
         return nil
     }
+
+    private func tabClearToken(values: [Int]) -> TerminalToken? {
+        switch values.first ?? 0 {
+        case 0:
+            return .clearTabStops(.current)
+        case 3:
+            return .clearTabStops(.all)
+        default:
+            return nil
+        }
+    }
+}
+
+private enum TerminalTabClearMode {
+    case current
+    case all
 }
 
 private struct TerminalCell: Equatable {
@@ -770,6 +850,7 @@ private struct TerminalScreenSnapshot: Equatable {
     var scrollRegion: TerminalScrollRegion?
     var originMode: Bool
     var savedCursor: TerminalSavedCursor?
+    var tabStops: Set<Int>
 }
 
 private struct TerminalSavedCursor: Equatable {

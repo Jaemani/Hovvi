@@ -39,6 +39,7 @@ The initial model supports:
 - saved cursor state was added in ADR 0046.
 - insert/delete line was added in ADR 0047.
 - character insert/delete was added in ADR 0048.
+- tab stops and erase character were added in ADR 0049.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. `TerminalSurfaceView` renders the live terminal screen when
@@ -49,8 +50,8 @@ it has visible text, and falls back to scrollback lines otherwise.
 The iOS shell now has a distinct live-screen surface, which is the right boundary
 for future ANSI parsing, keyboard, paste, and simulator screenshot validation.
 This is not yet a complete terminal emulator. Full ANSI/VT behavior,
-ambiguous-width parity, selection, tab stops, erase character, saved character
-sets, theme-aware default colors, and performance profiling remain pending.
+ambiguous-width parity, selection, saved character sets, theme-aware default
+colors, wide-character edge repair, and performance profiling remain pending.
 
 ## Validation
 

@@ -515,6 +515,39 @@ try require(
     attributedCharacterEditScreen.visibleLines[0].runs[1].attributes.foreground == .red,
     "terminal screen inserted blanks should use the current attributes"
 )
+var tabStopScreen = TerminalScreen(columns: 18, rows: 2)
+tabStopScreen.apply("a\tb")
+try require(
+    tabStopScreen.visibleLines[0].text == "a       b",
+    "terminal screen should advance horizontal tab to the next default tab stop"
+)
+tabStopScreen.apply("\u{001B}[2;5H\u{001B}H\u{001B}[2;1Hc\td")
+try require(
+    tabStopScreen.visibleLines[1].text == "c   d",
+    "terminal screen should honor ESC H custom tab stops"
+)
+tabStopScreen.apply("\u{001B}[2;5H\u{001B}[g\u{001B}[2;1H\u{001B}[Ke\tf")
+try require(
+    tabStopScreen.visibleLines[1].text == "e       f",
+    "terminal screen should clear the tab stop at the cursor with CSI g"
+)
+var clearedTabStopScreen = TerminalScreen(columns: 18, rows: 2)
+clearedTabStopScreen.apply("a\u{001B}[3g\tb")
+try require(
+    clearedTabStopScreen.visibleLines[0].text == "a                b",
+    "terminal screen should clear all tab stops with CSI 3 g"
+)
+var eraseCharacterScreen = TerminalScreen(columns: 8, rows: 1)
+eraseCharacterScreen.apply("abcdef")
+eraseCharacterScreen.apply("\u{001B}[31m\u{001B}[1;3H\u{001B}[2X")
+try require(
+    eraseCharacterScreen.visibleLines[0].runs.map(\.text) == ["ab", "  ", "ef"],
+    "terminal screen should erase characters at the cursor without shifting text"
+)
+try require(
+    eraseCharacterScreen.visibleLines[0].runs[1].attributes.foreground == .red,
+    "terminal screen erased characters should use the current attributes"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")

@@ -24,9 +24,8 @@ inserted span with blanks using the current SGR attributes. Delete character
 shifts cells left and blanks the tail using the current SGR attributes. Counts
 are clamped to the remaining columns in the row.
 
-This ADR intentionally does not add tab stops, erase character (`CSI X`), or
-full wide-character edge-case repair. Those remain separate terminal model
-work.
+Tab stops and erase character (`CSI X`) are handled separately by ADR 0049.
+Full wide-character edge-case repair remains separate terminal model work.
 
 ## Consequences
 
@@ -34,11 +33,10 @@ work.
   scrollback or live-screen row structure.
 - Inserted blanks preserve current attributes, matching the model used by
   visible SGR runs.
-- Wide-grapheme continuation repair, tab stops, erase character, saved
-  character sets, and broader VT parity remain pending.
+- Wide-grapheme continuation repair, saved character sets, and broader VT parity
+  remain pending.
 
 ## Validation
 
 - `swift run --package-path apps/ios HovviMobileCoreSmoke`
 - `swift build --package-path apps/ios --product HovviMobileApp`
-

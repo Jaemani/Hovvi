@@ -253,7 +253,8 @@ Current status:
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior, and
   reverse-index bounded scrolling, DEC origin mode, saved cursor state, and
-  line/character insert-delete behavior in `HovviMobileCoreSmoke`.
+  line/character insert-delete, tab-stop, and erase-character behavior in
+  `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
   simulator/device rendering validation are still pending.
 

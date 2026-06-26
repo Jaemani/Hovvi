@@ -77,6 +77,11 @@ SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.
 Character insert/delete sequences (`CSI @/P`) mutate the current row from the
 cursor to the right edge.
+Horizontal tabs use default eight-column tab stops, support `ESC H` custom tab
+stops and `CSI g` tab clearing, and clamp to the right edge when no later tab
+stop exists.
+Erase-character sequences (`CSI X`) blank cells from the cursor without
+shifting the remaining row text.
 `TerminalSurfaceView` renders the live screen when present and falls back to
 `ScrollbackBuffer` before output arrives.
 
