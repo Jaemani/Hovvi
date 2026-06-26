@@ -302,7 +302,13 @@ public struct TerminalDetail: View {
 
     private func sendInput() {
         guard inputText.isEmpty == false else { return }
-        onSendInput(TerminalInputCommand.text(inputText).bytes)
+        let command: TerminalInputCommand
+        if inputText.contains(where: \.isNewline) {
+            command = .paste(inputText, bracketed: snapshot.terminalScreen?.isBracketedPasteModeEnabled ?? false)
+        } else {
+            command = .text(inputText)
+        }
+        onSendInput(command.bytes)
         inputText = ""
     }
 

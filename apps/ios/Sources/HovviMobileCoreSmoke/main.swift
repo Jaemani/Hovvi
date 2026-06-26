@@ -309,6 +309,11 @@ let emptyMoshCoreFrame = MoshCoreFrame()
 try require(emptyMoshCoreFrame.nextTickAfterMs == nil, "empty mosh core frame should not schedule tick")
 try require(emptyMoshCoreFrame.cleanShutdown == false, "empty mosh core frame should not signal shutdown")
 try require(TerminalInputCommand.text("paste\nblock").bytes == Data("paste\nblock".utf8), "terminal text input should preserve pasted bytes")
+try require(TerminalInputCommand.paste("paste\nblock", bracketed: false).bytes == Data("paste\nblock".utf8), "terminal paste input should preserve raw bytes when bracketed paste is disabled")
+try require(
+    TerminalInputCommand.paste("paste\nblock", bracketed: true).bytes == Data("\u{001B}[200~paste\nblock\u{001B}[201~".utf8),
+    "terminal paste input should wrap bytes when bracketed paste is enabled"
+)
 try require(TerminalInputCommand.carriageReturn.bytes == Data([0x0D]), "terminal return input should encode carriage return")
 try require(TerminalInputCommand.tab.bytes == Data([0x09]), "terminal tab input should encode HT")
 try require(TerminalInputCommand.escape.bytes == Data([0x1B]), "terminal escape input should encode ESC")
@@ -396,6 +401,11 @@ try require(wideScreen.visibleLines.map(\.text) == ["한a", "👍b"], "terminal 
 var combiningScreen = TerminalScreen(columns: 8, rows: 1)
 combiningScreen.apply("e\u{0301}x")
 try require(combiningScreen.visibleLines[0].text == "e\u{0301}x", "terminal screen should attach combining marks to the previous cell")
+var bracketedPasteModeScreen = TerminalScreen(columns: 8, rows: 1)
+bracketedPasteModeScreen.apply("\u{001B}[?2004h")
+try require(bracketedPasteModeScreen.isBracketedPasteModeEnabled, "terminal screen should enable bracketed paste mode")
+bracketedPasteModeScreen.apply("\u{001B}[?2004l")
+try require(bracketedPasteModeScreen.isBracketedPasteModeEnabled == false, "terminal screen should disable bracketed paste mode")
 var attributedScreen = TerminalScreen(columns: 24, rows: 2)
 attributedScreen.apply("plain \u{001B}[1;31mbold-red\u{001B}[0m normal")
 let attributedRuns = attributedScreen.visibleLines[0].runs

@@ -201,6 +201,8 @@ Current status:
 - Swift mobile input uses `TerminalInputCommand` byte encoding for text,
   paste-sized text, Return, Tab, Escape, Ctrl-C, and backspace before sending
   data into the mosh input path.
+- Swift mobile paste input tracks terminal bracketed-paste mode (`CSI ? 2004
+  h/l`) and wraps multi-line input only when the remote terminal enables it.
 - Swift mobile attach now exposes `AttachShellModel.tick(nowMs:)`, and
   `HovviMobileApp` runs a conservative attached-state mosh tick loop using
   `nextTickAfterMs` when available.
@@ -260,8 +262,9 @@ Current status:
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior,
   reverse-index bounded scrolling, DEC origin mode, cursor line/column
-  movement, saved cursor state, line/character insert-delete, tab-stop, and
-  erase-character behavior in `HovviMobileCoreSmoke`.
+  movement, bracketed paste mode, saved cursor state, line/character
+  insert-delete, tab-stop, and erase-character behavior in
+  `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
   simulator/device rendering validation are still pending.
 

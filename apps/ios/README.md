@@ -57,6 +57,9 @@ input, resize, and retry actions.
 Ctrl-C, and backspace as terminal bytes before they enter the mosh input path.
 The SwiftUI input bar sends `Data` rather than UI strings, so control keys and
 text use the same attach-session flow.
+Multi-line input is treated as paste-sized input. When the remote terminal has
+enabled bracketed paste with `CSI ? 2004 h`, Hovvi wraps the bytes in
+`ESC [ 200 ~` and `ESC [ 201 ~`; otherwise it sends raw UTF-8.
 
 `HovviMobileApp` owns the first app-shaped wiring layer. It creates a
 `RelayClient`, connects and loads devices, selects sessions, attaches through
@@ -85,6 +88,7 @@ DEC origin mode (`CSI ? 6 h/l`) makes cursor addressing and vertical movement
 respect the active scroll region.
 Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
 (`CSI G`/`` ` ``) are supported with bounds clamping.
+Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
 Saved cursor sequences (`ESC 7/8` and `CSI s/u`) restore cursor position and
 SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.
