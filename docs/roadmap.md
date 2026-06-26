@@ -207,6 +207,9 @@ Current status:
   output. The terminal surface composes scrollback rows above live screen rows
   with collision-free IDs instead of appending live escape streams into
   scrollback history.
+- Swift mobile terminal surface projection is now public and smoke-tested, so
+  scrollback/live row order, row sources, and stable render IDs are validated
+  before simulator/device screenshot coverage is added.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,

@@ -2,6 +2,42 @@ import Foundation
 import HovviMobileCore
 import SwiftUI
 
+public enum TerminalSurfaceLineSource: String, Equatable, Sendable {
+    case scrollback
+    case live
+}
+
+public struct TerminalSurfaceLine: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let source: TerminalSurfaceLineSource
+    public let runs: [TerminalScreenRun]
+
+    public init(id: String, source: TerminalSurfaceLineSource, runs: [TerminalScreenRun]) {
+        self.id = id
+        self.source = source
+        self.runs = runs
+    }
+}
+
+public enum TerminalSurfaceProjection {
+    public static func lines(for snapshot: AttachShellSnapshot) -> [TerminalSurfaceLine] {
+        let scrollbackLines = (snapshot.scrollback?.visibleLines ?? []).map {
+            TerminalSurfaceLine(
+                id: "scrollback-\($0.id)",
+                source: .scrollback,
+                runs: [TerminalScreenRun(text: $0.text)]
+            )
+        }
+        guard let screen = snapshot.terminalScreen, screen.hasVisibleText else {
+            return scrollbackLines
+        }
+        let screenLines = screen.visibleLines.map {
+            TerminalSurfaceLine(id: "live-\($0.id)", source: .live, runs: $0.runs)
+        }
+        return scrollbackLines + screenLines
+    }
+}
+
 @MainActor
 public struct HovviAttachShellView: View {
     public let snapshot: AttachShellSnapshot
@@ -376,14 +412,7 @@ public struct TerminalSurfaceView: View {
     }
 
     private var lines: [TerminalSurfaceLine] {
-        let scrollbackLines = (snapshot.scrollback?.visibleLines ?? []).map {
-            TerminalSurfaceLine(id: "scrollback-\($0.id)", runs: [TerminalScreenRun(text: $0.text)])
-        }
-        guard let screen = snapshot.terminalScreen, screen.hasVisibleText else {
-            return scrollbackLines
-        }
-        let screenLines = screen.visibleLines.map { TerminalSurfaceLine(id: "live-\($0.id)", runs: $0.runs) }
-        return scrollbackLines + screenLines
+        TerminalSurfaceProjection.lines(for: snapshot)
     }
 
     private var emptyDescription: String {
@@ -396,11 +425,6 @@ public struct TerminalSurfaceView: View {
             "Pick a Mac and session to attach."
         }
     }
-}
-
-private struct TerminalSurfaceLine: Identifiable, Equatable {
-    let id: String
-    let runs: [TerminalScreenRun]
 }
 
 private struct TerminalSurfaceLineView: View {

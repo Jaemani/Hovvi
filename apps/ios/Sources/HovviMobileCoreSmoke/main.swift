@@ -713,11 +713,27 @@ try require(
     await shellRelay.sentDatagrams == [SentDatagram(channelId: "dg_shell", bytes: Data([0xA0]), sequence: 0)],
     "attach shell should send startup mosh packet through relay"
 )
+let scrollbackOnlySurface = TerminalSurfaceProjection.lines(for: shellSnapshot)
+try require(scrollbackOnlySurface.map(\.id) == ["scrollback-line-0"], "terminal surface should expose scrollback-only rows before live output")
+try require(scrollbackOnlySurface.map(\.source) == [.scrollback], "terminal surface should mark scrollback-only rows")
 
 shellSnapshot = await shell.sendInput(Data("hi".utf8))
 try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before"], "attach shell should keep live output out of tmux scrollback")
 try require(shellSnapshot.terminalScreen?.visibleLines.first?.text == "local", "attach shell should update live terminal screen")
 try require(shellSnapshot.terminalOutput == Data("local".utf8), "attach shell should expose latest terminal output")
+let composedSurface = TerminalSurfaceProjection.lines(for: shellSnapshot)
+try require(
+    Array(composedSurface.map(\.id).prefix(2)) == ["scrollback-line-0", "live-screen-0"],
+    "terminal surface should compose scrollback rows before live screen rows"
+)
+try require(
+    Array(composedSurface.map(\.source).prefix(2)) == [.scrollback, .live],
+    "terminal surface should keep row sources distinct"
+)
+try require(
+    composedSurface[1].runs.map(\.text).joined() == "local",
+    "terminal surface live row should preserve terminal screen runs"
+)
 
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))

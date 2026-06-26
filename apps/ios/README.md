@@ -114,6 +114,8 @@ preserving cursor position.
 `TerminalSurfaceView` composes tmux-native scrollback rows above the current
 live screen rows with separate stable IDs. Before live output arrives, it falls
 back to scrollback only.
+`TerminalSurfaceProjection` exposes that row composition as public data so CI can
+validate render inputs before simulator/device screenshot coverage is added.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the
