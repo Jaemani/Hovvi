@@ -422,7 +422,69 @@ private extension TerminalAnsiColor {
             return .cyan
         case .brightWhite:
             return .primary
+        case .indexed(let index):
+            return Self.xterm256Color(index)
+        case .rgb(let red, let green, let blue):
+            return Color(
+                red: Double(red) / 255.0,
+                green: Double(green) / 255.0,
+                blue: Double(blue) / 255.0
+            )
         }
+    }
+
+    private static func xterm256Color(_ index: UInt8) -> Color {
+        let value = Int(index)
+        switch value {
+        case 0:
+            return .black
+        case 1:
+            return .red
+        case 2:
+            return .green
+        case 3:
+            return .yellow
+        case 4:
+            return .blue
+        case 5:
+            return .purple
+        case 6:
+            return .cyan
+        case 7:
+            return .primary
+        case 8:
+            return .secondary
+        case 9:
+            return .red
+        case 10:
+            return .green
+        case 11:
+            return .yellow
+        case 12:
+            return .blue
+        case 13:
+            return .purple
+        case 14:
+            return .cyan
+        case 15:
+            return .primary
+        case 16...231:
+            let offset = value - 16
+            let red = colorCubeComponent(offset / 36)
+            let green = colorCubeComponent((offset / 6) % 6)
+            let blue = colorCubeComponent(offset % 6)
+            return Color(red: red, green: green, blue: blue)
+        default:
+            let level = Double(8 + (value - 232) * 10) / 255.0
+            return Color(red: level, green: level, blue: level)
+        }
+    }
+
+    private static func colorCubeComponent(_ value: Int) -> Double {
+        if value == 0 {
+            return 0
+        }
+        return Double(55 + value * 40) / 255.0
     }
 }
 

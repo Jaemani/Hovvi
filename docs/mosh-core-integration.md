@@ -184,6 +184,9 @@ separate data source.
 It now preserves basic SGR attributes as line runs so the SwiftUI terminal
 surface can render prompt/status/error styling without folding that state into
 plain scrollback text.
+It preserves 256-color and truecolor foreground SGR values for native SwiftUI
+rendering while leaving background color rendering as a later terminal-quality
+slice.
 It also snapshots and restores the primary screen for DEC private alternate
 screen mode so full-screen terminal programs can draw without corrupting the
 primary terminal surface.

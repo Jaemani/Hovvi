@@ -46,23 +46,66 @@ public struct TerminalTextAttributes: Equatable, Sendable {
     }
 }
 
-public enum TerminalAnsiColor: Int, Equatable, Sendable {
-    case black = 0
-    case red = 1
-    case green = 2
-    case yellow = 3
-    case blue = 4
-    case magenta = 5
-    case cyan = 6
-    case white = 7
-    case brightBlack = 8
-    case brightRed = 9
-    case brightGreen = 10
-    case brightYellow = 11
-    case brightBlue = 12
-    case brightMagenta = 13
-    case brightCyan = 14
-    case brightWhite = 15
+public enum TerminalAnsiColor: Equatable, Sendable {
+    case black
+    case red
+    case green
+    case yellow
+    case blue
+    case magenta
+    case cyan
+    case white
+    case brightBlack
+    case brightRed
+    case brightGreen
+    case brightYellow
+    case brightBlue
+    case brightMagenta
+    case brightCyan
+    case brightWhite
+    case indexed(UInt8)
+    case rgb(red: UInt8, green: UInt8, blue: UInt8)
+}
+
+private extension TerminalAnsiColor {
+    init?(standardIndex: Int) {
+        switch standardIndex {
+        case 0:
+            self = .black
+        case 1:
+            self = .red
+        case 2:
+            self = .green
+        case 3:
+            self = .yellow
+        case 4:
+            self = .blue
+        case 5:
+            self = .magenta
+        case 6:
+            self = .cyan
+        case 7:
+            self = .white
+        case 8:
+            self = .brightBlack
+        case 9:
+            self = .brightRed
+        case 10:
+            self = .brightGreen
+        case 11:
+            self = .brightYellow
+        case 12:
+            self = .brightBlue
+        case 13:
+            self = .brightMagenta
+        case 14:
+            self = .brightCyan
+        case 15:
+            self = .brightWhite
+        default:
+            return nil
+        }
+    }
 }
 
 public struct TerminalScreen: Equatable, Sendable {
@@ -197,7 +240,9 @@ public struct TerminalScreen: Equatable, Sendable {
 
     private mutating func applySgr(_ values: [Int]) {
         let values = values.isEmpty ? [0] : values
-        for value in values {
+        var index = 0
+        while index < values.count {
+            let value = values[index]
             switch value {
             case 0:
                 currentAttributes = TerminalTextAttributes()
@@ -218,14 +263,61 @@ public struct TerminalScreen: Equatable, Sendable {
             case 27:
                 currentAttributes.inverse = false
             case 30...37:
-                currentAttributes.foreground = TerminalAnsiColor(rawValue: value - 30)
+                currentAttributes.foreground = TerminalAnsiColor(standardIndex: value - 30)
             case 39:
                 currentAttributes.foreground = nil
+            case 38:
+                if applyExtendedForegroundSgr(values, index: &index) {
+                    continue
+                }
+            case 48:
+                if skipExtendedColorSgr(values, index: &index) {
+                    continue
+                }
             case 90...97:
-                currentAttributes.foreground = TerminalAnsiColor(rawValue: value - 90 + 8)
+                currentAttributes.foreground = TerminalAnsiColor(standardIndex: value - 90 + 8)
             default:
-                continue
+                break
             }
+            index += 1
+        }
+    }
+
+    private mutating func applyExtendedForegroundSgr(_ values: [Int], index: inout Int) -> Bool {
+        guard index + 1 < values.count else { return false }
+        switch values[index + 1] {
+        case 5:
+            guard index + 2 < values.count else { return false }
+            currentAttributes.foreground = .indexed(UInt8(clamping: values[index + 2]))
+            index += 3
+            return true
+        case 2:
+            guard index + 4 < values.count else { return false }
+            currentAttributes.foreground = .rgb(
+                red: UInt8(clamping: values[index + 2]),
+                green: UInt8(clamping: values[index + 3]),
+                blue: UInt8(clamping: values[index + 4])
+            )
+            index += 5
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func skipExtendedColorSgr(_ values: [Int], index: inout Int) -> Bool {
+        guard index + 1 < values.count else { return false }
+        switch values[index + 1] {
+        case 5:
+            guard index + 2 < values.count else { return false }
+            index += 3
+            return true
+        case 2:
+            guard index + 4 < values.count else { return false }
+            index += 5
+            return true
+        default:
+            return false
         }
     }
 

@@ -246,8 +246,8 @@ Current status:
   device/session/terminal/error views backed by `AttachShellSnapshot`.
 - `TerminalScreen` keeps live terminal output separate from tmux scrollback and
   covers basic printable text, CR/LF/backspace, CSI cursor movement, clear
-  screen, erase line, resize, SGR text attributes, and alternate-screen restore in
-  `HovviMobileCoreSmoke`.
+  screen, erase line, resize, SGR text attributes, 256-color/truecolor foreground
+  colors, and alternate-screen restore in `HovviMobileCoreSmoke`.
 - A real Xcode app target, mature terminal renderer, and simulator/device
   rendering validation are still pending.
 

@@ -53,9 +53,10 @@ input, resize, and retry actions.
 
 `TerminalScreen` keeps the live terminal screen separate from tmux scrollback.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor
-movement, clear screen, erase line, resize, basic SGR text attributes, and
-alternate-screen restore. `TerminalSurfaceView` renders the live screen when
-present and falls back to `ScrollbackBuffer` before output arrives.
+movement, clear screen, erase line, resize, basic SGR text attributes,
+256-color/truecolor foreground colors, and alternate-screen restore.
+`TerminalSurfaceView` renders the live screen when present and falls back to
+`ScrollbackBuffer` before output arrives.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the

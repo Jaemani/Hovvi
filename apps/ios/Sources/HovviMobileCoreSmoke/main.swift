@@ -379,6 +379,13 @@ try require(attributedRuns.map(\.text) == ["plain ", "bold-red", " normal"], "te
 try require(attributedRuns[1].attributes.bold, "terminal screen should preserve bold SGR")
 try require(attributedRuns[1].attributes.foreground == .red, "terminal screen should preserve foreground SGR")
 try require(attributedRuns[2].attributes == TerminalTextAttributes(), "terminal screen should reset SGR attributes")
+var extendedColorScreen = TerminalScreen(columns: 32, rows: 2)
+extendedColorScreen.apply("\u{001B}[38;5;202mindexed\u{001B}[38;2;12;34;56mtruecolor\u{001B}[39mplain")
+let extendedColorRuns = extendedColorScreen.visibleLines[0].runs
+try require(extendedColorRuns.map(\.text) == ["indexed", "truecolor", "plain"], "terminal screen should split extended color SGR runs")
+try require(extendedColorRuns[0].attributes.foreground == .indexed(202), "terminal screen should preserve 256-color foreground SGR")
+try require(extendedColorRuns[1].attributes.foreground == .rgb(red: 12, green: 34, blue: 56), "terminal screen should preserve truecolor foreground SGR")
+try require(extendedColorRuns[2].attributes.foreground == nil, "terminal screen should reset extended foreground SGR")
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")
