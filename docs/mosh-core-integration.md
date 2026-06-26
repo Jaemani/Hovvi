@@ -73,7 +73,12 @@ The first upstream-linked native check is intentionally separate from the shippe
 npm run native:upstream-check
 ```
 
-This target compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_internal.cc` with a Hovvi-owned Apple CommonCrypto config shim, then runs an AES-OCB `Crypto::Session` encrypt/decrypt round trip. It proves the snapshot has the crypto implementation needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
+This target currently runs two isolated upstream smokes:
+
+- crypto: compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_internal.cc` with a Hovvi-owned Apple CommonCrypto config shim, then runs an AES-OCB `Crypto::Session` encrypt/decrypt round trip
+- network: generates `transportinstruction.pb.cc/.h` under `build/upstream/generated`, compiles upstream `compressor.cc` and `transportfragment.cc`, then runs a `Network::Fragmenter`/`FragmentAssembly` round trip
+
+The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto and transport-fragment pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
 
 ## Source Groups
 
@@ -81,7 +86,7 @@ This target compiles vendored upstream `base64.cc`, `crypto.cc`, and `ocb_intern
 - `src/network`: preserve SSP transport logic, but replace socket IO with adapter callbacks.
 - `src/statesync`: keep user stream and complete terminal state synchronization.
 - `src/terminal`: keep terminal parser, framebuffer, display diff, and resize/input semantics.
-- `src/protobufs`: generate C++ protobuf outputs reproducibly from `.proto` files.
+- `src/protobufs`: generate C++ protobuf outputs reproducibly from `.proto` files into `build/upstream/generated`; do not write generated files into the vendored source tree.
 - `src/util`: reuse only helpers needed by the wrapper; avoid importing irrelevant pty/select code unless required.
 - `src/frontend/stmclient.*` and `terminaloverlay.*`: reference for client behavior; split out CLI/termios/select details before mobile use.
 
