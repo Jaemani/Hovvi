@@ -9,6 +9,13 @@ public enum TerminalInputCommand: Equatable, Sendable {
     case interrupt
     case backspace
 
+    public static func userText(_ text: String, bracketedPasteEnabled: Bool) -> TerminalInputCommand {
+        if text.contains(where: \.isNewline) {
+            return .paste(text, bracketed: bracketedPasteEnabled)
+        }
+        return .text(text)
+    }
+
     public var bytes: Data {
         switch self {
         case .text(let text):

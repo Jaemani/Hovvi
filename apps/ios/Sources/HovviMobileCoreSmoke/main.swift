@@ -351,6 +351,9 @@ try require(
     TerminalInputCommand.paste("paste\nblock", bracketed: true).bytes == Data("\u{001B}[200~paste\nblock\u{001B}[201~".utf8),
     "terminal paste input should wrap bytes when bracketed paste is enabled"
 )
+try require(TerminalInputCommand.userText("echo hi", bracketedPasteEnabled: true) == .text("echo hi"), "terminal user text helper should keep single-line input as text")
+try require(TerminalInputCommand.userText("paste\nblock", bracketedPasteEnabled: false) == .paste("paste\nblock", bracketed: false), "terminal user text helper should treat multiline input as paste")
+try require(TerminalInputCommand.userText("paste\nblock", bracketedPasteEnabled: true) == .paste("paste\nblock", bracketed: true), "terminal user text helper should preserve bracketed paste mode")
 try require(TerminalInputCommand.carriageReturn.bytes == Data([0x0D]), "terminal return input should encode carriage return")
 try require(TerminalInputCommand.tab.bytes == Data([0x09]), "terminal tab input should encode HT")
 try require(TerminalInputCommand.escape.bytes == Data([0x1B]), "terminal escape input should encode ESC")

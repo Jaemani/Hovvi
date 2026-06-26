@@ -203,6 +203,9 @@ Current status:
 - Swift mobile input uses `TerminalInputCommand` byte encoding for text,
   paste-sized text, Return, Tab, Escape, Ctrl-C, and backspace before sending
   data into the mosh input path.
+- Swift mobile terminal text input routes single-line input as text and
+  multi-line input as paste through a smoke-tested core helper before UI sends
+  bytes to the mosh path.
 - Swift mobile paste input tracks terminal bracketed-paste mode (`CSI ? 2004
   h/l`) and wraps multi-line input only when the remote terminal enables it.
 - Swift mobile keeps tmux-native scrollback separate from live mosh terminal
