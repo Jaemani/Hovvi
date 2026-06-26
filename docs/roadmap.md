@@ -16,6 +16,7 @@
 - Mac agent UDP adapter for relay datagram channels.
 - mosh-server bootstrap in attach manifests.
 - native iOS mosh relay-datagram packet session.
+- mosh server key validation across Node and Swift attach paths.
 
 ## Next
 

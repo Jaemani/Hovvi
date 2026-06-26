@@ -72,7 +72,7 @@ Message-specific fields are added next to those keys.
           "label": "mosh",
           "remoteHost": "127.0.0.1",
           "remotePort": 60001,
-          "key": "base64-mosh-key",
+          "key": "MDEyMzQ1Njc4OWFiY2RlZg",
           "maxDatagramBytes": 1200
         }
       }
@@ -193,6 +193,8 @@ Message-specific fields are added next to those keys.
 For attach manifests with a `mosh` method and `relay-datagram` transport, mobile clients open a `datagram.open` channel using the manifest's `deviceId`, `remoteHost`, `remotePort`, `label`, and `maxDatagramBytes`.
 
 The datagram payload is an opaque mosh packet. Hovvi relay and agent code must not decrypt, parse, coalesce, or reorder mosh's inner AES-OCB/SSP payload. The optional `sequence` field is relay-level diagnostics and ordering metadata only; mosh packet validity is still determined by mosh's own nonce, authentication tag, and state synchronization rules.
+
+The `key` value is the printable mosh server AES key returned by `MOSH CONNECT`: 22 base64 characters with no `=` padding.
 
 ## Validation
 

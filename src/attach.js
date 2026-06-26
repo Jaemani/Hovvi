@@ -5,17 +5,18 @@ export function buildAttachManifest({ device, sessionName, lines = 2000, mosh } 
   const target = escapeTmuxTarget(sessionName);
   const user = userInfo().username;
   const moshCommand = buildMoshServerCommand({ sessionName: target });
+  const hasMoshTransport = isMoshPort(mosh?.port) && isMoshServerKey(mosh?.key);
   const moshMethod = {
     name: "mosh",
     priority: 10,
-    status: mosh?.port && mosh?.key ? "available" : mosh?.error ? "unavailable" : "planned",
+    status: hasMoshTransport ? "available" : mosh?.error ? "unavailable" : "planned",
     command: [moshCommand.command, ...moshCommand.args],
     notes: mosh?.error
       ? `mosh-server bootstrap failed: ${mosh.error}`
       : "Compatibility target for mobile attach. Relay datagrams carry the resulting encrypted mosh packets.",
   };
 
-  if (mosh?.port && mosh?.key) {
+  if (hasMoshTransport) {
     moshMethod.transport = {
       kind: "relay-datagram",
       label: "mosh",
@@ -148,10 +149,20 @@ export function escapeTmuxTarget(sessionName) {
 }
 
 export function parseMoshConnectLine(line) {
-  const match = /^MOSH CONNECT (?<port>\d+) (?<key>[A-Za-z0-9+/=]+)$/m.exec(line.trim());
+  const match = /^MOSH CONNECT (?<port>\d+) (?<key>[A-Za-z0-9+/]{22})$/m.exec(line.trim());
   if (!match) return null;
+  const port = Number(match.groups.port);
+  if (!isMoshPort(port) || !isMoshServerKey(match.groups.key)) return null;
   return {
-    port: Number(match.groups.port),
+    port,
     key: match.groups.key,
   };
+}
+
+export function isMoshServerKey(key) {
+  return typeof key === "string" && /^[A-Za-z0-9+/]{22}$/.test(key);
+}
+
+function isMoshPort(port) {
+  return Number.isInteger(port) && port > 0 && port <= 65535;
 }

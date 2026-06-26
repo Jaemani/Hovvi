@@ -54,7 +54,7 @@ let manifestJson = """
           "label": "mosh",
           "remoteHost": "127.0.0.1",
           "remotePort": 60001,
-          "key": "abcDEF+/=",
+          "key": "MDEyMzQ1Njc4OWFiY2RlZg",
           "maxDatagramBytes": 1200
         }
       }
@@ -81,7 +81,7 @@ try require(manifestEnvelope.payload.requestId == "req-1", "attach request id sh
 try require(manifestEnvelope.payload.manifest.kind == "mosh-tmux", "attach manifest kind should decode")
 try require(manifestEnvelope.payload.manifest.scrollback.lines == 2000, "scrollback lines should decode")
 try require(manifestEnvelope.payload.manifest.methods[0].transport?.remotePort == 60001, "mosh transport port should decode")
-try require(manifestEnvelope.payload.manifest.methods[0].transport?.key == "abcDEF+/=", "mosh transport key should decode")
+try require(manifestEnvelope.payload.manifest.methods[0].transport?.key == "MDEyMzQ1Njc4OWFiY2RlZg", "mosh transport key should decode")
 
 do {
     _ = try decodeEnvelope(DevicesSnapshot.self, from: data, expectedType: "other")
@@ -209,6 +209,7 @@ try require(matchedDatagram == "dg_1", "datagram ready matcher should return cha
 
 let moshTransport = try manifestEnvelope.payload.manifest.preferredMoshRelayDatagramTransport()
 try require(moshTransport.remoteHost == "127.0.0.1", "mosh transport should select relay datagram host")
+try require(MoshServerKey.isValid(moshTransport.key ?? ""), "mosh transport should expose valid server key")
 let fakeRelay = FakeDatagramRelay()
 let moshSession = try MoshRelayDatagramSession(
     relay: fakeRelay,
