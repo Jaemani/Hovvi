@@ -239,6 +239,9 @@ public actor AttachShellModel {
             fail(title: "No active terminal", message: "Attach to a session before resizing.", recoveryAction: .reattachSession)
             return snapshot
         }
+        if snapshot.terminalScreen?.columns == size.columns, snapshot.terminalScreen?.rows == size.rows {
+            return snapshot
+        }
         do {
             var screen = snapshot.terminalScreen ?? TerminalScreen(columns: size.columns, rows: size.rows)
             screen.resize(columns: size.columns, rows: size.rows)

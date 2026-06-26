@@ -75,6 +75,9 @@ id `ios-alpha`.
 The retry action follows `AttachShellRecoveryAction`, reconnecting to the relay
 for browsing failures and reattaching the selected session for live terminal
 failures.
+Repeated resize events for the current terminal size are ignored by both the app
+controller and `AttachShellModel`, so layout churn does not produce duplicate
+mosh resize packets.
 
 `AttachShellModel.tick(nowMs:)` drives scheduled mosh core progress. The app
 tick loop follows `nextTickAfterMs` when present and otherwise polls

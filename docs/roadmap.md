@@ -211,6 +211,9 @@ Current status:
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
   tmux scrollback, and the last live terminal screen.
+- Swift mobile resize handling now deduplicates unchanged terminal sizes in the
+  core attach model, preventing duplicate mosh resize packets from repeated UI
+  geometry callbacks.
 - Swift mobile attach now exposes `AttachShellModel.tick(nowMs:)`, and
   `HovviMobileApp` runs a conservative attached-state mosh tick loop using
   `nextTickAfterMs` when available.

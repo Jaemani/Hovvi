@@ -732,6 +732,12 @@ try require(
 
 shellSnapshot = await shell.resize(to: MoshCoreTerminalSize(columns: 120, rows: 40))
 try require(shellSnapshot.phase == AttachShellPhase.attached, "attach shell resize should keep attached phase")
+let resizeDatagramCount = await shellRelay.sentDatagrams.count
+shellSnapshot = await shell.resize(to: MoshCoreTerminalSize(columns: 120, rows: 40))
+try require(
+    await shellRelay.sentDatagrams.count == resizeDatagramCount,
+    "attach shell should not send duplicate resize packets for an unchanged size"
+)
 shellSnapshot = await shell.tick(nowMs: 43)
 try require(shellSnapshot.nextTickAfterMs == 20, "attach shell tick should surface next scheduled tick")
 try require(
