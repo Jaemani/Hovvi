@@ -372,6 +372,18 @@ terminalScreen.apply("\rHELLO\r\nworld")
 try require(terminalScreen.visibleLines.map(\.text) == ["HELLO", "world", ""], "terminal screen should handle carriage return and newline")
 terminalScreen.apply("\u{001B}[1;3HZ")
 try require(terminalScreen.visibleLines[0].text == "HEZLO", "terminal screen should move cursor with CSI row column")
+terminalScreen.apply("\u{001B}[2EX")
+try require(
+    terminalScreen.cursorRow == 2 && terminalScreen.cursorColumn == 1 && terminalScreen.visibleLines[2].text == "X",
+    "terminal screen CSI E should move to the next line and reset column"
+)
+terminalScreen.apply("\u{001B}[FY")
+try require(
+    terminalScreen.cursorRow == 1 && terminalScreen.cursorColumn == 1 && terminalScreen.visibleLines[1].text == "Yorld",
+    "terminal screen CSI F should move to the previous line and reset column"
+)
+terminalScreen.apply("\u{001B}[5GZ")
+try require(terminalScreen.visibleLines[1].text == "YorlZ", "terminal screen CSI G should move to an absolute column")
 terminalScreen.apply("\u{001B}[2J\u{001B}[Hclear")
 try require(terminalScreen.visibleLines.map(\.text) == ["clear", "", ""], "terminal screen should clear screen")
 terminalScreen.apply("\u{001B}[2K\u{001B}[Hline")
@@ -448,6 +460,10 @@ try require(
 )
 originModeScreen.apply("\u{001B}[5B")
 try require(originModeScreen.cursorRow == 3, "terminal screen origin mode should clamp cursor down to the bottom margin")
+originModeScreen.apply("\u{001B}[10E")
+try require(originModeScreen.cursorRow == 3 && originModeScreen.cursorColumn == 0, "terminal screen origin mode should clamp CSI E to the bottom margin")
+originModeScreen.apply("\u{001B}[10F")
+try require(originModeScreen.cursorRow == 1 && originModeScreen.cursorColumn == 0, "terminal screen origin mode should clamp CSI F to the top margin")
 originModeScreen.apply("\u{001B}[?6l\u{001B}[1;1Htop")
 try require(
     originModeScreen.cursorRow == 0 && originModeScreen.visibleLines[0].text == "top",

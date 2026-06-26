@@ -83,6 +83,8 @@ Inverse SGR runs render with swapped effective foreground/background colors.
 at the top margin.
 DEC origin mode (`CSI ? 6 h/l`) makes cursor addressing and vertical movement
 respect the active scroll region.
+Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
+(`CSI G`/`` ` ``) are supported with bounds clamping.
 Saved cursor sequences (`ESC 7/8` and `CSI s/u`) restore cursor position and
 SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.

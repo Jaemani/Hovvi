@@ -41,6 +41,7 @@ The initial model supports:
 - character insert/delete was added in ADR 0048.
 - tab stops and erase character were added in ADR 0049.
 - erase display/line modes were added in ADR 0052.
+- cursor line/column movement was added in ADR 0053.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. `TerminalSurfaceView` renders the live terminal screen when

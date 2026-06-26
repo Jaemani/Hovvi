@@ -220,6 +220,14 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = min(columns - 1, cursorColumn + count)
             case .cursorBackward(let count):
                 cursorColumn = max(0, cursorColumn - count)
+            case .cursorNextLine(let count):
+                cursorRow = min(cursorRowBounds.upperBound, cursorRow + count)
+                cursorColumn = 0
+            case .cursorPreviousLine(let count):
+                cursorRow = max(cursorRowBounds.lowerBound, cursorRow - count)
+                cursorColumn = 0
+            case .cursorHorizontalAbsolute(let column):
+                cursorColumn = min(max(0, column), columns - 1)
             case .saveCursor:
                 saveCursor()
             case .restoreCursor:
@@ -668,6 +676,9 @@ private enum TerminalToken {
     case cursorDown(Int)
     case cursorForward(Int)
     case cursorBackward(Int)
+    case cursorNextLine(Int)
+    case cursorPreviousLine(Int)
+    case cursorHorizontalAbsolute(Int)
     case saveCursor
     case restoreCursor
     case insertLines(Int)
@@ -787,6 +798,12 @@ private struct TerminalEscapeParser {
             return .cursorForward(first)
         case "D":
             return .cursorBackward(first)
+        case "E":
+            return .cursorNextLine(first)
+        case "F":
+            return .cursorPreviousLine(first)
+        case "G", "`":
+            return .cursorHorizontalAbsolute(first - 1)
         case "H", "f":
             let row = max(1, values.first ?? 1) - 1
             let column = max(1, values.dropFirst().first ?? 1) - 1
