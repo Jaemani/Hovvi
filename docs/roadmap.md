@@ -65,6 +65,10 @@ session, transport, and terminal primitives.
 - Local macOS mosh-server bootstrap harness exists in `src/mosh-harness.js` and
   `hovvi mosh-harness`. It validates the real `MOSH CONNECT` port/key and opens
   the UDP relay-datagram bridge, but full native frame exchange remains pending.
+- Repository-only upstream relay transport instruction slice exists in
+  `native/mosh-core/src/hovvi_mosh_relay_transport_upstream.h`. It sends input
+  and resize diffs and receives terminal diffs through Hovvi relay datagrams
+  using upstream `TransportInstruction` fragmentation.
 
 ## Execution Goals
 

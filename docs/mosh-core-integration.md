@@ -86,6 +86,11 @@ The upstream-linked check currently runs five isolated smokes:
 - packet: compiles upstream `network.cc` and `timestamp.cc`, then verifies `Network::Packet` serialization, valid port range parsing, and timestamp wraparound math
 - relay packet: encrypts upstream `Network::Packet` values with `Crypto::Session`, sends the encrypted datagrams through Hovvi `RelayDatagramEndpoint`, decrypts on the other side, reconstructs `Network::Packet`, and verifies datagram size rejection
 - upstream ABI: compiles the repository-only upstream C++ implementation behind `hovvi_mosh_core.h`, creates a core with upstream key/session/terminal state, renders validated server host diffs into terminal output bytes, emits encrypted outbound packets for input and resize, verifies tick/clean-shutdown ABI behavior, and verifies crypto/protocol errors at the ABI boundary
+- upstream relay transport: compiles a repository-only relay transport slice
+  that wraps upstream `TransportInstruction`, `Fragmenter`,
+  `FragmentAssembly`, `UserStream`, and `Terminal::Complete` around Hovvi
+  `RelayDatagramEndpoint`, then verifies input, terminal output, resize ack
+  state, and crypto-error behavior
 
 The protobuf build uses `pkg-config` for protobuf-lite so abseil transitive libraries track the installed protobuf package. These checks prove the snapshot has the crypto, transport-fragment, and packet pieces needed by the adapter without changing the `HOVVI_MOSH_UNAVAILABLE` scaffold behavior.
 
@@ -106,6 +111,13 @@ and any harness-created tmux session. This proves the binary bootstrap and
 datagram boundary, but not yet full native frame attach; the upstream
 `Network::Transport` loop still needs a socket-free relay-backed seam.
 
+`native/mosh-core/src/hovvi_mosh_relay_transport_upstream.h` is the first
+repository-only relay transport slice above raw packets. It uses upstream mosh
+transport instructions and fragmentation over `RelayDatagramEndpoint`, renders
+server terminal diffs, and sends user input/resize diffs with state
+acknowledgement. It remains outside the npm package until the native/GPL
+distribution policy is decided.
+
 ## Source Groups
 
 - `src/crypto`: keep upstream AES-OCB, printable key, nonce, and packet authentication behavior. The vendor manifest requires both conditional OCB implementations, `ocb_internal.cc` and `ocb_openssl.cc`, even though Automake exposes them through `OCB_SRCS`.
@@ -124,8 +136,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 ## Next Implementation Steps
 
-1. Connect upstream `Network::Transport`/sender semantics to Hovvi relay
-   datagrams so the local harness can exchange native frames with a real
+1. Connect `hovvi_mosh_relay_transport_upstream.h` to the local mosh-server
+   harness UDP bridge so native frames can be exchanged with a real
    `mosh-server`.
 2. Add packet loss, reordering, resize, paste, and shutdown tests before
    connecting the core to the app UI.
