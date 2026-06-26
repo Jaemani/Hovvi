@@ -154,6 +154,11 @@ shim in front of that channel, and runs the native mosh-server probe through the
 full relay path. It skips outside repository checkouts that do not include the
 vendored upstream mosh snapshot.
 
+`npm run native:relay-process-attach-check` runs the same native attach proof
+through a child `hovvi relay --port 0` process. This covers the local relay CLI
+startup contract, stdout URL discovery, and process shutdown path while keeping
+the agent and client in-process for deterministic cleanup.
+
 Relay datagram lifecycle coverage now includes idle timeout cleanup and peer
 disconnect cleanup through `sweepStaleDatagrams`. Upstream relay transport
 coverage includes out-of-order multi-fragment server instructions; incomplete
@@ -185,8 +190,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
    GPL mobile distribution gate.
 2. Add Swift Package linker wiring for the repository-only upstream C ABI
    library without changing npm package contents.
-3. Add a reconnecting wrapper and local relay process integration coverage around
-   the mosh-server probe.
+3. Add a reconnecting wrapper around the relay client after the process-backed
+   relay attach path has stayed stable in CI.
 4. Port the harness to an iOS static library build once macOS correctness tests
    pass.
 

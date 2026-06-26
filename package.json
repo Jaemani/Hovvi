@@ -42,6 +42,7 @@
     "native:upstream-lib": "make -C native/mosh-core upstream-lib",
     "native:mosh-server-harness-check": "node scripts/native-mosh-server-harness-check.js",
     "native:relay-attach-check": "node scripts/native-relay-attach-check.js",
+    "native:relay-process-attach-check": "node scripts/native-relay-process-attach-check.js",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
     "prepublishOnly": "npm run check && npm test && npm run native:check && npm run native:adapter-check && npm run mosh:vendor:verify"
   },

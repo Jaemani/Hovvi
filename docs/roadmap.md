@@ -191,6 +191,9 @@ Current status:
 - `npm run native:relay-attach-check` runs the repository-only native mosh probe
   through a local UDP shim, JavaScript relay datagram channel, relay, agent UDP
   bridge, and agent-started `mosh-server`.
+- `npm run native:relay-process-attach-check` repeats the native attach proof
+  through a child `hovvi relay --port 0` process, validating the local relay CLI
+  startup contract and process lifecycle used by self-hosted setups.
 - Swift mobile core has a `MoshAttachSession` coordinator that flushes mosh core
   frames through relay datagrams with fake-engine smoke coverage.
 - Swift mobile core can call the C ABI scaffold through `CAbiMoshCoreEngine`;

@@ -28,6 +28,7 @@ jobs:
       - run: brew list tmux mosh >/dev/null 2>&1 || brew install tmux mosh
       - run: npm run native:mosh-server-harness-check
       - run: npm run native:relay-attach-check
+      - run: npm run native:relay-process-attach-check
       - run: swift build
         working-directory: apps/ios
       - run: swift run HovviMobileCoreSmoke
