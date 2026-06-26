@@ -9,7 +9,10 @@ swift build
 swift run HovviMobileCoreSmoke
 ```
 
-The package currently covers flattened relay envelopes, outgoing client message builders, incoming message dispatch, response matching, and a native `URLSessionWebSocketTask` relay client.
+The package currently covers flattened relay envelopes, outgoing client message
+builders, incoming message dispatch, response matching, a native
+`URLSessionWebSocketTask` relay client, relay datagram attach coordination, and
+the Swift C ABI wrapper for the native mosh core boundary.
 
 The relay client exposes both low-level send/receive methods and app-facing request APIs:
 
@@ -28,6 +31,16 @@ Use `connect(startReceiveLoop: true)` to eagerly route messages, or call the app
 Forward streams model the relay path that will carry SSH/mosh-compatible transport. `openForward` waits for `forward.ready`, `sendForwardData` writes base64 relay frames, and `readForwardFrame` queues incoming data/end frames per stream.
 
 Datagram channels model the relay path for mosh-compatible UDP-like transport. They are still carried over WebSocket in the relay MVP, but the protocol boundary is distinct from byte streams. The Mac agent can bridge a datagram channel to a local UDP endpoint such as a `mosh-server` port.
+
+`MoshRelayDatagramSession` validates attach manifests, opens relay datagram
+channels, sequences outbound packets, and reads opaque inbound mosh packets.
+`MoshAttachSession` composes that datagram session with a `MoshCoreEngine` and
+flushes core frames back through the relay.
+
+`CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
+SwiftPM target. The current package links only the unavailable MIT scaffold; the
+repository-only upstream static library remains a separate validation artifact
+until the GPL mobile distribution gate is closed.
 
 `ScrollbackBuffer` turns `session.scrollback.ready` text into stable `ScrollbackLine` values for native scroll views. It keeps incomplete streamed text as a stable pending line, trims old lines by configured capacity, and resets cleanly when the user switches sessions.
 

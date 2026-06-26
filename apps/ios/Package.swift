@@ -12,7 +12,8 @@ let package = Package(
         .executable(name: "HovviMobileCoreSmoke", targets: ["HovviMobileCoreSmoke"])
     ],
     targets: [
-        .target(name: "HovviMobileCore"),
+        .target(name: "HovviMoshCoreC"),
+        .target(name: "HovviMobileCore", dependencies: ["HovviMoshCoreC"]),
         .executableTarget(name: "HovviMobileCoreSmoke", dependencies: ["HovviMobileCore"])
     ]
 )

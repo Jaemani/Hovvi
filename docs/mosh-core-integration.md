@@ -51,6 +51,12 @@ The native core receives opaque encrypted mosh packets from Hovvi relay datagram
 - outbound encrypted mosh packets to send through the relay datagram channel
 - next tick scheduling metadata for mosh retransmit, ack, prediction, and shutdown timers
 
+Swift imports this boundary through the `HovviMoshCoreC` SwiftPM target.
+`CAbiMoshCoreEngine` maps C ABI status values to `MoshCoreEngineError`, copies
+ABI-owned frame buffers into Swift `Data`, frees frames with
+`hovvi_mosh_frame_free`, and destroys created cores with
+`hovvi_mosh_core_destroy`.
+
 ## Build Scaffold
 
 The current native implementation is an unavailable scaffold, not the real upstream-backed core. It exists to keep the ABI, status values, frame ownership rules, printable key validation, and CI wiring buildable before GPL source is vendored.
@@ -64,6 +70,10 @@ make -C native/mosh-core check
 The smoke binary must return `HOVVI_MOSH_UNAVAILABLE` for a valid create call until the upstream adapter is linked. That failure mode is intentional; it prevents the app from silently pretending that mosh protocol handling exists.
 
 The ABI includes `hovvi_mosh_core_tick` and `MoshCoreFrame.nextTickAfterMs` because upstream mosh's client loop is timer-driven. The real adapter must use this path for retransmit, ack, prediction, and shutdown progress instead of hiding timers in Swift UI code.
+
+`swift run HovviMobileCoreSmoke` exercises the Swift C ABI wrapper against the
+unavailable scaffold. This proves the Swift/native boundary and status mapping
+without linking GPL upstream mosh into the package.
 
 ## Upstream Compile Smoke
 
@@ -169,8 +179,8 @@ This does not remove GPL obligations. A distributed app that links mosh-derived 
 
 1. Implement a native `MoshCoreEngine` for iOS/macOS builds behind the explicit
    GPL mobile distribution gate.
-2. Add Swift Package C module/linker wiring for the repository-only upstream C
-   ABI library without changing npm package contents.
+2. Add Swift Package linker wiring for the repository-only upstream C ABI
+   library without changing npm package contents.
 3. Add reconnect and local relay process integration coverage around the
    mosh-server probe.
 4. Port the harness to an iOS static library build once macOS correctness tests

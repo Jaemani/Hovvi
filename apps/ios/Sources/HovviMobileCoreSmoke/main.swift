@@ -308,6 +308,36 @@ let emptyMoshCoreFrame = MoshCoreFrame()
 try require(emptyMoshCoreFrame.nextTickAfterMs == nil, "empty mosh core frame should not schedule tick")
 try require(emptyMoshCoreFrame.cleanShutdown == false, "empty mosh core frame should not signal shutdown")
 
+let cAbiUnavailableEngine = CAbiMoshCoreEngine()
+do {
+    _ = try await cAbiUnavailableEngine.start(
+        configuration: MoshCoreConfiguration(
+            serverKey: MoshServerKey(rawValue: moshTransport.key ?? "")!,
+            initialSize: MoshCoreTerminalSize(columns: 80, rows: 24)
+        )
+    )
+    throw SmokeError("C ABI scaffold should report unavailable create")
+} catch MoshCoreEngineError.unavailable(let reason) {
+    try require(reason == "create: unavailable", "C ABI scaffold should map unavailable status")
+}
+do {
+    _ = try await cAbiUnavailableEngine.receivePacket(MoshRelayDatagramPacket(bytes: Data([0x01])))
+    throw SmokeError("C ABI receive before create should fail")
+} catch MoshCoreEngineError.unavailable(let reason) {
+    try require(reason == "core has not been created", "C ABI receive should require created core")
+}
+do {
+    _ = try await CAbiMoshCoreEngine().start(
+        configuration: MoshCoreConfiguration(
+            serverKey: MoshServerKey(rawValue: moshTransport.key ?? "")!,
+            initialSize: MoshCoreTerminalSize(columns: 0, rows: 24)
+        )
+    )
+    throw SmokeError("C ABI invalid terminal size should fail")
+} catch MoshCoreEngineError.invalidArgument(let reason) {
+    try require(reason == "create: invalid_argument", "C ABI scaffold should map invalid argument status")
+}
+
 var scrollbackBuffer = ScrollbackBuffer(
     result: ScrollbackResult(sessionName: "main", lines: 2, text: "one\ntwo\n"),
     maxLines: 3

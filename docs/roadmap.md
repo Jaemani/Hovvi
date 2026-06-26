@@ -49,6 +49,8 @@ session, transport, and terminal primitives.
   `native/mosh-core/build/upstream/libhovvi_mosh_core_upstream.a` through
   `npm run native:upstream-lib`.
 - Swift has a `MoshCoreEngine` interface that consumes the C ABI shape.
+- Swift `CAbiMoshCoreEngine` imports the C ABI through SwiftPM and validates the
+  unavailable scaffold/status mapping in `HovviMobileCoreSmoke`.
 - Upstream native smokes currently validate:
   - AES-OCB crypto session round trip
   - network fragmentation and reassembly
@@ -191,6 +193,8 @@ Current status:
   bridge, and agent-started `mosh-server`.
 - Swift mobile core has a `MoshAttachSession` coordinator that flushes mosh core
   frames through relay datagrams with fake-engine smoke coverage.
+- Swift mobile core can call the C ABI scaffold through `CAbiMoshCoreEngine`;
+  upstream GPL static-library linkage remains separated.
 - Native relay packet exchange is proven locally on Macs with `tmux` and
   `mosh-server`; iOS C ABI linkage and terminal UI quality remain pending before
   the mobile attach milestone can be considered complete.
