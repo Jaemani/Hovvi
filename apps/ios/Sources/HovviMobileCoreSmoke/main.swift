@@ -417,6 +417,23 @@ try require(
     scrollRegionScreen.visibleLines.map(\.text) == ["top", "two", "new", "", "bottom"],
     "terminal screen should scroll only inside the active scroll region"
 )
+var reverseIndexScreen = TerminalScreen(columns: 8, rows: 5)
+reverseIndexScreen.apply("\u{001B}[1;1Htop")
+reverseIndexScreen.apply("\u{001B}[2;1Hone")
+reverseIndexScreen.apply("\u{001B}[3;1Htwo")
+reverseIndexScreen.apply("\u{001B}[4;1Hthree")
+reverseIndexScreen.apply("\u{001B}[5;1Hbottom")
+reverseIndexScreen.apply("\u{001B}[2;4r\u{001B}[2;1H\u{001B}M")
+try require(
+    reverseIndexScreen.visibleLines.map(\.text) == ["top", "", "one", "two", "bottom"],
+    "terminal screen should reverse-scroll only inside the active scroll region"
+)
+var reverseIndexMoveScreen = TerminalScreen(columns: 8, rows: 5)
+reverseIndexMoveScreen.apply("\u{001B}[3;1Htwo\u{001B}M")
+try require(
+    reverseIndexMoveScreen.cursorRow == 1 && reverseIndexMoveScreen.visibleLines[2].text == "two",
+    "terminal screen reverse index away from the margin should move the cursor without scrolling"
+)
 var alternateScreen = TerminalScreen(columns: 10, rows: 2)
 alternateScreen.apply("primary")
 alternateScreen.apply("\u{001B}[?1049halt")

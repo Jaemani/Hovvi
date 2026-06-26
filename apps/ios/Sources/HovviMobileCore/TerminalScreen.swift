@@ -179,6 +179,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 put(character)
             case .lineFeed:
                 lineFeed()
+            case .reverseIndex:
+                reverseIndex()
             case .carriageReturn:
                 cursorColumn = 0
             case .backspace:
@@ -273,6 +275,26 @@ public struct TerminalScreen: Equatable, Sendable {
             cells[row] = cells[row + 1]
         }
         cells[region.bottom] = Self.blankRow(columns: columns)
+    }
+
+    private mutating func reverseIndex() {
+        let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
+        if cursorRow == region.top {
+            scrollDown(in: region)
+        } else {
+            cursorRow = max(0, cursorRow - 1)
+        }
+    }
+
+    private mutating func scrollDown(in region: TerminalScrollRegion) {
+        guard region.top < region.bottom else {
+            cells[region.top] = Self.blankRow(columns: columns)
+            return
+        }
+        for row in stride(from: region.bottom, through: region.top + 1, by: -1) {
+            cells[row] = cells[row - 1]
+        }
+        cells[region.top] = Self.blankRow(columns: columns)
     }
 
     private mutating func clearScreen() {
@@ -449,6 +471,7 @@ public struct TerminalScreen: Equatable, Sendable {
 private enum TerminalToken {
     case character(Character)
     case lineFeed
+    case reverseIndex
     case carriageReturn
     case backspace
     case clearScreen
@@ -508,6 +531,10 @@ private struct TerminalEscapeParser {
 
     private mutating func parseEscape() -> TerminalToken? {
         guard index < text.endIndex else { return nil }
+        if text[index] == "M" {
+            index = text.index(after: index)
+            return .reverseIndex
+        }
         guard text[index] == "[" else { return nil }
         index = text.index(after: index)
 
