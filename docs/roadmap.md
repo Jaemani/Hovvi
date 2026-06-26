@@ -198,6 +198,9 @@ Current status:
   frames through relay datagrams with fake-engine smoke coverage.
 - Swift mobile core can call the C ABI scaffold through `CAbiMoshCoreEngine`;
   upstream GPL static-library linkage remains separated.
+- Swift mobile input uses `TerminalInputCommand` byte encoding for text,
+  paste-sized text, Return, Tab, Escape, Ctrl-C, and backspace before sending
+  data into the mosh input path.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.
@@ -241,7 +244,8 @@ Current status:
 
 - `HovviMobileApp` exists as a SwiftUI app entry target that wires
   `HovviAttachShellView` to `AttachShellModel`, local relay bootstrap config,
-  attach actions, terminal input/resize, and a conservative receive loop.
+  attach actions, byte-level terminal input/resize, and a conservative receive
+  loop.
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
   attach, input, remote receive, resize, shutdown, and mosh key redaction.

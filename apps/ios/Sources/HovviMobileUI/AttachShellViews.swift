@@ -1,3 +1,4 @@
+import Foundation
 import HovviMobileCore
 import SwiftUI
 
@@ -9,7 +10,7 @@ public struct HovviAttachShellView: View {
     public let onSelectSession: (String) -> Void
     public let onAttach: () -> Void
     public let onRetry: () -> Void
-    public let onSendInput: (String) -> Void
+    public let onSendInput: (Data) -> Void
     public let onResize: (MoshCoreTerminalSize) -> Void
 
     public init(
@@ -19,7 +20,7 @@ public struct HovviAttachShellView: View {
         onSelectSession: @escaping (String) -> Void = { _ in },
         onAttach: @escaping () -> Void = {},
         onRetry: @escaping () -> Void = {},
-        onSendInput: @escaping (String) -> Void = { _ in },
+        onSendInput: @escaping (Data) -> Void = { _ in },
         onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }
     ) {
         self.snapshot = snapshot
@@ -250,13 +251,13 @@ public struct SessionRow: View {
 @MainActor
 public struct TerminalDetail: View {
     public let snapshot: AttachShellSnapshot
-    public let onSendInput: (String) -> Void
+    public let onSendInput: (Data) -> Void
     public let onResize: (MoshCoreTerminalSize) -> Void
     @State private var inputText = ""
 
     public init(
         snapshot: AttachShellSnapshot,
-        onSendInput: @escaping (String) -> Void = { _ in },
+        onSendInput: @escaping (Data) -> Void = { _ in },
         onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }
     ) {
         self.snapshot = snapshot
@@ -268,16 +269,24 @@ public struct TerminalDetail: View {
         VStack(spacing: 0) {
             TerminalSurfaceView(snapshot: snapshot)
             Divider()
-            HStack(spacing: 8) {
+            VStack(spacing: 8) {
                 TextField("Input", text: $inputText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .disabled(snapshot.phase != .attached)
                     .onSubmit(sendInput)
-                Button(action: sendInput) {
-                    Image(systemName: "paperplane.fill")
+                HStack(spacing: 8) {
+                    terminalKeyButton(.escape, systemImage: "escape")
+                    terminalKeyButton(.tab, systemImage: "arrow.right.to.line")
+                    terminalKeyButton(.interrupt, systemImage: "xmark.octagon")
+                    terminalKeyButton(.backspace, systemImage: "delete.left")
+                    Spacer(minLength: 8)
+                    terminalKeyButton(.carriageReturn, systemImage: "return")
+                    Button(action: sendInput) {
+                        Image(systemName: "paperplane.fill")
+                    }
+                    .disabled(snapshot.phase != .attached || inputText.isEmpty)
+                    .buttonStyle(.borderedProminent)
                 }
-                .disabled(snapshot.phase != .attached || inputText.isEmpty)
-                .buttonStyle(.borderedProminent)
             }
             .padding(12)
         }
@@ -293,8 +302,22 @@ public struct TerminalDetail: View {
 
     private func sendInput() {
         guard inputText.isEmpty == false else { return }
-        onSendInput(inputText)
+        onSendInput(TerminalInputCommand.text(inputText).bytes)
         inputText = ""
+    }
+
+    private func sendCommand(_ command: TerminalInputCommand) {
+        onSendInput(command.bytes)
+    }
+
+    private func terminalKeyButton(_ command: TerminalInputCommand, systemImage: String) -> some View {
+        Button {
+            sendCommand(command)
+        } label: {
+            Image(systemName: systemImage)
+        }
+        .disabled(snapshot.phase != .attached)
+        .buttonStyle(.bordered)
     }
 }
 

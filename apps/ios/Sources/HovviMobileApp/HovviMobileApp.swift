@@ -77,9 +77,9 @@ final class HovviAppController: ObservableObject {
         }
     }
 
-    func sendInput(_ text: String) {
+    func sendInput(_ bytes: Data) {
         Task {
-            snapshot = await model.sendInput(Data(text.utf8))
+            snapshot = await model.sendInput(bytes)
         }
     }
 

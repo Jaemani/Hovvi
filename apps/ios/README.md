@@ -53,6 +53,11 @@ views are presentational SwiftUI surfaces. They do not own relay or mosh state;
 they render `AttachShellSnapshot` and emit closures for connect, select, attach,
 input, resize, and retry actions.
 
+`TerminalInputCommand` encodes text, paste-sized text, Return, Tab, Escape,
+Ctrl-C, and backspace as terminal bytes before they enter the mosh input path.
+The SwiftUI input bar sends `Data` rather than UI strings, so control keys and
+text use the same attach-session flow.
+
 `HovviMobileApp` owns the first app-shaped wiring layer. It creates a
 `RelayClient`, connects and loads devices, selects sessions, attaches through
 `AttachShellModel`, forwards input and resize events, and runs a conservative
@@ -102,6 +107,7 @@ The first native build should consume the relay protocol implemented by the CLI 
 - session cards from agent `sessions.update`
 - encrypted attach transport
 - native tmux scrollback view backed by `tmux capture-pane`/control mode
+- explicit mobile terminal keys backed by byte-level input commands
 
 Flutter is acceptable for non-terminal app surfaces later, but the iOS alpha should keep the attach path native.
 

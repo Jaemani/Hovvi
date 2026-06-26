@@ -308,6 +308,12 @@ do {
 let emptyMoshCoreFrame = MoshCoreFrame()
 try require(emptyMoshCoreFrame.nextTickAfterMs == nil, "empty mosh core frame should not schedule tick")
 try require(emptyMoshCoreFrame.cleanShutdown == false, "empty mosh core frame should not signal shutdown")
+try require(TerminalInputCommand.text("paste\nblock").bytes == Data("paste\nblock".utf8), "terminal text input should preserve pasted bytes")
+try require(TerminalInputCommand.carriageReturn.bytes == Data([0x0D]), "terminal return input should encode carriage return")
+try require(TerminalInputCommand.tab.bytes == Data([0x09]), "terminal tab input should encode HT")
+try require(TerminalInputCommand.escape.bytes == Data([0x1B]), "terminal escape input should encode ESC")
+try require(TerminalInputCommand.interrupt.bytes == Data([0x03]), "terminal interrupt input should encode Ctrl-C")
+try require(TerminalInputCommand.backspace.bytes == Data([0x7F]), "terminal backspace input should encode DEL")
 
 let cAbiUnavailableEngine = CAbiMoshCoreEngine()
 do {
