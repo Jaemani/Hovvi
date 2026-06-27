@@ -499,6 +499,18 @@ try require(
     splitOscStScreen.visibleLines[0].text == "xy",
     "terminal screen should keep skipping split OSC sequences until ST"
 )
+var asciiCharsetScreen = TerminalScreen(columns: 16, rows: 1)
+asciiCharsetScreen.apply("a\u{001B}(Bb")
+try require(
+    asciiCharsetScreen.visibleLines[0].text == "ab",
+    "terminal screen should consume ASCII charset designation without printing control bytes"
+)
+var decLineDrawingScreen = TerminalScreen(columns: 16, rows: 1)
+decLineDrawingScreen.apply("\u{001B}(0lqkxmj\u{001B}(B!")
+try require(
+    decLineDrawingScreen.visibleLines[0].text == "┌─┐│└┘!",
+    "terminal screen should map DEC special graphics line drawing characters"
+)
 var bracketedPasteModeScreen = TerminalScreen(columns: 8, rows: 1)
 bracketedPasteModeScreen.apply("\u{001B}[?2004h")
 try require(bracketedPasteModeScreen.isBracketedPasteModeEnabled, "terminal screen should enable bracketed paste mode")

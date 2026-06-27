@@ -283,6 +283,9 @@ Current status:
 - Swift mobile terminal parsing now skips OSC title/integration sequences
   terminated by BEL or ST, including when split across receive frames, preventing
   common shell/tmux metadata from corrupting live terminal text.
+- Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
+  character set designations, preventing stray charset control bytes and mapping
+  common tmux/ncurses line drawing to Unicode box characters.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.
@@ -344,8 +347,9 @@ Current status:
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior,
   reverse-index bounded scrolling, DEC origin mode, cursor line/column
-  movement, bracketed paste mode, saved cursor state, line/character
-  insert-delete, tab-stop, and erase-character behavior in
+  movement, bracketed paste mode, OSC skipping, DEC special graphics character
+  mapping, saved cursor state, line/character insert-delete, tab-stop, and
+  erase-character behavior in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
   simulator/device screenshot execution are still pending.

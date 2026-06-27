@@ -126,6 +126,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
     private var tabStops: Set<Int>
     private var operatingSystemCommandSkipState = TerminalOperatingSystemCommandSkipState.none
+    private var characterSet = TerminalCharacterSet.ascii
 
     public init(columns: Int = 80, rows: Int = 24) {
         self.columns = max(1, columns)
@@ -194,6 +195,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 break
             case .character(let character):
                 put(character)
+            case .characterSet(let characterSet):
+                self.characterSet = characterSet
             case .lineFeed:
                 lineFeed()
             case .reverseIndex:
@@ -272,6 +275,7 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     private mutating func put(_ character: Character) {
+        let character = characterSet.mapped(character)
         let width = character.terminalCellWidth
         if width == 0 {
             appendCombiningCharacter(character)
@@ -612,7 +616,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 scrollRegion: scrollRegion,
                 originMode: originMode,
                 savedCursor: savedCursor,
-                tabStops: tabStops
+                tabStops: tabStops,
+                characterSet: characterSet
             )
         }
         cells = Self.blankCells(columns: columns, rows: rows)
@@ -623,6 +628,7 @@ public struct TerminalScreen: Equatable, Sendable {
         originMode = false
         savedCursor = nil
         tabStops = Self.defaultTabStops(columns: columns)
+        characterSet = .ascii
     }
 
     private mutating func exitAlternateScreen() {
@@ -635,6 +641,7 @@ public struct TerminalScreen: Equatable, Sendable {
         originMode = snapshot.originMode
         savedCursor = snapshot.savedCursor?.resized(columns: columns, rows: rows)
         tabStops = Set(snapshot.tabStops.filter { $0 < columns })
+        characterSet = snapshot.characterSet
         primarySnapshotBeforeAlternate = nil
     }
 
@@ -713,6 +720,7 @@ public struct TerminalScreen: Equatable, Sendable {
 private enum TerminalToken {
     case ignored
     case character(Character)
+    case characterSet(TerminalCharacterSet)
     case lineFeed
     case reverseIndex
     case carriageReturn
@@ -809,6 +817,10 @@ private struct TerminalEscapeParser {
             index = text.index(after: index)
             return .restoreCursor
         }
+        if text[index] == "(" {
+            index = text.index(after: index)
+            return parseG0CharacterSet()
+        }
         if text[index] == "]" {
             index = text.index(after: index)
             operatingSystemCommandSkipState = consumeOperatingSystemCommand()
@@ -862,6 +874,21 @@ private struct TerminalEscapeParser {
         }
         return .inside
     }
+
+    private mutating func parseG0CharacterSet() -> TerminalToken? {
+        guard index < text.endIndex else { return .ignored }
+        let designator = text[index]
+        index = text.index(after: index)
+        switch designator {
+        case "0":
+            return .characterSet(.decSpecialGraphics)
+        case "B":
+            return .characterSet(.ascii)
+        default:
+            return .ignored
+        }
+    }
+
     private func csiToken(final: UnicodeScalar, parameters: String) -> TerminalToken? {
         let values = parameters
             .split(separator: ";", omittingEmptySubsequences: false)
@@ -972,6 +999,73 @@ private enum TerminalOperatingSystemCommandSkipState {
     case sawEscape
 }
 
+private enum TerminalCharacterSet: Equatable {
+    case ascii
+    case decSpecialGraphics
+
+    func mapped(_ character: Character) -> Character {
+        guard self == .decSpecialGraphics else { return character }
+        switch character {
+        case "`":
+            return "◆"
+        case "a":
+            return "▒"
+        case "f":
+            return "°"
+        case "g":
+            return "±"
+        case "h":
+            return "␤"
+        case "i":
+            return "␋"
+        case "j":
+            return "┘"
+        case "k":
+            return "┐"
+        case "l":
+            return "┌"
+        case "m":
+            return "└"
+        case "n":
+            return "┼"
+        case "o":
+            return "⎺"
+        case "p":
+            return "⎻"
+        case "q":
+            return "─"
+        case "r":
+            return "⎼"
+        case "s":
+            return "⎽"
+        case "t":
+            return "├"
+        case "u":
+            return "┤"
+        case "v":
+            return "┴"
+        case "w":
+            return "┬"
+        case "x":
+            return "│"
+        case "y":
+            return "≤"
+        case "z":
+            return "≥"
+        case "{":
+            return "π"
+        case "|":
+            return "≠"
+        case "}":
+            return "£"
+        case "~":
+            return "·"
+        default:
+            return character
+        }
+    }
+}
+
 private enum TerminalTabClearMode {
     case current
     case all
@@ -1021,6 +1115,7 @@ private struct TerminalScreenSnapshot: Equatable {
     var originMode: Bool
     var savedCursor: TerminalSavedCursor?
     var tabStops: Set<Int>
+    var characterSet: TerminalCharacterSet
 }
 
 private struct TerminalSavedCursor: Equatable {

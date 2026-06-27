@@ -111,6 +111,9 @@ cursor to the right edge.
 OSC sequences (`ESC ] ... BEL` and `ESC ] ... ESC \`) are skipped, including
 when split across receive frames, so title and terminal-integration metadata do
 not corrupt live terminal text.
+G0 character set designations consume `ESC ( B` for ASCII and `ESC ( 0` for DEC
+special graphics, mapping common line-drawing bytes to Unicode box drawing
+characters.
 Horizontal tabs use default eight-column tab stops, support `ESC H` custom tab
 stops and `CSI g` tab clearing, and clamp to the right edge when no later tab
 stop exists.
