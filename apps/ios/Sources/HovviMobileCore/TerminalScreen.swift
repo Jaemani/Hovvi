@@ -117,6 +117,7 @@ public struct TerminalScreen: Equatable, Sendable {
     public private(set) var cursorColumn: Int
     public private(set) var cursorRow: Int
     public private(set) var isBracketedPasteModeEnabled: Bool
+    public private(set) var isCursorVisible: Bool
 
     private var cells: [[TerminalCell]]
     private var currentAttributes = TerminalTextAttributes()
@@ -134,6 +135,7 @@ public struct TerminalScreen: Equatable, Sendable {
         self.cursorColumn = 0
         self.cursorRow = 0
         self.isBracketedPasteModeEnabled = false
+        self.isCursorVisible = true
         self.cells = Self.blankCells(columns: self.columns, rows: self.rows)
         self.tabStops = Self.defaultTabStops(columns: self.columns)
     }
@@ -263,6 +265,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = 0
             case .bracketedPasteMode(let enabled):
                 isBracketedPasteModeEnabled = enabled
+            case .cursorVisibility(let visible):
+                isCursorVisible = visible
             case .alternateScreen(let enabled):
                 if enabled {
                     enterAlternateScreen()
@@ -750,6 +754,7 @@ private enum TerminalToken {
     case scrollRegion(top: Int?, bottom: Int?)
     case originMode(Bool)
     case bracketedPasteMode(Bool)
+    case cursorVisibility(Bool)
     case alternateScreen(Bool)
 }
 
@@ -966,6 +971,9 @@ private struct TerminalEscapeParser {
         }
         if modes.contains(6) {
             return .originMode(enabled)
+        }
+        if modes.contains(25) {
+            return .cursorVisibility(enabled)
         }
         if modes.contains(2004) {
             return .bracketedPasteMode(enabled)

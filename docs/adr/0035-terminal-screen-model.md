@@ -45,6 +45,7 @@ The initial model supports:
 - bracketed paste mode was added in ADR 0054.
 - OSC control-sequence skipping was added in ADR 0105.
 - DEC character set handling was added in ADR 0106.
+- Cursor visibility state was added in ADR 0107.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. ADR 0055 keeps live terminal output out of the scrollback

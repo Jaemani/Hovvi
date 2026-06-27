@@ -103,6 +103,8 @@ respect the active scroll region.
 Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
 (`CSI G`/`` ` ``) are supported with bounds clamping.
 Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
+Cursor visibility (`CSI ? 25 h/l`) is tracked separately from terminal text so
+future cursor rendering can avoid corrupting scrollback or line content.
 Saved cursor sequences (`ESC 7/8` and `CSI s/u`) restore cursor position and
 SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.

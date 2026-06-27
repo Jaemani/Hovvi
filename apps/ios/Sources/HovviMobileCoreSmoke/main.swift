@@ -511,6 +511,22 @@ try require(
     decLineDrawingScreen.visibleLines[0].text == "┌─┐│└┘!",
     "terminal screen should map DEC special graphics line drawing characters"
 )
+var cursorRenderScreen = TerminalScreen(columns: 8, rows: 1)
+try require(cursorRenderScreen.isCursorVisible, "terminal cursor should be visible by default")
+cursorRenderScreen.apply("ab")
+try require(cursorRenderScreen.visibleLines[0].text == "ab", "terminal cursor tracking should not change visible text")
+cursorRenderScreen.apply("\u{001B}[?25l")
+try require(cursorRenderScreen.isCursorVisible == false, "terminal screen should hide cursor on CSI ?25 l")
+try require(
+    cursorRenderScreen.visibleLines[0].text == "ab",
+    "terminal hidden cursor should not change visible text"
+)
+cursorRenderScreen.apply("\u{001B}[?25h")
+try require(cursorRenderScreen.isCursorVisible, "terminal screen should show cursor on CSI ?25 h")
+try require(
+    cursorRenderScreen.visibleLines[0].text == "ab",
+    "terminal shown cursor should not change visible text"
+)
 var bracketedPasteModeScreen = TerminalScreen(columns: 8, rows: 1)
 bracketedPasteModeScreen.apply("\u{001B}[?2004h")
 try require(bracketedPasteModeScreen.isBracketedPasteModeEnabled, "terminal screen should enable bracketed paste mode")
