@@ -63,6 +63,9 @@ Ctrl-C, backspace, ANSI arrow keys, Home, End, Page Up, Page Down, and forward
 Delete as terminal bytes before they enter the mosh input path. The SwiftUI
 input bar sends `Data` rather than UI strings, so control keys and text use the
 same attach-session flow.
+DEC application cursor-key mode (`CSI ? 1 h/l`) is tracked by the terminal
+screen, and toolbar arrows switch between normal CSI arrow bytes and SS3
+application arrow bytes based on that mode.
 Multi-line input is treated as paste-sized input. When the remote terminal has
 enabled bracketed paste with `CSI ? 2004 h`, Hovvi wraps the bytes in
 `ESC [ 200 ~` and `ESC [ 201 ~`; otherwise it sends raw UTF-8.
@@ -104,6 +107,8 @@ respect the active scroll region.
 Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
 (`CSI G`/`` ` ``) are supported with bounds clamping.
 Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
+Application cursor-key mode (`CSI ? 1 h/l`) is tracked for mode-aware mobile
+arrow-key input.
 Cursor visibility (`CSI ? 25 h/l`) is tracked separately from terminal text.
 The SwiftUI surface projects the live cursor as separate row metadata and draws
 it as an overlay, so cursor rendering does not corrupt scrollback or line

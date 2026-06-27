@@ -558,7 +558,9 @@ public struct TerminalDetail: View {
     }
 
     private func sendCommand(_ command: TerminalInputCommand) {
-        onSendInput(command.bytes)
+        onSendInput(command.bytes(
+            applicationCursorKeysMode: snapshot.terminalScreen?.isApplicationCursorKeysModeEnabled ?? false
+        ))
     }
 
     private func terminalKeyButton(_ command: TerminalInputCommand, systemImage: String) -> some View {

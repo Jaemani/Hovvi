@@ -26,6 +26,10 @@ public enum TerminalInputCommand: Equatable, Sendable {
     }
 
     public var bytes: Data {
+        bytes(applicationCursorKeysMode: false)
+    }
+
+    public func bytes(applicationCursorKeysMode: Bool) -> Data {
         switch self {
         case .text(let text):
             return Data(text.utf8)
@@ -44,13 +48,13 @@ public enum TerminalInputCommand: Equatable, Sendable {
         case .backspace:
             return Data([0x7F])
         case .arrowUp:
-            return Data("\u{001B}[A".utf8)
+            return Data((applicationCursorKeysMode ? "\u{001B}OA" : "\u{001B}[A").utf8)
         case .arrowDown:
-            return Data("\u{001B}[B".utf8)
+            return Data((applicationCursorKeysMode ? "\u{001B}OB" : "\u{001B}[B").utf8)
         case .arrowRight:
-            return Data("\u{001B}[C".utf8)
+            return Data((applicationCursorKeysMode ? "\u{001B}OC" : "\u{001B}[C").utf8)
         case .arrowLeft:
-            return Data("\u{001B}[D".utf8)
+            return Data((applicationCursorKeysMode ? "\u{001B}OD" : "\u{001B}[D").utf8)
         case .home:
             return Data("\u{001B}[H".utf8)
         case .end:
