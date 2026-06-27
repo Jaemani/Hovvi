@@ -391,6 +391,9 @@ Current status:
 - `hovvi doctor` now warns when the private Hovvi config directory or file has
   group/world permissions, keeping persisted relay tokens auditable without
   printing them.
+- `saveConfig` repairs the default `~/.hovvi` directory to owner-only
+  permissions when writing persisted relay credentials, while leaving custom
+  `HOVVI_CONFIG` parent directories under operator control.
 - `hovvi service install` now requires a relay URL and agent token from flags,
   environment, or private config instead of silently installing a LaunchAgent
   with local development defaults. The generated plist points at the same
