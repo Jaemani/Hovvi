@@ -50,7 +50,7 @@ test("token generate writes account-scoped registry entries when registry is pro
       "--client",
       "ios-1,ios-2",
       "--expires-at",
-      "2026-07-01T00:00:00.000Z",
+      "2999-07-01T00:00:00.000Z",
     ]),
   );
   const generated = JSON.parse(output);
@@ -62,7 +62,7 @@ test("token generate writes account-scoped registry entries when registry is pro
   assert.equal(stored.accountId, "acct_1");
   assert.deepEqual(stored.roles, ["client"]);
   assert.deepEqual(stored.clientIds, ["ios-1", "ios-2"]);
-  assert.equal(stored.expiresAt, "2026-07-01T00:00:00.000Z");
+  assert.equal(stored.expiresAt, "2999-07-01T00:00:00.000Z");
   assert.equal(stored.hash, generated.registryEntry.hash);
   assert.equal(auditEntry.type, "registry.token.generate");
   assert.equal(auditEntry.name, "jaeman-iphone");
@@ -71,7 +71,7 @@ test("token generate writes account-scoped registry entries when registry is pro
   assert.equal(JSON.stringify(auditEntry).includes(stored.hash), false);
 
   const listOutput = await captureStdout(() => main(["token", "list", "--registry", registryPath]));
-  assert.match(listOutput, /jaeman-iphone active roles=client account=acct_1 clients=ios-1,ios-2 expires=2026-07-01T00:00:00.000Z/);
+  assert.match(listOutput, /jaeman-iphone active roles=client account=acct_1 clients=ios-1,ios-2 expires=2999-07-01T00:00:00.000Z/);
 });
 
 test("token list filters registry entries without exposing token hashes", async () => {
@@ -109,6 +109,22 @@ test("token list filters registry entries without exposing token hashes", async 
         accountId: "acct_2",
         deviceIds: ["mac-1"],
       },
+      {
+        name: "phone-expired",
+        hash: hashToken("expired-secret"),
+        roles: ["client"],
+        accountId: "acct_1",
+        clientIds: ["ios-2"],
+        expiresAt: "2000-01-01T00:00:00.000Z",
+      },
+      {
+        name: "phone-pending",
+        hash: hashToken("pending-secret"),
+        roles: ["client"],
+        accountId: "acct_1",
+        clientIds: ["ios-3"],
+        notBefore: "2999-01-01T00:00:00.000Z",
+      },
     ],
   });
 
@@ -141,6 +157,24 @@ test("token list filters registry entries without exposing token hashes", async 
     ["phone-active"],
   );
 
+  const expiredOutput = await captureStdout(() =>
+    main(["token", "list", "--registry", registryPath, "--status", "expired", "--json"]),
+  );
+  assert.deepEqual(JSON.parse(expiredOutput).tokens[0], {
+    name: "phone-expired",
+    accountId: "acct_1",
+    roles: ["client"],
+    disabled: false,
+    status: "expired",
+    clientIds: ["ios-2"],
+    expiresAt: "2000-01-01T00:00:00.000Z",
+  });
+
+  const pendingOutput = await captureStdout(() =>
+    main(["token", "list", "--registry", registryPath, "--status", "not-before"]),
+  );
+  assert.match(pendingOutput, /phone-pending not-before roles=client account=acct_1 clients=ios-3 notBefore=2999-01-01T00:00:00.000Z/);
+
   const disabledOutput = await captureStdout(() =>
     main(["token", "list", "--registry", registryPath, "--account", "acct_1", "--disabled"]),
   );
@@ -149,7 +183,12 @@ test("token list filters registry entries without exposing token hashes", async 
 
   await assert.rejects(
     () => captureStdout(() => main(["token", "list", "--registry", registryPath, "--active", "--disabled"])),
-    /only one of --active or --disabled/,
+    /only one of --active, --disabled, or --status/,
+  );
+
+  await assert.rejects(
+    () => captureStdout(() => main(["token", "list", "--registry", registryPath, "--status", "unknown"])),
+    /--status must be one of/,
   );
 });
 

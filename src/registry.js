@@ -69,10 +69,13 @@ export function saveRegistry(registryPath, registry) {
   chmodSync(registryPath, 0o600);
 }
 
-export function listRegistryTokens(registry, { accountId, role, deviceId, clientId, disabled } = {}) {
+export function listRegistryTokens(registry, { accountId, role, deviceId, clientId, disabled, status, now = new Date() } = {}) {
   return [...(Array.isArray(registry.tokens) ? registry.tokens : [])]
     .filter((entry) => accountId === undefined || entry.accountId === accountId)
-    .filter((entry) => disabled === undefined || Boolean(entry.disabled) === disabled)
+    .map((entry) => ({ entry, status: tokenLifecycleStatus(entry, { now }) }))
+    .filter(({ entry }) => disabled === undefined || Boolean(entry.disabled) === disabled)
+    .filter((token) => status === undefined || token.status === status)
+    .map((token) => token.entry)
     .filter((entry) => {
       if (!role) return true;
       const roles = entry.roles || ["agent", "client"];
@@ -91,12 +94,28 @@ export function listRegistryTokens(registry, { accountId, role, deviceId, client
       accountId: entry.accountId,
       roles: entry.roles || ["agent", "client"],
       disabled: Boolean(entry.disabled),
+      status: tokenLifecycleStatus(entry, { now }),
       deviceIds: entry.deviceIds,
       clientIds: entry.clientIds,
       notBefore: entry.notBefore,
       expiresAt: entry.expiresAt,
       disabledAt: entry.disabledAt,
     }));
+}
+
+export function tokenLifecycleStatus(entry, { now = new Date() } = {}) {
+  if (entry.disabled) return "disabled";
+  if (entry.notBefore) {
+    const notBefore = parseRegistryDate(entry.notBefore);
+    if (!notBefore) return "invalid-not-before";
+    if (now < notBefore) return "not-before";
+  }
+  if (entry.expiresAt) {
+    const expiresAt = parseRegistryDate(entry.expiresAt);
+    if (!expiresAt) return "invalid-expires-at";
+    if (now >= expiresAt) return "expired";
+  }
+  return "active";
 }
 
 export function listRegistryAccounts(registry) {

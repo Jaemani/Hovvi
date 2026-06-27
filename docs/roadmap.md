@@ -449,6 +449,9 @@ Current status:
   upsert, and device revocation through `--audit-log`.
 - `hovvi token list` can filter registry output by account, role, device,
   client, and active/disabled state while still omitting raw token hashes.
+- `hovvi token list` now reports lifecycle status values for active, disabled,
+  expired, not-yet-valid, and invalid-dated registry tokens, and can filter them
+  with `--status` without exposing raw token hashes.
 - `hovvi relay --log` writes structured JSONL lifecycle, auth, routing, and
   cleanup events without raw relay tokens, token hashes, or packet payloads.
 

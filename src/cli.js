@@ -724,7 +724,6 @@ async function tokenCommand(args) {
         return;
       }
       for (const token of tokens) {
-        const status = token.disabled ? "disabled" : "active";
         const roles = token.roles.join(",");
         const constraints = [
           token.accountId ? `account=${token.accountId}` : null,
@@ -733,7 +732,7 @@ async function tokenCommand(args) {
           token.notBefore ? `notBefore=${token.notBefore}` : null,
           token.expiresAt ? `expires=${token.expiresAt}` : null,
         ].filter(Boolean);
-        process.stdout.write(`${token.name || "<unnamed>"} ${status} roles=${roles}`);
+        process.stdout.write(`${token.name || "<unnamed>"} ${token.status} roles=${roles}`);
         if (constraints.length > 0) process.stdout.write(` ${constraints.join(" ")}`);
         process.stdout.write("\n");
       }
@@ -804,14 +803,21 @@ function loginTokenName({ role, accountId, deviceId, clientId }) {
 function tokenListFilters({ role, args }) {
   const active = readFlag(args, "--active");
   const disabled = readFlag(args, "--disabled");
-  if (active && disabled) throw new Error("token list accepts only one of --active or --disabled.");
+  const status = readOption(args, "--status");
+  const statusOptions = ["active", "disabled", "not-before", "expired", "invalid-not-before", "invalid-expires-at"];
+  const requestedStatusCount = [active, disabled, Boolean(status)].filter(Boolean).length;
+  if (requestedStatusCount > 1) throw new Error("token list accepts only one of --active, --disabled, or --status.");
+  if (status && !statusOptions.includes(status)) {
+    throw new Error(`token list --status must be one of: ${statusOptions.join(", ")}`);
+  }
   return {
     accountId: readOption(args, "--account"),
     role: role === "*" ? undefined : role,
     deviceId: readOption(args, "--device"),
     clientId: readOption(args, "--client"),
-    ...(active ? { disabled: false } : {}),
-    ...(disabled ? { disabled: true } : {}),
+    ...(active ? { status: "active" } : {}),
+    ...(disabled ? { status: "disabled" } : {}),
+    ...(status ? { status } : {}),
   };
 }
 

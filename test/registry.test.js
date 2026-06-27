@@ -188,6 +188,7 @@ test("registry exposes token account scope without leaking hashes", () => {
     accountId: "acct_1",
     roles: ["client"],
     disabled: false,
+    status: "active",
     deviceIds: undefined,
     clientIds: undefined,
     notBefore: undefined,
@@ -227,10 +228,57 @@ test("registry save and revoke support private operational workflows", () => {
     accountId: undefined,
     roles: ["client"],
     disabled: true,
+    status: "disabled",
     deviceIds: undefined,
     clientIds: ["ios-1"],
     notBefore: undefined,
     expiresAt: undefined,
     disabledAt: "2026-06-24T00:00:00.000Z",
   });
+});
+
+test("registry token list reports lifecycle status without token hashes", () => {
+  const now = new Date("2026-06-27T00:00:00.000Z");
+  const registry = {
+    tokens: [
+      {
+        name: "usable",
+        hash: hashToken("usable-secret"),
+        roles: ["client"],
+      },
+      {
+        name: "future",
+        hash: hashToken("future-secret"),
+        roles: ["client"],
+        notBefore: "2026-07-01T00:00:00.000Z",
+      },
+      {
+        name: "expired",
+        hash: hashToken("expired-secret"),
+        roles: ["client"],
+        expiresAt: "2026-06-01T00:00:00.000Z",
+      },
+      {
+        name: "bad-date",
+        hash: hashToken("bad-secret"),
+        roles: ["client"],
+        expiresAt: "not-a-date",
+      },
+    ],
+  };
+
+  assert.deepEqual(
+    listRegistryTokens(registry, { now }).map((token) => [token.name, token.status]),
+    [
+      ["usable", "active"],
+      ["future", "not-before"],
+      ["expired", "expired"],
+      ["bad-date", "invalid-expires-at"],
+    ],
+  );
+  assert.deepEqual(
+    listRegistryTokens(registry, { status: "expired", now }).map((token) => token.name),
+    ["expired"],
+  );
+  assert.equal(JSON.stringify(listRegistryTokens(registry, { now })).includes("sha256:"), false);
 });
