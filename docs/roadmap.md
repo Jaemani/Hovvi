@@ -225,6 +225,8 @@ Current status:
   (`CSI S/T`) against the active scroll region or full live screen.
 - Swift mobile terminal parsing now supports cursor movement aliases (`CSI a`,
   `CSI e`, and `CSI d`) with the same origin-mode bounds as existing movement.
+- Swift mobile terminal parsing now supports cursor tabulation (`CSI I/Z`)
+  against the same default/custom tab-stop model used by horizontal tabs.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
@@ -374,7 +376,7 @@ Current status:
   movement, bracketed paste mode, application cursor-key mode, OSC skipping,
   DEC special graphics character
   mapping, cursor visibility state and UI projection, RIS reset, saved cursor state, line/character
-  insert-delete, explicit cursor movement aliases, tab-stop, and erase-character behavior in
+  insert-delete, explicit cursor movement aliases, tab-stop, cursor tabulation, and erase-character behavior in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and
   simulator/device screenshot execution are still pending.

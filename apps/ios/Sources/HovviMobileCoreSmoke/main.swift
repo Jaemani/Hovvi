@@ -768,6 +768,17 @@ try require(
     clearedTabStopScreen.visibleLines[0].text == "a                b",
     "terminal screen should clear all tab stops with CSI 3 g"
 )
+var cursorTabScreen = TerminalScreen(columns: 20, rows: 1)
+cursorTabScreen.apply("a\u{001B}[2Ib")
+try require(
+    cursorTabScreen.visibleLines[0].text == "a               b",
+    "terminal screen CSI I should advance by repeated tab stops"
+)
+cursorTabScreen.apply("\u{001B}[1;10H\u{001B}[Zx")
+try require(
+    cursorTabScreen.visibleLines[0].text == "a       x       b",
+    "terminal screen CSI Z should move backward to the previous tab stop"
+)
 var eraseCharacterScreen = TerminalScreen(columns: 8, rows: 1)
 eraseCharacterScreen.apply("abcdef")
 eraseCharacterScreen.apply("\u{001B}[31m\u{001B}[1;3H\u{001B}[2X")

@@ -136,6 +136,8 @@ characters.
 Horizontal tabs use default eight-column tab stops, support `ESC H` custom tab
 stops and `CSI g` tab clearing, and clamp to the right edge when no later tab
 stop exists.
+Cursor tabulation sequences (`CSI I/Z`) move forward or backward across the same
+tab-stop model.
 Erase-character sequences (`CSI X`) blank cells from the cursor without
 shifting the remaining row text.
 Erase display/line sequences (`CSI J/K`) support modes 0, 1, and 2 while

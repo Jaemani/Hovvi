@@ -215,6 +215,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 cursorColumn = max(0, cursorColumn - 1)
             case .horizontalTab:
                 horizontalTab()
+            case .cursorForwardTab(let count):
+                cursorForwardTab(count)
+            case .cursorBackwardTab(let count):
+                cursorBackwardTab(count)
             case .eraseDisplay(let mode):
                 eraseDisplay(mode)
             case .eraseLine(let mode):
@@ -365,6 +369,22 @@ public struct TerminalScreen: Equatable, Sendable {
             return
         }
         cursorColumn = min(nextTabStop, columns - 1)
+    }
+
+    private mutating func cursorForwardTab(_ count: Int) {
+        for _ in 0..<max(1, count) {
+            horizontalTab()
+        }
+    }
+
+    private mutating func cursorBackwardTab(_ count: Int) {
+        for _ in 0..<max(1, count) {
+            guard let previousTabStop = tabStops.sorted(by: >).first(where: { $0 < cursorColumn }) else {
+                cursorColumn = 0
+                return
+            }
+            cursorColumn = max(0, previousTabStop)
+        }
     }
 
     private mutating func lineFeed() {
@@ -789,6 +809,8 @@ private enum TerminalToken {
     case carriageReturn
     case backspace
     case horizontalTab
+    case cursorForwardTab(Int)
+    case cursorBackwardTab(Int)
     case eraseDisplay(TerminalEraseMode)
     case eraseLine(TerminalEraseMode)
     case eraseCharacters(Int)
@@ -995,6 +1017,8 @@ private struct TerminalEscapeParser {
             let row = max(1, values.first ?? 1) - 1
             let column = max(1, values.dropFirst().first ?? 1) - 1
             return values.isEmpty ? .cursorHome : .cursorPosition(row: row, column: column)
+        case "I":
+            return .cursorForwardTab(first)
         case "J":
             return eraseDisplayToken(values: values)
         case "K":
@@ -1011,6 +1035,8 @@ private struct TerminalEscapeParser {
             return .scrollDown(first)
         case "X":
             return .eraseCharacters(first)
+        case "Z":
+            return .cursorBackwardTab(first)
         case "g":
             return tabClearToken(values: values)
         case "s":
