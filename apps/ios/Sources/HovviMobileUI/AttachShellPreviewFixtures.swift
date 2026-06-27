@@ -3,6 +3,7 @@ import HovviMobileCore
 
 public enum AttachShellPreviewFixtures {
     public static let defaultViewportLineLimit = 12
+    public static let environmentKey = "HOVVI_IOS_SNAPSHOT_FIXTURE"
 
     public static let devices = [
         Device(
@@ -80,6 +81,19 @@ public enum AttachShellPreviewFixtures {
             ),
             recoveryAction: .reattachSession
         )
+    }
+
+    public static func snapshot(named name: String?) -> AttachShellSnapshot? {
+        switch name?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "browsing":
+            return browsing
+        case "attached-coding-agent":
+            return attachedCodingAgent
+        case "failed-attach":
+            return failedAttach
+        default:
+            return nil
+        }
     }
 
     public static func terminalViewport(maxRows: Int = defaultViewportLineLimit) -> TerminalSurfaceViewport {

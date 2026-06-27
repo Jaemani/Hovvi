@@ -929,6 +929,22 @@ try require(previewViewport.lines.allSatisfy { $0.source == .live }, "preview fi
 try require(previewViewport.anchorId == previewViewport.lines.last?.id, "preview fixture viewport should expose a bottom anchor")
 try require(previewViewport.isTruncatedAbove, "preview fixture viewport should report hidden older rows")
 try require(AttachShellPreviewFixtures.failedAttach.recoveryAction == .reattachSession, "preview fixture should cover reattach recovery UI")
+try require(
+    AttachShellPreviewFixtures.snapshot(named: "attached-coding-agent") == previewSnapshot,
+    "preview fixture selector should expose attached coding-agent state for simulator screenshots"
+)
+try require(
+    AttachShellPreviewFixtures.snapshot(named: " BROWSING ")?.phase == .browsing,
+    "preview fixture selector should trim and normalize fixture names"
+)
+try require(
+    AttachShellPreviewFixtures.snapshot(named: "failed-attach")?.recoveryAction == .reattachSession,
+    "preview fixture selector should expose failed reattach state"
+)
+try require(
+    AttachShellPreviewFixtures.snapshot(named: "unknown") == nil,
+    "preview fixture selector should ignore unknown fixtures instead of changing app behavior"
+)
 
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))

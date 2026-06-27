@@ -37,18 +37,29 @@ final class HovviAppController: ObservableObject {
     @Published private(set) var snapshot = AttachShellSnapshot()
 
     private let model: AttachShellModel
+    private let fixtureSnapshot: AttachShellSnapshot?
     private var receiveTask: Task<Void, Never>?
     private var tickTask: Task<Void, Never>?
     private var attachLoopGeneration = 0
     private var lastResize: MoshCoreTerminalSize?
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
+        self.fixtureSnapshot = AttachShellPreviewFixtures.snapshot(
+            named: environment[AttachShellPreviewFixtures.environmentKey]
+        )
         let config = AppBootstrapConfig(environment: environment)
         let relay = RelayClient(url: config.relayURL, token: config.relayToken, clientId: config.clientId)
         self.model = AttachShellModel(relay: relay)
+        if let fixtureSnapshot {
+            self.snapshot = fixtureSnapshot
+        }
     }
 
     func connect() {
+        if let fixtureSnapshot {
+            snapshot = fixtureSnapshot
+            return
+        }
         cancelAttachLoops()
         Task {
             snapshot = await model.connectAndLoadDevices()
@@ -56,18 +67,21 @@ final class HovviAppController: ObservableObject {
     }
 
     func selectDevice(_ deviceId: String) {
+        guard fixtureSnapshot == nil else { return }
         Task {
             snapshot = await model.selectDevice(deviceId)
         }
     }
 
     func selectSession(_ sessionName: String) {
+        guard fixtureSnapshot == nil else { return }
         Task {
             snapshot = await model.selectSession(sessionName)
         }
     }
 
     func attach() {
+        guard fixtureSnapshot == nil else { return }
         cancelAttachLoops()
         Task {
             snapshot = await model.attach(initialSize: lastResize ?? MoshCoreTerminalSize(columns: 80, rows: 24))
@@ -79,6 +93,7 @@ final class HovviAppController: ObservableObject {
     }
 
     func retry() {
+        guard fixtureSnapshot == nil else { return }
         switch snapshot.recoveryAction {
         case .reattachSession:
             attach()
@@ -88,6 +103,7 @@ final class HovviAppController: ObservableObject {
     }
 
     func sendInput(_ bytes: Data) {
+        guard fixtureSnapshot == nil else { return }
         Task {
             snapshot = await model.sendInput(bytes)
             if snapshot.phase == .attached {
@@ -99,6 +115,7 @@ final class HovviAppController: ObservableObject {
     func resize(to size: MoshCoreTerminalSize) {
         guard lastResize != size else { return }
         lastResize = size
+        guard fixtureSnapshot == nil else { return }
         guard snapshot.phase == .attached else { return }
         Task {
             snapshot = await model.resize(to: size)

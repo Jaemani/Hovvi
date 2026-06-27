@@ -259,6 +259,9 @@ Current status:
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
   screenshot execution remains pending.
+- `HovviMobileApp` now supports deterministic screenshot fixtures through
+  `HOVVI_IOS_SNAPSHOT_FIXTURE`, so future simulator/device screenshot gates can
+  render attached, browsing, and failed states without requiring a live relay.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
