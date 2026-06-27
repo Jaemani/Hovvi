@@ -12,6 +12,9 @@ input. Those are byte-level terminal inputs, not UI strings. Keeping the UI
 callback string-shaped made it easy to blur text entry, paste-sized text, and
 control keys.
 
+Interactive tmux, Claude Code, Codex, shell history, and editor prompts also
+need cursor-key navigation before custom keyboard integration exists.
+
 ## Decision
 
 Add `TerminalInputCommand` to `HovviMobileCore`.
@@ -23,7 +26,8 @@ The command model maps terminal input actions to bytes:
 - Tab sends horizontal tab (`0x09`);
 - Escape sends `0x1B`;
 - interrupt sends Ctrl-C (`0x03`);
-- backspace sends DEL (`0x7F`).
+- backspace sends DEL (`0x7F`);
+- arrow up/down/right/left send ANSI CSI `ESC [ A/B/C/D`.
 
 `HovviAttachShellView` and `TerminalDetail` now send `Data` instead of `String`
 through their input callback. The app controller forwards those bytes directly
@@ -32,12 +36,14 @@ use the same mosh input path.
 
 ## Consequences
 
-- The mobile terminal shell has explicit controls for common terminal keys
-  before custom keyboard integration exists.
+- The mobile terminal shell has explicit controls for common terminal keys and
+  cursor navigation before custom keyboard integration exists.
 - Paste-sized text remains byte-preserving and does not implicitly add Return.
 - Future hardware-keyboard handling can reuse the same command model.
-- Bracketed paste negotiation remains future terminal work; this ADR only
-  defines the client-side byte encoding path.
+- The on-screen command toolbar scrolls horizontally on narrow screens so adding
+  cursor keys does not force button labels or controls to overlap.
+- Bracketed paste negotiation is handled separately by the terminal screen
+  model; this ADR defines the client-side byte encoding path.
 
 ## Validation
 

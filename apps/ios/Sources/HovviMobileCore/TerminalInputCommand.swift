@@ -8,6 +8,10 @@ public enum TerminalInputCommand: Equatable, Sendable {
     case escape
     case interrupt
     case backspace
+    case arrowUp
+    case arrowDown
+    case arrowRight
+    case arrowLeft
 
     public static func userText(_ text: String, bracketedPasteEnabled: Bool) -> TerminalInputCommand {
         if text.contains(where: \.isNewline) {
@@ -34,6 +38,14 @@ public enum TerminalInputCommand: Equatable, Sendable {
             return Data([0x03])
         case .backspace:
             return Data([0x7F])
+        case .arrowUp:
+            return Data("\u{001B}[A".utf8)
+        case .arrowDown:
+            return Data("\u{001B}[B".utf8)
+        case .arrowRight:
+            return Data("\u{001B}[C".utf8)
+        case .arrowLeft:
+            return Data("\u{001B}[D".utf8)
         }
     }
 }

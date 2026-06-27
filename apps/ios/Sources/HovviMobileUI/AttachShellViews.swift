@@ -501,10 +501,18 @@ public struct TerminalDetail: View {
                     .disabled(snapshot.phase != .attached)
                     .onSubmit(sendInput)
                 HStack(spacing: 8) {
-                    terminalKeyButton(.escape, systemImage: "escape")
-                    terminalKeyButton(.tab, systemImage: "arrow.right.to.line")
-                    terminalKeyButton(.interrupt, systemImage: "xmark.octagon")
-                    terminalKeyButton(.backspace, systemImage: "delete.left")
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            terminalKeyButton(.arrowUp, systemImage: "arrow.up")
+                            terminalKeyButton(.arrowDown, systemImage: "arrow.down")
+                            terminalKeyButton(.arrowLeft, systemImage: "arrow.left")
+                            terminalKeyButton(.arrowRight, systemImage: "arrow.right")
+                            terminalKeyButton(.escape, systemImage: "escape")
+                            terminalKeyButton(.tab, systemImage: "arrow.right.to.line")
+                            terminalKeyButton(.interrupt, systemImage: "xmark.octagon")
+                            terminalKeyButton(.backspace, systemImage: "delete.left")
+                        }
+                    }
                     Spacer(minLength: 8)
                     terminalKeyButton(.carriageReturn, systemImage: "return")
                     Button(action: sendInput) {

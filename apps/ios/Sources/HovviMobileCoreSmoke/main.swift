@@ -359,6 +359,10 @@ try require(TerminalInputCommand.tab.bytes == Data([0x09]), "terminal tab input 
 try require(TerminalInputCommand.escape.bytes == Data([0x1B]), "terminal escape input should encode ESC")
 try require(TerminalInputCommand.interrupt.bytes == Data([0x03]), "terminal interrupt input should encode Ctrl-C")
 try require(TerminalInputCommand.backspace.bytes == Data([0x7F]), "terminal backspace input should encode DEL")
+try require(TerminalInputCommand.arrowUp.bytes == Data("\u{001B}[A".utf8), "terminal arrow up should encode CSI A")
+try require(TerminalInputCommand.arrowDown.bytes == Data("\u{001B}[B".utf8), "terminal arrow down should encode CSI B")
+try require(TerminalInputCommand.arrowRight.bytes == Data("\u{001B}[C".utf8), "terminal arrow right should encode CSI C")
+try require(TerminalInputCommand.arrowLeft.bytes == Data("\u{001B}[D".utf8), "terminal arrow left should encode CSI D")
 
 let cAbiUnavailableEngine = CAbiMoshCoreEngine()
 do {
