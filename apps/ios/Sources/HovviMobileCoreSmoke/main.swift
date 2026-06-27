@@ -846,6 +846,12 @@ try require(cappedViewport.anchorId == "live-screen-24", "terminal surface viewp
 try require(cappedViewport.isTruncatedAbove, "terminal surface viewport should report when older rows are hidden")
 let minimumViewport = TerminalSurfaceProjection.viewport(lines: composedSurface, maxRows: 0)
 try require(minimumViewport.lines.count == 1, "terminal surface viewport should keep at least one row")
+let compactTerminalSize = TerminalGeometry.terminalSize(width: 120, height: 90)
+try require(compactTerminalSize.columns == 40, "terminal geometry should enforce minimum columns")
+try require(compactTerminalSize.rows == 12, "terminal geometry should enforce minimum rows")
+let fittedTerminalSize = TerminalGeometry.terminalSize(width: 960, height: 540)
+try require(fittedTerminalSize.columns == 120, "terminal geometry should calculate columns from surface width")
+try require(fittedTerminalSize.rows == 30, "terminal geometry should calculate rows from surface height")
 
 let previewSnapshot = AttachShellPreviewFixtures.attachedCodingAgent
 try require(previewSnapshot.phase == .attached, "preview fixture should model an attached terminal")

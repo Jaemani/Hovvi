@@ -41,6 +41,20 @@ public struct SessionStatusBadge: Equatable, Sendable {
     }
 }
 
+public enum TerminalGeometry {
+    public static let cellWidth: Double = 8
+    public static let cellHeight: Double = 18
+    public static let minimumColumns = 40
+    public static let minimumRows = 12
+
+    public static func terminalSize(width: Double, height: Double) -> MoshCoreTerminalSize {
+        MoshCoreTerminalSize(
+            columns: max(minimumColumns, Int(width / cellWidth)),
+            rows: max(minimumRows, Int(height / cellHeight))
+        )
+    }
+}
+
 public enum SessionPresentation {
     public static func iconName(for session: Session, selected: Bool = false) -> String {
         switch session.kind {
@@ -465,7 +479,7 @@ public struct TerminalDetail: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            TerminalSurfaceView(snapshot: snapshot)
+            TerminalSurfaceView(snapshot: snapshot, onResize: onResize)
             Divider()
             VStack(spacing: 8) {
                 TextField("Input", text: $inputText, axis: .vertical)
@@ -489,13 +503,6 @@ public struct TerminalDetail: View {
             .padding(12)
         }
         .navigationTitle(snapshot.selectedSessionName ?? "Terminal")
-        .onGeometryChange(for: CGSize.self) { proxy in
-            proxy.size
-        } action: { size in
-            let columns = max(40, Int(size.width / 8))
-            let rows = max(12, Int(size.height / 18))
-            onResize(MoshCoreTerminalSize(columns: columns, rows: rows))
-        }
     }
 
     private func sendInput() {
@@ -526,9 +533,11 @@ public struct TerminalDetail: View {
 @MainActor
 public struct TerminalSurfaceView: View {
     public let snapshot: AttachShellSnapshot
+    public let onResize: (MoshCoreTerminalSize) -> Void
 
-    public init(snapshot: AttachShellSnapshot) {
+    public init(snapshot: AttachShellSnapshot, onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }) {
         self.snapshot = snapshot
+        self.onResize = onResize
     }
 
     public var body: some View {
@@ -556,6 +565,11 @@ public struct TerminalSurfaceView: View {
                 if viewport.lines.isEmpty {
                     ContentUnavailableView("No Output", systemImage: "terminal", description: Text(emptyDescription))
                 }
+            }
+            .onGeometryChange(for: CGSize.self) { proxy in
+                proxy.size
+            } action: { size in
+                onResize(TerminalGeometry.terminalSize(width: size.width, height: size.height))
             }
         }
     }

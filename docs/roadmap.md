@@ -222,6 +222,9 @@ Current status:
 - Swift mobile terminal viewport projection now caps immediate SwiftUI render
   input, exposes a deterministic bottom anchor, and reports when older rows are
   truncated above the viewport.
+- Swift mobile terminal resize now derives mosh terminal dimensions from the
+  terminal surface geometry only, not the entire detail view including input
+  controls, through a smoke-tested `TerminalGeometry` projection.
 - Swift mobile session rows now use a tested `SessionPresentation` projection so
   tmux, cmux, AI coding sessions, attached state, window counts, and detected
   Claude Code/Codex/Gemini/aider/Cursor Agent panes render through stable UI
