@@ -150,7 +150,7 @@ Operational defaults:
 - stale agents are removed after `--device-timeout-ms` (default `30000`)
 - stale sweeps run every `--sweep-interval-ms` (default `5000`)
 - WebSocket payloads are capped by `--max-payload-bytes` (default `1048576`)
-- `--audit-log ./relay.audit.jsonl` writes token-redacted auth events to a private JSONL file
+- `--audit-log ./relay.audit.jsonl` writes token/hash-redacted auth or registry operation events to a private JSONL file
 - `/healthz` returns basic liveness
 - `/statusz` and `/metrics.json` return relay id, uptime inputs, connected agent/client counts, stream counts, and counters
 

@@ -33,7 +33,9 @@ function sanitizeEvent(event) {
   const clean = {};
   for (const [key, value] of Object.entries(event)) {
     if (value === undefined) continue;
-    if (key.toLowerCase().includes("token")) continue;
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey.includes("token")) continue;
+    if (normalizedKey.includes("hash")) continue;
     clean[key] = value;
   }
   return clean;

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { createAuditSink } from "./audit.js";
 import { getConfig, saveConfig } from "./config.js";
 import { runDoctor } from "./doctor.js";
 import { runGithubDeviceLogin } from "./github-auth.js";
@@ -58,7 +59,7 @@ Usage:
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
   hovvi account <upsert|list> --registry <path> [--account <account-id>] [--name <name>] [--json]
   hovvi device <upsert|list|revoke> --registry <path> [--account <account-id>] [--device <device-id>] [--name <name>] [--platform <platform>] [--json]
-  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--registry <path>]
+  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--registry <path>] [--audit-log <path>]
 
 Commands:
   doctor    Check git, GitHub, SSH, tmux, mosh, and AI coding tools.
@@ -165,6 +166,7 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
     process.env.HOVVI_GITHUB_CLIENT_ID ||
     getConfig().githubClientId;
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
+  const audit = registryAudit(args);
   const deviceId = readOption(args, "--device");
   const accountName = readOption(args, "--account-name");
   const deviceName = readOption(args, "--device-name");
@@ -211,8 +213,24 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
       });
     }
     saveRegistry(registryPath, registry);
+    audit?.record({
+      type: "registry.account.upsert",
+      accountId: account.accountId,
+      name: account.name,
+      source: "github-login",
+    });
     process.stdout.write(`Registered account ${account.accountId} name=${account.name}\n`);
-    if (device) process.stdout.write(`Registered device ${device.deviceId} account=${device.accountId}\n`);
+    if (device) {
+      audit?.record({
+        type: "registry.device.upsert",
+        accountId: device.accountId,
+        deviceId: device.deviceId,
+        name: device.name,
+        platform: device.platform,
+        source: "github-login",
+      });
+      process.stdout.write(`Registered device ${device.deviceId} account=${device.accountId}\n`);
+    }
   }
 }
 
@@ -496,6 +514,7 @@ async function accountCommand(args) {
   const [action = "list"] = args;
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
   const json = readFlag(args, "--json");
+  const audit = registryAudit(args);
   if (!registryPath) throw new Error("Usage: hovvi account <upsert|list> --registry <path>");
 
   switch (action) {
@@ -506,6 +525,12 @@ async function accountCommand(args) {
       const registry = loadRegistry(registryPath);
       const account = upsertRegistryAccount(registry, { accountId, name });
       saveRegistry(registryPath, registry);
+      audit?.record({
+        type: "registry.account.upsert",
+        accountId: account.accountId,
+        name: account.name,
+        source: "cli",
+      });
       if (json) {
         process.stdout.write(`${JSON.stringify({ account }, null, 2)}\n`);
         return;
@@ -542,6 +567,7 @@ async function deviceCommand(args) {
   const [action = "list"] = args;
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
   const json = readFlag(args, "--json");
+  const audit = registryAudit(args);
   if (!registryPath) throw new Error("Usage: hovvi device <upsert|list|revoke> --registry <path>");
 
   switch (action) {
@@ -555,6 +581,14 @@ async function deviceCommand(args) {
       const registry = loadRegistry(registryPath);
       const device = upsertRegistryDevice(registry, { accountId, deviceId, name, platform });
       saveRegistry(registryPath, registry);
+      audit?.record({
+        type: "registry.device.upsert",
+        accountId: device.accountId,
+        deviceId: device.deviceId,
+        name: device.name,
+        platform: device.platform,
+        source: "cli",
+      });
       if (json) {
         process.stdout.write(`${JSON.stringify({ device }, null, 2)}\n`);
         return;
@@ -595,6 +629,12 @@ async function deviceCommand(args) {
       const revoked = revokeRegistryDevice(registry, { accountId, deviceId });
       if (!revoked) throw new Error("No matching registry device found.");
       saveRegistry(registryPath, registry);
+      audit?.record({
+        type: "registry.device.revoke",
+        accountId: revoked.accountId,
+        deviceId: revoked.deviceId,
+        source: "cli",
+      });
       process.stdout.write(`Revoked device ${revoked.deviceId} account=${revoked.accountId}\n`);
       return;
     }
@@ -608,12 +648,14 @@ async function tokenCommand(args) {
   const role = readOption(args, "--role") || "*";
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
   const json = readFlag(args, "--json");
+  const audit = registryAudit(args);
 
   switch (action) {
     case "generate": {
       const token = `hovvi_${randomId()}${randomId()}`;
       const entry = tokenRegistryEntry({ token, role, args });
       appendTokenRegistryEntry({ registryPath, entry });
+      audit?.record(tokenAuditEvent("registry.token.generate", entry));
       process.stdout.write(`${JSON.stringify({ token, registryEntry: entry }, null, 2)}\n`);
       return;
     }
@@ -622,6 +664,7 @@ async function tokenCommand(args) {
       if (!token) throw new Error("Usage: hovvi token hash <token> [--role agent|client|*] [--account <account-id>]");
       const entry = tokenRegistryEntry({ token, role, args });
       appendTokenRegistryEntry({ registryPath, entry });
+      audit?.record(tokenAuditEvent("registry.token.hash", entry));
       process.stdout.write(`${JSON.stringify(entry, null, 2)}\n`);
       return;
     }
@@ -661,6 +704,7 @@ async function tokenCommand(args) {
       const revoked = revokeRegistryToken(registry, { name, hash });
       if (!revoked) throw new Error("No matching registry token found.");
       saveRegistry(registryPath, registry);
+      audit?.record(tokenAuditEvent("registry.token.revoke", revoked));
       process.stdout.write(`Revoked ${revoked.name || revoked.hash}\n`);
       return;
     }
@@ -685,6 +729,27 @@ function tokenRegistryEntry({ token, role, args }) {
     ...(clientIds.length > 0 ? { clientIds } : {}),
     ...(notBefore ? { notBefore } : {}),
     ...(expiresAt ? { expiresAt } : {}),
+  };
+}
+
+function registryAudit(args) {
+  const auditLogPath = readOption(args, "--audit-log") || process.env.HOVVI_AUDIT_LOG;
+  return auditLogPath ? createAuditSink({ path: auditLogPath }) : null;
+}
+
+function tokenAuditEvent(type, entry) {
+  return {
+    type,
+    name: entry.name,
+    accountId: entry.accountId,
+    roles: entry.roles,
+    deviceIds: entry.deviceIds,
+    clientIds: entry.clientIds,
+    notBefore: entry.notBefore,
+    expiresAt: entry.expiresAt,
+    disabled: entry.disabled,
+    disabledAt: entry.disabledAt,
+    source: "cli",
   };
 }
 

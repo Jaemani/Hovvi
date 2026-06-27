@@ -435,6 +435,9 @@ Current status:
 - `hovvi device revoke` disables a registry device, and account-scoped agent
   authentication rejects revoked device records before an agent can appear
   online.
+- Registry management commands can write token/hash-redacted audit events for
+  token generation, token hashing, token revocation, account upsert, device
+  upsert, and device revocation through `--audit-log`.
 
 ### 8. Release and Distribution
 

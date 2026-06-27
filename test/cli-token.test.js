@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main } from "../src/cli.js";
@@ -31,6 +31,7 @@ test("token list and revoke manage registry files", async () => {
 test("token generate writes account-scoped registry entries when registry is provided", async () => {
   const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-token-generate-"));
   const registryPath = join(dir, "registry.json");
+  const auditPath = join(dir, "audit.jsonl");
 
   const output = await captureStdout(() =>
     main([
@@ -38,6 +39,8 @@ test("token generate writes account-scoped registry entries when registry is pro
       "generate",
       "--registry",
       registryPath,
+      "--audit-log",
+      auditPath,
       "--name",
       "jaeman-iphone",
       "--role",
@@ -52,6 +55,7 @@ test("token generate writes account-scoped registry entries when registry is pro
   );
   const generated = JSON.parse(output);
   const stored = loadRegistry(registryPath).tokens[0];
+  const auditEntry = readAuditEntries(auditPath)[0];
 
   assert.match(generated.token, /^hovvi_/);
   assert.equal(stored.name, "jaeman-iphone");
@@ -60,6 +64,11 @@ test("token generate writes account-scoped registry entries when registry is pro
   assert.deepEqual(stored.clientIds, ["ios-1", "ios-2"]);
   assert.equal(stored.expiresAt, "2026-07-01T00:00:00.000Z");
   assert.equal(stored.hash, generated.registryEntry.hash);
+  assert.equal(auditEntry.type, "registry.token.generate");
+  assert.equal(auditEntry.name, "jaeman-iphone");
+  assert.equal(auditEntry.accountId, "acct_1");
+  assert.equal(JSON.stringify(auditEntry).includes(generated.token), false);
+  assert.equal(JSON.stringify(auditEntry).includes(stored.hash), false);
 
   const listOutput = await captureStdout(() => main(["token", "list", "--registry", registryPath]));
   assert.match(listOutput, /jaeman-iphone active roles=client account=acct_1 clients=ios-1,ios-2 expires=2026-07-01T00:00:00.000Z/);
@@ -117,9 +126,22 @@ test("token hash writes device-scoped agent entries and rejects duplicate names"
 test("account CLI upserts and lists registry accounts without token material", async () => {
   const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-account-"));
   const registryPath = join(dir, "registry.json");
+  const auditPath = join(dir, "audit.jsonl");
 
   const upsertOutput = await captureStdout(() =>
-    main(["account", "upsert", "--registry", registryPath, "--account", "acct_1", "--name", "Jaemani", "--json"]),
+    main([
+      "account",
+      "upsert",
+      "--registry",
+      registryPath,
+      "--audit-log",
+      auditPath,
+      "--account",
+      "acct_1",
+      "--name",
+      "Jaemani",
+      "--json",
+    ]),
   );
   const upserted = JSON.parse(upsertOutput).account;
   assert.equal(upserted.accountId, "acct_1");
@@ -131,11 +153,13 @@ test("account CLI upserts and lists registry accounts without token material", a
   assert.equal(accounts[0].accountId, "acct_1");
   assert.equal(Object.hasOwn(accounts[0], "hash"), false);
   assert.equal(Object.hasOwn(accounts[0], "token"), false);
+  assert.equal(readAuditEntries(auditPath)[0].type, "registry.account.upsert");
 });
 
 test("device CLI upserts account-scoped devices and filters list output", async () => {
   const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-device-"));
   const registryPath = join(dir, "registry.json");
+  const auditPath = join(dir, "audit.jsonl");
 
   await captureStdout(() =>
     main(["account", "upsert", "--registry", registryPath, "--account", "acct_1", "--name", "Jaemani"]),
@@ -146,6 +170,8 @@ test("device CLI upserts account-scoped devices and filters list output", async 
       "upsert",
       "--registry",
       registryPath,
+      "--audit-log",
+      auditPath,
       "--account",
       "acct_1",
       "--device",
@@ -172,7 +198,18 @@ test("device CLI upserts account-scoped devices and filters list output", async 
   assert.deepEqual(devices.map((device) => device.deviceId), ["mac-1"]);
 
   const revokeOutput = await captureStdout(() =>
-    main(["device", "revoke", "--registry", registryPath, "--account", "acct_1", "--device", "mac-1"]),
+    main([
+      "device",
+      "revoke",
+      "--registry",
+      registryPath,
+      "--audit-log",
+      auditPath,
+      "--account",
+      "acct_1",
+      "--device",
+      "mac-1",
+    ]),
   );
   assert.match(revokeOutput, /Revoked device mac-1 account=acct_1/);
 
@@ -181,6 +218,10 @@ test("device CLI upserts account-scoped devices and filters list output", async 
   );
   assert.match(revokedListOutput, /mac-1 disabled account=acct_1/);
   assert.equal(loadRegistry(registryPath).devices[0].disabled, true);
+  assert.deepEqual(
+    readAuditEntries(auditPath).map((entry) => entry.type),
+    ["registry.device.upsert", "registry.device.revoke"],
+  );
 });
 
 test("login can register GitHub account and device metadata in registry", async () => {
@@ -256,4 +297,11 @@ async function captureStdout(fn) {
   } finally {
     process.stdout.write = originalWrite;
   }
+}
+
+function readAuditEntries(path) {
+  return readFileSync(path, "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
 }

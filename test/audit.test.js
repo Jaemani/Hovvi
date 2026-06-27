@@ -9,11 +9,12 @@ test("audit sink records bounded events and redacts token fields", () => {
   const audit = createAuditSink({ limit: 1, now: () => new Date("2026-06-24T00:00:00.000Z") });
 
   audit.record({ type: "auth.reject", relayToken: "secret", reason: "expired" });
-  const entry = audit.record({ type: "auth.accept", subject: "client" });
+  const entry = audit.record({ type: "auth.accept", subject: "client", tokenHash: "sha256:secret" });
 
   assert.equal(entry.at, "2026-06-24T00:00:00.000Z");
   assert.deepEqual(audit.recent(), [entry]);
   assert.equal(Object.hasOwn(entry, "relayToken"), false);
+  assert.equal(Object.hasOwn(entry, "tokenHash"), false);
 });
 
 test("audit sink writes private jsonl files", () => {
