@@ -1,5 +1,6 @@
 import { platform } from "node:os";
 import { existsSync, statSync } from "node:fs";
+import { dirname } from "node:path";
 import WebSocket from "ws";
 import { configPath, getConfig } from "./config.js";
 import { redactUrlCredentials } from "./redaction.js";
@@ -32,6 +33,7 @@ export async function runDoctor({
 
   items.push(...checkGitIdentity({ runTextFn }));
   items.push(checkRelayConfig(configState));
+  items.push(checkConfigDirectoryMode({ configPathFn }));
   items.push(checkConfigFileMode({ configPathFn }));
   items.push(checkServiceState({ platformFn, serviceStatusFn, configPathFn }));
   if (network) {
@@ -62,6 +64,43 @@ export async function runDoctor({
     ok: items.every((item) => item.status !== "fail"),
     items,
   };
+}
+
+function checkConfigDirectoryMode({ configPathFn, existsFn = existsSync, statFn = statSync }) {
+  const path = dirname(configPathFn());
+  if (!existsFn(path)) {
+    return {
+      name: "private config directory",
+      status: "warn",
+      message: "not found",
+      detail: path,
+    };
+  }
+
+  try {
+    const mode = statFn(path).mode & 0o777;
+    if ((mode & 0o077) !== 0) {
+      return {
+        name: "private config directory",
+        status: "warn",
+        message: "permissions too broad",
+        detail: `${path} mode=${formatMode(mode)}. Run \`chmod 700 ${shellQuote(path)}\`.`,
+      };
+    }
+    return {
+      name: "private config directory",
+      status: "pass",
+      message: "private",
+      detail: `${path} mode=${formatMode(mode)}`,
+    };
+  } catch (error) {
+    return {
+      name: "private config directory",
+      status: "warn",
+      message: "could not inspect permissions",
+      detail: `${path}: ${error.message}`,
+    };
+  }
 }
 
 function checkConfigFileMode({ configPathFn, existsFn = existsSync, statFn = statSync }) {
