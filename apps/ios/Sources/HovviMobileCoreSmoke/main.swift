@@ -690,6 +690,30 @@ try require(
     lineEditScreen.visibleLines.map(\.text) == ["top", "one", "two", "", "", "bottom"],
     "terminal screen should ignore line insert outside the active scroll region"
 )
+var scrollScreen = TerminalScreen(columns: 8, rows: 5)
+scrollScreen.apply("one\r\ntwo\r\nthree\r\nfour\r\nfive")
+scrollScreen.apply("\u{001B}[2S")
+try require(
+    scrollScreen.visibleLines.map(\.text) == ["three", "four", "five", "", ""],
+    "terminal screen CSI S should scroll the active region up"
+)
+scrollScreen.apply("\u{001B}[T")
+try require(
+    scrollScreen.visibleLines.map(\.text) == ["", "three", "four", "five", ""],
+    "terminal screen CSI T should scroll the active region down"
+)
+var boundedScrollScreen = TerminalScreen(columns: 8, rows: 5)
+boundedScrollScreen.apply("top\r\none\r\ntwo\r\nthree\r\nbottom")
+boundedScrollScreen.apply("\u{001B}[2;4r\u{001B}[S")
+try require(
+    boundedScrollScreen.visibleLines.map(\.text) == ["top", "two", "three", "", "bottom"],
+    "terminal screen CSI S should scroll only inside the active scroll region"
+)
+boundedScrollScreen.apply("\u{001B}[T")
+try require(
+    boundedScrollScreen.visibleLines.map(\.text) == ["top", "", "two", "three", "bottom"],
+    "terminal screen CSI T should scroll down only inside the active scroll region"
+)
 var characterEditScreen = TerminalScreen(columns: 8, rows: 2)
 characterEditScreen.apply("abcdef")
 characterEditScreen.apply("\u{001B}[1;3H\u{001B}[2@")

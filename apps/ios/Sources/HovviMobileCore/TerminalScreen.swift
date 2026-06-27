@@ -253,6 +253,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 insertLines(count)
             case .deleteLines(let count):
                 deleteLines(count)
+            case .scrollUp(let count):
+                scrollUp(count)
+            case .scrollDown(let count):
+                scrollDown(count)
             case .insertCharacters(let count):
                 insertCharacters(count)
             case .deleteCharacters(let count):
@@ -490,6 +494,24 @@ public struct TerminalScreen: Equatable, Sendable {
         for row in cursorRow...region.bottom {
             let source = row + count
             cells[row] = source <= region.bottom ? cells[source] : Self.blankRow(columns: columns)
+        }
+    }
+
+    private mutating func scrollUp(_ count: Int) {
+        let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
+        let count = min(max(1, count), region.bottom - region.top + 1)
+        for row in region.top...region.bottom {
+            let source = row + count
+            cells[row] = source <= region.bottom ? cells[source] : Self.blankRow(columns: columns)
+        }
+    }
+
+    private mutating func scrollDown(_ count: Int) {
+        let region = scrollRegion ?? TerminalScrollRegion(top: 0, bottom: rows - 1)
+        let count = min(max(1, count), region.bottom - region.top + 1)
+        for row in stride(from: region.bottom, through: region.top, by: -1) {
+            let source = row - count
+            cells[row] = source >= region.top ? cells[source] : Self.blankRow(columns: columns)
         }
     }
 
@@ -779,6 +801,8 @@ private enum TerminalToken {
     case restoreCursor
     case insertLines(Int)
     case deleteLines(Int)
+    case scrollUp(Int)
+    case scrollDown(Int)
     case insertCharacters(Int)
     case deleteCharacters(Int)
     case setHorizontalTabStop
@@ -970,6 +994,10 @@ private struct TerminalEscapeParser {
             return .deleteLines(first)
         case "P":
             return .deleteCharacters(first)
+        case "S":
+            return .scrollUp(first)
+        case "T":
+            return .scrollDown(first)
         case "X":
             return .eraseCharacters(first)
         case "g":

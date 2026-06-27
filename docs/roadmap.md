@@ -221,6 +221,8 @@ Current status:
   state, modes, attributes, character set, tab stops, scroll region, saved
   cursor, and alternate-screen snapshot state without mutating tmux-native
   scrollback.
+- Swift mobile terminal parsing now supports explicit scroll up/down sequences
+  (`CSI S/T`) against the active scroll region or full live screen.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
@@ -365,7 +367,7 @@ Current status:
   screen, erase display/line modes, resize, SGR text attributes, 256-color/truecolor
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior,
-  reverse-index bounded scrolling, DEC origin mode, DEC autowrap mode,
+  reverse-index bounded scrolling, explicit scroll up/down, DEC origin mode, DEC autowrap mode,
   cursor line/column
   movement, bracketed paste mode, application cursor-key mode, OSC skipping,
   DEC special graphics character
