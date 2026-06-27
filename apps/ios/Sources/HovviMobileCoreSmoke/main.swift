@@ -473,6 +473,18 @@ try require(wideScreen.visibleLines.map(\.text) == ["한a", "👍b"], "terminal 
 var combiningScreen = TerminalScreen(columns: 8, rows: 1)
 combiningScreen.apply("e\u{0301}x")
 try require(combiningScreen.visibleLines[0].text == "e\u{0301}x", "terminal screen should attach combining marks to the previous cell")
+var oscBelScreen = TerminalScreen(columns: 16, rows: 1)
+oscBelScreen.apply("before\u{001B}]0;tmux title\u{0007}after")
+try require(
+    oscBelScreen.visibleLines[0].text == "beforeafter",
+    "terminal screen should skip OSC sequences terminated by BEL"
+)
+var oscStScreen = TerminalScreen(columns: 16, rows: 1)
+oscStScreen.apply("left\u{001B}]1337;SetBadgeFormat=ignored\u{001B}\\right")
+try require(
+    oscStScreen.visibleLines[0].text == "leftright",
+    "terminal screen should skip OSC sequences terminated by ST"
+)
 var bracketedPasteModeScreen = TerminalScreen(columns: 8, rows: 1)
 bracketedPasteModeScreen.apply("\u{001B}[?2004h")
 try require(bracketedPasteModeScreen.isBracketedPasteModeEnabled, "terminal screen should enable bracketed paste mode")

@@ -280,6 +280,9 @@ Current status:
 - Swift mobile foreground lifecycle now resumes receive and tick loops for an
   attached session after background pause, with a smoke-tested lifecycle policy
   and duplicate receive-loop guard.
+- Swift mobile terminal parsing now skips OSC title/integration sequences
+  terminated by BEL or ST, preventing common shell/tmux metadata from corrupting
+  live terminal text.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.

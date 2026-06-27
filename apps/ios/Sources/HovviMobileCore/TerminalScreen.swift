@@ -188,6 +188,8 @@ public struct TerminalScreen: Equatable, Sendable {
         var parser = TerminalEscapeParser(text)
         while let token = parser.nextToken() {
             switch token {
+            case .ignored:
+                break
             case .character(let character):
                 put(character)
             case .lineFeed:
@@ -665,6 +667,7 @@ public struct TerminalScreen: Equatable, Sendable {
 }
 
 private enum TerminalToken {
+    case ignored
     case character(Character)
     case lineFeed
     case reverseIndex
@@ -761,6 +764,11 @@ private struct TerminalEscapeParser {
             index = text.index(after: index)
             return .restoreCursor
         }
+        if text[index] == "]" {
+            index = text.index(after: index)
+            consumeOperatingSystemCommand()
+            return .ignored
+        }
         guard text[index] == "[" else { return nil }
         index = text.index(after: index)
 
@@ -784,6 +792,28 @@ private struct TerminalEscapeParser {
         }
         let nextScalarIndex = text.unicodeScalars.index(after: scalarIndex)
         index = nextScalarIndex.samePosition(in: text) ?? text.index(after: index)
+    }
+
+    private mutating func consumeOperatingSystemCommand() {
+        while index < text.endIndex {
+            guard let scalar = text[index].unicodeScalars.first else {
+                index = text.index(after: index)
+                continue
+            }
+            if scalar.value == 0x07 {
+                advanceOneScalar()
+                return
+            }
+            if scalar.value == 0x1B {
+                advanceOneScalar()
+                if index < text.endIndex, text[index] == "\\" {
+                    index = text.index(after: index)
+                    return
+                }
+                continue
+            }
+            index = text.index(after: index)
+        }
     }
 
     private func csiToken(final: UnicodeScalar, parameters: String) -> TerminalToken? {

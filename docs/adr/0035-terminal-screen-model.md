@@ -43,6 +43,7 @@ The initial model supports:
 - erase display/line modes were added in ADR 0052.
 - cursor line/column movement was added in ADR 0053.
 - bracketed paste mode was added in ADR 0054.
+- OSC control-sequence skipping was added in ADR 0105.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. ADR 0055 keeps live terminal output out of the scrollback

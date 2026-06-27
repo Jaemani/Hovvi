@@ -108,6 +108,8 @@ SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.
 Character insert/delete sequences (`CSI @/P`) mutate the current row from the
 cursor to the right edge.
+OSC sequences (`ESC ] ... BEL` and `ESC ] ... ESC \`) are skipped so title and
+terminal-integration metadata do not corrupt live terminal text.
 Horizontal tabs use default eight-column tab stops, support `ESC H` custom tab
 stops and `CSI g` tab clearing, and clamp to the right edge when no later tab
 stop exists.
