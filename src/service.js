@@ -101,18 +101,12 @@ export function buildLaunchAgentPlist({
   nodePath,
   binPath,
   configPath,
-  relayUrl,
-  token,
-  name,
   stdoutPath,
   stderrPath,
 }) {
   const env = {
     HOVVI_CONFIG: configPath,
-    HOVVI_RELAY_URL: relayUrl,
-    HOVVI_RELAY_TOKEN: token,
   };
-  if (name) env.HOVVI_DEVICE_NAME = name;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

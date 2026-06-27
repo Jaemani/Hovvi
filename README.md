@@ -72,6 +72,9 @@ hovvi service uninstall
 
 `hovvi service install --print` prints the plist without writing it.
 
+The LaunchAgent plist points at the private Hovvi config file and does not store
+relay tokens directly in launchd environment variables.
+
 ## Relay Token Registry
 
 Development can use `--token dev`. A hosted relay should use hashed token entries:

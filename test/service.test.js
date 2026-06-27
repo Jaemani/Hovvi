@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { redactSecrets } from "../src/redaction.js";
 import { buildLaunchAgentPlist, formatServiceStatus, parseLaunchctlPrint } from "../src/service.js";
 
-test("launchd plist includes agent command and environment", () => {
+test("launchd plist includes agent command and config-only environment", () => {
   const plist = buildLaunchAgentPlist({
     label: "dev.hovvi.agent",
     nodePath: "/usr/local/bin/node",
@@ -18,8 +18,11 @@ test("launchd plist includes agent command and environment", () => {
 
   assert.match(plist, /<string>dev\.hovvi\.agent<\/string>/);
   assert.match(plist, /<string>\/usr\/local\/bin\/hovvi<\/string>/);
-  assert.match(plist, /<key>HOVVI_RELAY_URL<\/key>/);
-  assert.match(plist, /<string>wss:\/\/relay\.example\.com<\/string>/);
+  assert.match(plist, /<key>HOVVI_CONFIG<\/key>/);
+  assert.match(plist, /<string>\/Users\/me\/\.hovvi\/config\.json<\/string>/);
+  assert.doesNotMatch(plist, /HOVVI_RELAY_URL/);
+  assert.doesNotMatch(plist, /HOVVI_RELAY_TOKEN/);
+  assert.doesNotMatch(plist, /secret/);
   assert.match(plist, /<key>KeepAlive<\/key>/);
 });
 

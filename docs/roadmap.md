@@ -383,6 +383,8 @@ Current status:
 - `hovvi service status` summarizes launchd lifecycle fields from
   `launchctl print`, and `hovvi doctor` warns when the LaunchAgent is loaded but
   has unhealthy lifecycle state.
+- LaunchAgent plists now reference the private Hovvi config file only and avoid
+  duplicating relay tokens in launchd environment variables.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.
