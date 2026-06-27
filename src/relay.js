@@ -208,7 +208,7 @@ function routeAgentRequest(state, ws, message, kind) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
-  if (!agent) {
+  if (!agent || !canAccessAgent(meta, agent)) {
     ws.send(
       serialize(
         envelope(responseErrorType(kind), {
@@ -328,10 +328,13 @@ function updateSessions(state, ws, message) {
 }
 
 function sendDeviceList(state, ws) {
+  const meta = state.sockets.get(ws);
   ws.send(
     serialize(
       envelope("devices.snapshot", {
-        devices: [...state.agents.values()].map(publicDevice),
+        devices: [...state.agents.values()]
+          .filter((agent) => canAccessAgent(meta, agent))
+          .map(publicDevice),
       }),
     ),
   );
@@ -382,7 +385,7 @@ function forwardOpen(state, ws, message) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
-  if (!agent) {
+  if (!agent || !canAccessAgent(meta, agent)) {
     ws.send(serialize(envelope("forward.error", { streamId: message.streamId, message: "device offline" })));
     return;
   }
@@ -410,7 +413,7 @@ function datagramOpen(state, ws, message) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
-  if (!agent) {
+  if (!agent || !canAccessAgent(meta, agent)) {
     ws.send(serialize(envelope("datagram.error", { channelId: message.channelId, message: "device offline" })));
     return;
   }
@@ -469,4 +472,10 @@ function unregisterSocket(state, ws) {
       notifyDatagramClose(peer, channelId);
     }
   }
+}
+
+function canAccessAgent(requester, agent) {
+  const requesterAccountId = requester?.principal?.accountId;
+  if (!requesterAccountId) return true;
+  return requesterAccountId === agent?.principal?.accountId;
 }

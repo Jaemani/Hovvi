@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRelayState, handleRelayMessage, relayStatus, sweepStaleAgents, sweepStaleDatagrams } from "../src/relay.js";
 import { envelope, serialize } from "../src/protocol.js";
+import { hashToken } from "../src/registry.js";
 
 test("relay registers agent and sends device snapshot to client", () => {
   const state = createRelayState({ token: "dev" });
@@ -79,6 +80,89 @@ test("relay enforces device-bound registry tokens", () => {
   assert.equal(state.agents.has("mac-2"), false);
   assert.equal(state.metrics.authRejected, 1);
   assert.equal(state.audit.recent().at(-1).reason, "device_not_allowed");
+});
+
+test("relay scopes device snapshots to registry token account ids", () => {
+  const state = createRelayState();
+  state.access.registry.tokens = [
+    { name: "acct-1-agent", accountId: "acct_1", hash: hashToken("agent-1"), roles: ["agent"] },
+    { name: "acct-2-agent", accountId: "acct_2", hash: hashToken("agent-2"), roles: ["agent"] },
+    { name: "acct-1-client", accountId: "acct_1", hash: hashToken("client-1"), roles: ["client"] },
+  ];
+  const agentOne = fakeSocket();
+  const agentTwo = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agentOne,
+    serialize(envelope("hello", { role: "agent", token: "agent-1", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(
+    state,
+    agentTwo,
+    serialize(envelope("hello", { role: "agent", token: "agent-2", device: { id: "mac-2" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "client-1" })));
+
+  const snapshot = client.messages.map(JSON.parse).filter((message) => message.type === "devices.snapshot").at(-1);
+  assert.deepEqual(snapshot.devices.map((device) => device.id), ["mac-1"]);
+});
+
+test("relay hides cross-account devices from attach, forward, and datagram requests", () => {
+  const state = createRelayState();
+  state.access.registry.tokens = [
+    { name: "acct-1-agent", accountId: "acct_1", hash: hashToken("agent-1"), roles: ["agent"] },
+    { name: "acct-2-agent", accountId: "acct_2", hash: hashToken("agent-2"), roles: ["agent"] },
+    { name: "acct-1-client", accountId: "acct_1", hash: hashToken("client-1"), roles: ["client"] },
+  ];
+  const agentOne = fakeSocket();
+  const agentTwo = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agentOne,
+    serialize(envelope("hello", { role: "agent", token: "agent-1", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(
+    state,
+    agentTwo,
+    serialize(envelope("hello", { role: "agent", token: "agent-2", device: { id: "mac-2" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "client-1" })));
+
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("session.attach.prepare", { id: "attach-1", deviceId: "mac-2", sessionName: "main" })),
+  );
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("forward.open", { streamId: "stream-1", deviceId: "mac-2", remotePort: 22 })),
+  );
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("datagram.open", { channelId: "dg-1", deviceId: "mac-2", label: "mosh" })),
+  );
+
+  assert.equal(agentTwo.messages.map(JSON.parse).some((message) => message.type === "session.attach.prepare"), false);
+  assert.equal(agentTwo.messages.map(JSON.parse).some((message) => message.type === "forward.open"), false);
+  assert.equal(agentTwo.messages.map(JSON.parse).some((message) => message.type === "datagram.open"), false);
+  assert.equal(
+    client.messages.map(JSON.parse).find((message) => message.type === "session.attach.error").message,
+    "device offline",
+  );
+  assert.equal(
+    client.messages.map(JSON.parse).find((message) => message.type === "forward.error").message,
+    "device offline",
+  );
+  assert.equal(
+    client.messages.map(JSON.parse).find((message) => message.type === "datagram.error").message,
+    "device offline",
+  );
 });
 
 test("relay routes attach prepare response back to requesting client", () => {

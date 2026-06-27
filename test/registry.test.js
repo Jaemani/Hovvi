@@ -10,6 +10,8 @@ import {
   loadRegistry,
   revokeRegistryToken,
   saveRegistry,
+  upsertRegistryAccount,
+  upsertRegistryDevice,
 } from "../src/registry.js";
 
 test("registry authenticates hashed scoped tokens", () => {
@@ -86,6 +88,74 @@ test("registry binds agent and client tokens to registered ids", () => {
   );
 });
 
+test("registry preserves account and device registration metadata", () => {
+  const registry = {};
+  const now = new Date("2026-06-24T00:00:00.000Z");
+  const later = new Date("2026-06-24T00:01:00.000Z");
+
+  const account = upsertRegistryAccount(registry, {
+    accountId: "acct_1",
+    name: "Jaemani",
+    now,
+  });
+  const updatedAccount = upsertRegistryAccount(registry, {
+    accountId: "acct_1",
+    name: "Jaemani Labs",
+    now: later,
+  });
+  const device = upsertRegistryDevice(registry, {
+    accountId: "acct_1",
+    deviceId: "mac-1",
+    name: "Mac",
+    platform: "darwin",
+    now,
+  });
+
+  assert.equal(account.accountId, "acct_1");
+  assert.equal(updatedAccount.name, "Jaemani Labs");
+  assert.equal(updatedAccount.createdAt, "2026-06-24T00:00:00.000Z");
+  assert.equal(updatedAccount.updatedAt, "2026-06-24T00:01:00.000Z");
+  assert.deepEqual(device, {
+    accountId: "acct_1",
+    deviceId: "mac-1",
+    name: "Mac",
+    platform: "darwin",
+    createdAt: "2026-06-24T00:00:00.000Z",
+    updatedAt: "2026-06-24T00:00:00.000Z",
+  });
+});
+
+test("registry exposes token account scope without leaking hashes", () => {
+  const registry = {
+    tokens: [
+      {
+        name: "acct-client",
+        accountId: "acct_1",
+        hash: hashToken("client-secret"),
+        roles: ["client"],
+      },
+    ],
+  };
+  const access = createAccessRegistry();
+  access.registry.tokens = registry.tokens;
+
+  assert.equal(
+    access.authenticate({ role: "client", token: "client-secret" }).accountId,
+    "acct_1",
+  );
+  assert.deepEqual(listRegistryTokens(registry)[0], {
+    name: "acct-client",
+    accountId: "acct_1",
+    roles: ["client"],
+    disabled: false,
+    deviceIds: undefined,
+    clientIds: undefined,
+    notBefore: undefined,
+    expiresAt: undefined,
+    disabledAt: undefined,
+  });
+});
+
 test("registry save and revoke support private operational workflows", () => {
   const dir = mkdtempSync(join(tmpdir(), "hovvi-registry-"));
   const path = join(dir, "registry.json");
@@ -114,6 +184,7 @@ test("registry save and revoke support private operational workflows", () => {
   assert.equal(loadRegistry(path).tokens[0].disabledAt, "2026-06-24T00:00:00.000Z");
   assert.deepEqual(listRegistryTokens(loadRegistry(path))[0], {
     name: "phone",
+    accountId: undefined,
     roles: ["client"],
     disabled: true,
     deviceIds: undefined,

@@ -24,6 +24,7 @@ export function createAccessRegistry({ devToken, registryPath } = {}) {
     if (match) {
       return allow({
         subject: match.name || "registry-token",
+        accountId: match.accountId,
         roles: match.roles || ["agent", "client"],
         source: "registry",
         expiresAt: match.expiresAt,
@@ -71,6 +72,7 @@ export function saveRegistry(registryPath, registry) {
 export function listRegistryTokens(registry) {
   return [...(Array.isArray(registry.tokens) ? registry.tokens : [])].map((entry) => ({
     name: entry.name,
+    accountId: entry.accountId,
     roles: entry.roles || ["agent", "client"],
     disabled: Boolean(entry.disabled),
     deviceIds: entry.deviceIds,
@@ -79,6 +81,48 @@ export function listRegistryTokens(registry) {
     expiresAt: entry.expiresAt,
     disabledAt: entry.disabledAt,
   }));
+}
+
+export function upsertRegistryAccount(registry, { accountId, name, now = new Date() } = {}) {
+  if (!accountId) throw new Error("Account id is required.");
+  const accounts = ensureArray(registry, "accounts");
+  const existing = accounts.find((account) => account.accountId === accountId);
+  if (existing) {
+    if (name !== undefined) existing.name = name;
+    existing.updatedAt = now.toISOString();
+    return existing;
+  }
+  const account = {
+    accountId,
+    name,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  accounts.push(account);
+  return account;
+}
+
+export function upsertRegistryDevice(registry, { accountId, deviceId, name, platform, now = new Date() } = {}) {
+  if (!accountId) throw new Error("Account id is required.");
+  if (!deviceId) throw new Error("Device id is required.");
+  const devices = ensureArray(registry, "devices");
+  const existing = devices.find((device) => device.accountId === accountId && device.deviceId === deviceId);
+  if (existing) {
+    if (name !== undefined) existing.name = name;
+    if (platform !== undefined) existing.platform = platform;
+    existing.updatedAt = now.toISOString();
+    return existing;
+  }
+  const device = {
+    accountId,
+    deviceId,
+    name,
+    platform,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  devices.push(device);
+  return device;
 }
 
 export function revokeRegistryToken(registry, { name, hash, now = new Date() } = {}) {
@@ -94,8 +138,15 @@ export function revokeRegistryToken(registry, { name, hash, now = new Date() } =
 function normalizeRegistry(registry) {
   return {
     ...registry,
+    accounts: Array.isArray(registry.accounts) ? registry.accounts : [],
+    devices: Array.isArray(registry.devices) ? registry.devices : [],
     tokens: Array.isArray(registry.tokens) ? registry.tokens : [],
   };
+}
+
+function ensureArray(registry, key) {
+  if (!Array.isArray(registry[key])) registry[key] = [];
+  return registry[key];
 }
 
 function evaluateEntry({ entry, role, token, deviceId, clientId, now }) {

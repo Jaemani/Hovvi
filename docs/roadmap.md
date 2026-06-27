@@ -413,6 +413,15 @@ Acceptance criteria:
 - Audit logs redact tokens and secrets.
 - Relay status can be inspected operationally without packet payload access.
 
+Current status:
+
+- Registry tokens can carry an `accountId`, and relay clients with scoped
+  account tokens only see and operate on agents authenticated to the same
+  account. Cross-account attach, forward, and datagram requests return the same
+  offline-style error as missing devices to avoid leaking device existence.
+- The registry has account and device upsert primitives with private file
+  persistence preserved for future hosted registration workflows.
+
 ### 8. Release and Distribution
 
 Keep releases reproducible and legally/commercially safe.
