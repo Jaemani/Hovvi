@@ -421,6 +421,8 @@ test("login can issue scoped client relay token into registry and private config
           auditPath,
           "--issue-token",
           "client",
+          "--relay",
+          "wss://user:pass@relay.example.test/hovvi",
           "--relay-client",
           "ios-main",
           "--token-name",
@@ -448,10 +450,13 @@ test("login can issue scoped client relay token into registry and private config
     assert.deepEqual(tokenEntry.clientIds, ["ios-main"]);
     assert.equal(tokenEntry.expiresAt, "2026-07-01T00:00:00.000Z");
     assert.equal(tokenEntry.hash, hashToken(config.relay.token));
+    assert.equal(config.relay.url, "wss://user:pass@relay.example.test/hovvi");
     assert.equal(config.relay.clientId, "ios-main");
     assert.match(config.relay.token, /^hovvi_/);
+    assert.match(output, /Saved relay URL wss:\/\/%5Bredacted%5D:%5Bredacted%5D@relay.example.test\/hovvi to config/);
     assert.match(output, /Issued client relay token jaeman-ios and saved it to config/);
     assert.equal(output.includes(config.relay.token), false);
+    assert.equal(output.includes("user:pass"), false);
     assert.equal(output.includes("gho_secret"), false);
     assert.equal(JSON.stringify(auditEntries).includes(config.relay.token), false);
     assert.equal(JSON.stringify(auditEntries).includes(tokenEntry.hash), false);
@@ -488,6 +493,8 @@ test("login can issue device-scoped agent relay token into registry and private 
           "mac-main",
           "--device-name",
           "Mac Studio",
+          "--relay",
+          "wss://relay.example.test/hovvi",
           "--issue-token",
           "agent",
         ],
@@ -509,6 +516,7 @@ test("login can issue device-scoped agent relay token into registry and private 
     assert.deepEqual(tokenEntry.roles, ["agent"]);
     assert.deepEqual(tokenEntry.deviceIds, ["mac-main"]);
     assert.equal(tokenEntry.hash, hashToken(config.relay.token));
+    assert.equal(config.relay.url, "wss://relay.example.test/hovvi");
     assert.equal(Object.hasOwn(config.relay, "clientId"), false);
     assert.equal(config.device.id, "mac-main");
     assert.equal(config.device.name, "Mac Studio");

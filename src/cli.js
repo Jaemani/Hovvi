@@ -39,6 +39,7 @@ import {
   upsertRegistryDevice,
 } from "./registry.js";
 import { localMoshHarnessPreflight, runLocalMoshServerHarness } from "./mosh-harness.js";
+import { redactUrlCredentials } from "./redaction.js";
 
 const HELP = `Hovvi
 
@@ -173,6 +174,7 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
   const platform = readOption(args, "--platform");
   const issueToken = readOption(args, "--issue-token");
   const relayClientId = readOption(args, "--relay-client");
+  const relayUrl = readOption(args, "--relay");
   const tokenName = readOption(args, "--token-name");
   const expiresAt = readOption(args, "--expires-at");
 
@@ -207,6 +209,13 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
     accountId,
     token: login.accessToken,
   };
+  if (relayUrl) {
+    config.relay = {
+      ...(config.relay || {}),
+      url: relayUrl,
+    };
+    process.stdout.write(`Saved relay URL ${redactUrlCredentials(relayUrl)} to config.\n`);
+  }
   process.stdout.write(`Logged in as ${login.user.login}.\n`);
 
   if (registryPath) {

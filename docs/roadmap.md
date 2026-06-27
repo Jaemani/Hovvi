@@ -441,6 +441,9 @@ Current status:
   account-scoped relay token into the private registry and save the raw token
   only in the private local config, reducing manual token copying during
   hosted-relay rehearsals.
+- `hovvi login --relay <url>` can now save the relay URL into private config
+  during the same login/token issuance flow, with URL credentials redacted in
+  stdout.
 - `hovvi device revoke` disables a registry device, and account-scoped agent
   authentication rejects revoked device records before an agent can appear
   online.
