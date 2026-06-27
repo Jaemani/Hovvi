@@ -277,6 +277,9 @@ Current status:
 - Swift mobile attach now exposes `AttachShellModel.tick(nowMs:)`, and
   `HovviMobileApp` runs a conservative attached-state mosh tick loop using
   `nextTickAfterMs` when available.
+- Swift mobile foreground lifecycle now resumes receive and tick loops for an
+  attached session after background pause, with a smoke-tested lifecycle policy
+  and duplicate receive-loop guard.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.

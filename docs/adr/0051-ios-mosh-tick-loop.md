@@ -23,6 +23,11 @@ uses `nextTickAfterMs` when the engine provides it and otherwise polls every
 250 ms while the session remains attached. The loop is cancelled with the
 receive loop when reconnecting, reattaching, or entering the background.
 
+The app also resumes receive and tick loops when the scene becomes active again
+and the snapshot is still attached. The decision is routed through
+`AttachShellLifecyclePolicy`, which is smoke-tested outside SwiftUI so
+background/foreground loop behavior is not only implicit in the app target.
+
 ## Consequences
 
 - The mobile attach shell now drives the full mosh core frame lifecycle instead
@@ -31,6 +36,10 @@ receive loop when reconnecting, reattaching, or entering the background.
   flow through the same redacted snapshot surface as other attach actions.
 - The 250 ms fallback is intentionally conservative for alpha. It avoids missing
   a later tick schedule after input or receive without introducing a tight loop.
+- Foregrounding an already attached session restarts receive/tick progress
+  instead of leaving the terminal visually attached but idle.
+- Receive-loop startup is guarded so repeated active-scene notifications do not
+  create duplicate receive loops.
 - Device/simulator lifecycle validation remains required before the iOS alpha
   milestone is complete.
 

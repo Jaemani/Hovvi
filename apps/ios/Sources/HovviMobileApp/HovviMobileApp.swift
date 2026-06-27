@@ -25,8 +25,10 @@ struct HovviMobileApp: App {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background {
+            if AttachShellLifecyclePolicy.shouldPauseAttachLoops(enteringBackground: phase == .background) {
                 controller.pauseReceiveLoop()
+            } else if phase == .active {
+                controller.resumeAttachLoopsIfNeeded()
             }
         }
     }
@@ -129,6 +131,13 @@ final class HovviAppController: ObservableObject {
         cancelAttachLoops()
     }
 
+    func resumeAttachLoopsIfNeeded() {
+        guard fixtureSnapshot == nil else { return }
+        guard AttachShellLifecyclePolicy.shouldRunAttachLoops(phase: snapshot.phase) else { return }
+        startReceiveLoop()
+        startTickLoop()
+    }
+
     private func cancelAttachLoops() {
         attachLoopGeneration += 1
         receiveTask?.cancel()
@@ -138,6 +147,7 @@ final class HovviAppController: ObservableObject {
     }
 
     private func startReceiveLoop() {
+        guard receiveTask == nil else { return }
         receiveTask = Task { [model] in
             while Task.isCancelled == false {
                 let next = await model.receiveNext(timeout: .seconds(30))

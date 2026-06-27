@@ -363,6 +363,11 @@ try require(TerminalInputCommand.arrowUp.bytes == Data("\u{001B}[A".utf8), "term
 try require(TerminalInputCommand.arrowDown.bytes == Data("\u{001B}[B".utf8), "terminal arrow down should encode CSI B")
 try require(TerminalInputCommand.arrowRight.bytes == Data("\u{001B}[C".utf8), "terminal arrow right should encode CSI C")
 try require(TerminalInputCommand.arrowLeft.bytes == Data("\u{001B}[D".utf8), "terminal arrow left should encode CSI D")
+try require(AttachShellLifecyclePolicy.shouldRunAttachLoops(phase: .attached), "attach lifecycle should run loops while attached")
+try require(AttachShellLifecyclePolicy.shouldRunAttachLoops(phase: .browsing) == false, "attach lifecycle should not run loops while browsing")
+try require(AttachShellLifecyclePolicy.shouldRunAttachLoops(phase: .failed) == false, "attach lifecycle should not run loops after failure")
+try require(AttachShellLifecyclePolicy.shouldPauseAttachLoops(enteringBackground: true), "attach lifecycle should pause loops in background")
+try require(AttachShellLifecyclePolicy.shouldPauseAttachLoops(enteringBackground: false) == false, "attach lifecycle should not pause loops outside background")
 
 let cAbiUnavailableEngine = CAbiMoshCoreEngine()
 do {
