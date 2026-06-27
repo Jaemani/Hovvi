@@ -119,6 +119,7 @@ public struct TerminalScreen: Equatable, Sendable {
     public private(set) var isBracketedPasteModeEnabled: Bool
     public private(set) var isCursorVisible: Bool
     public private(set) var isApplicationCursorKeysModeEnabled: Bool
+    public private(set) var isAutoWrapModeEnabled: Bool
 
     private var cells: [[TerminalCell]]
     private var currentAttributes = TerminalTextAttributes()
@@ -138,6 +139,7 @@ public struct TerminalScreen: Equatable, Sendable {
         self.isBracketedPasteModeEnabled = false
         self.isCursorVisible = true
         self.isApplicationCursorKeysModeEnabled = false
+        self.isAutoWrapModeEnabled = true
         self.cells = Self.blankCells(columns: self.columns, rows: self.rows)
         self.tabStops = Self.defaultTabStops(columns: self.columns)
     }
@@ -271,6 +273,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 isCursorVisible = visible
             case .applicationCursorKeysMode(let enabled):
                 isApplicationCursorKeysModeEnabled = enabled
+            case .autoWrapMode(let enabled):
+                isAutoWrapModeEnabled = enabled
             case .alternateScreen(let enabled):
                 if enabled {
                     enterAlternateScreen()
@@ -289,7 +293,7 @@ public struct TerminalScreen: Equatable, Sendable {
             appendCombiningCharacter(character)
             return
         }
-        if width == 2, cursorColumn == columns - 1 {
+        if width == 2, cursorColumn == columns - 1, isAutoWrapModeEnabled {
             cursorColumn = 0
             lineFeed()
         }
@@ -317,6 +321,10 @@ public struct TerminalScreen: Equatable, Sendable {
 
     private mutating func advanceCursor(by width: Int) {
         cursorColumn += width
+        if isAutoWrapModeEnabled == false {
+            cursorColumn = min(cursorColumn, columns - 1)
+            return
+        }
         while cursorColumn >= columns {
             cursorColumn -= columns
             lineFeed()
@@ -760,6 +768,7 @@ private enum TerminalToken {
     case bracketedPasteMode(Bool)
     case cursorVisibility(Bool)
     case applicationCursorKeysMode(Bool)
+    case autoWrapMode(Bool)
     case alternateScreen(Bool)
 }
 
@@ -979,6 +988,9 @@ private struct TerminalEscapeParser {
         }
         if modes.contains(1) {
             return .applicationCursorKeysMode(enabled)
+        }
+        if modes.contains(7) {
+            return .autoWrapMode(enabled)
         }
         if modes.contains(25) {
             return .cursorVisibility(enabled)

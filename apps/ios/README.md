@@ -104,11 +104,14 @@ Inverse SGR runs render with swapped effective foreground/background colors.
 at the top margin.
 DEC origin mode (`CSI ? 6 h/l`) makes cursor addressing and vertical movement
 respect the active scroll region.
+DEC autowrap mode (`CSI ? 7 h/l`) is enabled by default and can be disabled so
+right-edge output stays on the current row instead of forcing a line feed.
 Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
 (`CSI G`/`` ` ``) are supported with bounds clamping.
 Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
 Application cursor-key mode (`CSI ? 1 h/l`) is tracked for mode-aware mobile
 arrow-key input.
+Autowrap mode (`CSI ? 7 h/l`) is tracked for right-edge terminal output.
 Cursor visibility (`CSI ? 25 h/l`) is tracked separately from terminal text.
 The SwiftUI surface projects the live cursor as separate row metadata and draws
 it as an overlay, so cursor rendering does not corrupt scrollback or line

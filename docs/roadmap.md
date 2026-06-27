@@ -214,6 +214,9 @@ Current status:
 - Swift mobile terminal state tracks DEC application cursor-key mode
   (`CSI ? 1 h/l`) and uses it to switch toolbar arrow keys between normal CSI
   and SS3 application cursor-key bytes.
+- Swift mobile terminal state tracks DEC autowrap mode (`CSI ? 7 h/l`), keeping
+  default wrapping behavior while allowing fixed-width programs to write the
+  right edge without forcing a line feed.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
@@ -358,7 +361,8 @@ Current status:
   screen, erase display/line modes, resize, SGR text attributes, 256-color/truecolor
   foreground/background colors, inverse rendering, alternate-screen restore, and
   wide grapheme cursor advancement, scroll-region line-feed behavior,
-  reverse-index bounded scrolling, DEC origin mode, cursor line/column
+  reverse-index bounded scrolling, DEC origin mode, DEC autowrap mode,
+  cursor line/column
   movement, bracketed paste mode, application cursor-key mode, OSC skipping,
   DEC special graphics character
   mapping, cursor visibility state and UI projection, saved cursor state, line/character
