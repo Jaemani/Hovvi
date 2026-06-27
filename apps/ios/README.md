@@ -167,7 +167,7 @@ Tools are active and only reports `ready` when full Xcode and at least one iOS
 simulator are available.
 `npm run ios:simulator-build-check` reuses that preflight. On full-Xcode hosts
 it builds the SwiftPM `HovviMobileApp` scheme for the selected iOS simulator and
-fails if `HovviMobileApp.app` is not produced; on Command Line Tools hosts it
+fails if no simulator build artifact is produced; on Command Line Tools hosts it
 skips without failing the default local workflow.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`

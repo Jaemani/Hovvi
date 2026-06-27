@@ -25,15 +25,15 @@ test("iOS simulator build check invokes xcodebuild for the selected simulator", 
       calls.push({ command, args, options });
       return ok("build ok");
     },
-    findAppBundleFn(root, bundleName) {
+    findBuildArtifactFn(root, artifactNames) {
       assert.equal(root, "/tmp/hovvi-ios-sim-test/Build/Products");
-      assert.equal(bundleName, "HovviMobileApp.app");
-      return `${root}/Debug-iphonesimulator/${bundleName}`;
+      assert.deepEqual(artifactNames, ["HovviMobileApp.app", "HovviMobileApp"]);
+      return `${root}/Debug-iphonesimulator/HovviMobileApp`;
     },
   });
 
   assert.equal(result.status, "built");
-  assert.equal(result.appBundle, "/tmp/hovvi-ios-sim-test/Build/Products/Debug-iphonesimulator/HovviMobileApp.app");
+  assert.equal(result.artifact, "/tmp/hovvi-ios-sim-test/Build/Products/Debug-iphonesimulator/HovviMobileApp");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "xcodebuild");
   assert.deepEqual(calls[0].args, [
@@ -49,7 +49,7 @@ test("iOS simulator build check invokes xcodebuild for the selected simulator", 
   assert.equal(calls[0].options.timeout, 120000);
 });
 
-test("iOS simulator build check reports missing app bundle after a successful build", () => {
+test("iOS simulator build check reports missing artifact after a successful build", () => {
   const result = iosSimulatorBuildCheck({
     keepDerivedData: true,
     tempDirFn: () => "/tmp/hovvi-ios-sim-test",
@@ -58,11 +58,11 @@ test("iOS simulator build check reports missing app bundle after a successful bu
       simulators: [{ name: "iPhone 17", udid: "SIM-1", runtime: "iOS" }],
     }),
     runTextFn: () => ok("build ok"),
-    findAppBundleFn: () => null,
+    findBuildArtifactFn: () => null,
   });
 
   assert.equal(result.status, "failed");
-  assert.match(result.reason, /not found/);
+  assert.match(result.reason, /artifact/);
   assert.equal(result.derivedDataPath, "/tmp/hovvi-ios-sim-test");
 });
 

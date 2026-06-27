@@ -10,7 +10,7 @@ export function iosSimulatorBuildCheck({
   preflightFn = iosSimulatorPreflight,
   runTextFn = runText,
   tempDirFn = () => mkdtempSync(path.join(tmpdir(), "hovvi-ios-sim-")),
-  findAppBundleFn = findAppBundle,
+  findBuildArtifactFn = findBuildArtifact,
 } = {}) {
   const preflight = preflightFn();
   if (preflight.status !== "ready") {
@@ -58,22 +58,22 @@ export function iosSimulatorBuildCheck({
   }
 
   const productsPath = path.join(derivedDataPath, "Build/Products");
-  const appBundle = findAppBundleFn(productsPath, "HovviMobileApp.app");
-  if (!appBundle) {
+  const artifact = findBuildArtifactFn(productsPath, ["HovviMobileApp.app", "HovviMobileApp"]);
+  if (!artifact) {
     maybeRemoveDerivedData(derivedDataPath, keepDerivedData);
     return {
       status: "failed",
-      reason: "xcodebuild succeeded but HovviMobileApp.app was not found in derived data products.",
+      reason: "xcodebuild succeeded but no HovviMobileApp simulator build artifact was found in derived data products.",
       simulator,
       derivedDataPath: keepDerivedData ? derivedDataPath : undefined,
-      xcodebuild: result.text,
+      products: listProducts(productsPath),
     };
   }
 
   const response = {
     status: "built",
     simulator,
-    appBundle: keepDerivedData ? appBundle : path.basename(appBundle),
+    artifact: keepDerivedData ? artifact : path.basename(artifact),
     derivedDataPath: keepDerivedData ? derivedDataPath : undefined,
   };
   maybeRemoveDerivedData(derivedDataPath, keepDerivedData);
@@ -87,7 +87,7 @@ function maybeRemoveDerivedData(derivedDataPath, keepDerivedData) {
   rmSync(derivedDataPath, { recursive: true, force: true });
 }
 
-function findAppBundle(root, bundleName) {
+function findBuildArtifact(root, artifactNames) {
   if (!existsSync(root)) {
     return null;
   }
@@ -95,15 +95,43 @@ function findAppBundle(root, bundleName) {
   for (const entry of entries) {
     const fullPath = path.join(root, entry);
     const stats = statSync(fullPath);
-    if (stats.isDirectory() && entry === bundleName) {
+    if (artifactNames.includes(entry)) {
       return fullPath;
     }
     if (stats.isDirectory()) {
-      const nested = findAppBundle(fullPath, bundleName);
+      const nested = findBuildArtifact(fullPath, artifactNames);
       if (nested) {
         return nested;
       }
     }
   }
   return null;
+}
+
+function listProducts(root, limit = 30) {
+  if (!existsSync(root)) {
+    return [];
+  }
+  const found = [];
+  walk(root, found, limit);
+  return found;
+}
+
+function walk(root, found, limit) {
+  if (found.length >= limit) {
+    return;
+  }
+  for (const entry of readdirSync(root)) {
+    const fullPath = path.join(root, entry);
+    const stats = statSync(fullPath);
+    if (stats.isFile() || stats.isDirectory()) {
+      found.push(fullPath);
+    }
+    if (stats.isDirectory()) {
+      walk(fullPath, found, limit);
+    }
+    if (found.length >= limit) {
+      return;
+    }
+  }
 }

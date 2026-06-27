@@ -9,7 +9,7 @@ const result = iosSimulatorBuildCheck({
 if (args.has("--json")) {
   console.log(JSON.stringify(result, null, 2));
 } else if (result.status === "built") {
-  console.log(`iOS simulator app build ready: ${result.appBundle}`);
+  console.log(`iOS simulator build ready: ${result.artifact}`);
 } else if (result.status === "failed") {
   console.error(`iOS simulator app build failed: ${result.reason}`);
   if (result.xcodebuild) {

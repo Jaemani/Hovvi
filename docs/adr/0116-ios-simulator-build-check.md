@@ -11,7 +11,7 @@ Accepted
 The iOS alpha needs simulator or device rendering validation before it can be
 treated as complete. Hovvi already has deterministic fixture mode and a
 simulator preflight, but there was no executable check proving that the SwiftUI
-app target can produce an iOS simulator app artifact on hosts with full Xcode.
+app target can compile for an iOS simulator on hosts with full Xcode.
 
 The local development host can have only Command Line Tools active, while CI or
 other Macs may have full Xcode and available iOS simulators. The check must
@@ -27,17 +27,20 @@ The check:
 - skips when full Xcode or an available iOS simulator is missing;
 - on ready hosts, runs `xcodebuild` from `apps/ios` for SwiftPM package scheme
   `HovviMobileApp` against the selected simulator UDID;
-- fails if `xcodebuild` fails or if `HovviMobileApp.app` is not found in
-  derived data products;
+- fails if `xcodebuild` fails or if neither a future `HovviMobileApp.app`
+  bundle nor the current SwiftPM `HovviMobileApp` executable artifact is found
+  in derived data products;
 - keeps derived data only when `--keep-derived-data` is passed.
 
 CI runs this check after simulator preflight. On CLT-only hosts it is a no-op
-skip; on full-Xcode hosts it becomes a real simulator artifact gate.
+skip; on full-Xcode hosts it becomes a real simulator-target build gate.
 
 ## Consequences
 
-- Simulator screenshot automation has a concrete predecessor gate: app artifact
-  production.
+- Simulator screenshot automation has a concrete predecessor gate: simulator
+  target compilation and artifact production.
+- SwiftPM currently produces an executable artifact, not an installable `.app`;
+  the signed/bundled iOS app target remains a separate roadmap item.
 - The check does not introduce signing, App Store, hosted login, or GPL-linked
   mobile distribution decisions.
 - Local CLT-only contributors can still run the default verification suite.
