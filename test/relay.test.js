@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createRelayState, handleRelayMessage, relayStatus, sweepStaleAgents, sweepStaleDatagrams } from "../src/relay.js";
 import { envelope, serialize } from "../src/protocol.js";
 import { hashToken } from "../src/registry.js";
@@ -128,6 +131,56 @@ test("relay records account id for accepted registry auth without token material
   assert.equal(JSON.stringify(record).includes(hashToken("client-secret")), false);
   assert.equal(Object.hasOwn(record, "token"), false);
   assert.equal(Object.hasOwn(record, "hash"), false);
+});
+
+test("relay structured logs record operational metadata without payload or token material", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-relay-log-"));
+  const logPath = join(dir, "relay.jsonl");
+  const state = createRelayState({ token: "dev", logPath });
+  state.access.registry.tokens = [
+    { name: "acct-agent", accountId: "acct_1", hash: hashToken("agent-secret"), roles: ["agent"] },
+    { name: "acct-client", accountId: "acct_1", hash: hashToken("client-secret"), roles: ["client"] },
+  ];
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "agent-secret", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("hello", { role: "client", token: "client-secret", clientId: "ios-1" })),
+  );
+  handleRelayMessage(state, agent, serialize(envelope("sessions.update", { sessions: [{ name: "main" }] })));
+  handleRelayMessage(state, client, serialize(envelope("datagram.open", { channelId: "dg-1", deviceId: "mac-1", label: "mosh" })));
+  handleRelayMessage(state, agent, serialize(envelope("datagram.data", { channelId: "dg-1", data: "c2VjcmV0LXBheWxvYWQ=", sequence: 1 })));
+  handleRelayMessage(state, client, serialize(envelope("datagram.close", { channelId: "dg-1" })));
+
+  const entries = readJsonLines(logPath);
+  const serialized = JSON.stringify(entries);
+  assert.deepEqual(
+    entries.map((entry) => entry.type),
+    [
+      "relay.auth.accept",
+      "relay.agent.register",
+      "relay.auth.accept",
+      "relay.client.register",
+      "relay.agent.sessions.update",
+      "relay.datagram.open",
+      "relay.datagram.close",
+    ],
+  );
+  assert.equal(entries.find((entry) => entry.type === "relay.auth.accept" && entry.role === "client").accountId, "acct_1");
+  assert.equal(entries.find((entry) => entry.type === "relay.datagram.open").maxDatagramBytes, undefined);
+  assert.equal(serialized.includes("agent-secret"), false);
+  assert.equal(serialized.includes("client-secret"), false);
+  assert.equal(serialized.includes(hashToken("client-secret")), false);
+  assert.equal(serialized.includes("c2VjcmV0LXBheWxvYWQ="), false);
+  assert.equal(serialized.includes("secret-payload"), false);
+  assert.equal(state.log.recent().length, entries.length);
 });
 
 test("relay scopes device snapshots to registry token account ids", () => {
@@ -468,4 +521,11 @@ function fakeSocket() {
       this.readyState = 3;
     },
   };
+}
+
+function readJsonLines(path) {
+  return readFileSync(path, "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
 }

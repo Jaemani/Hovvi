@@ -108,6 +108,7 @@ Start the relay with:
 
 ```bash
 hovvi relay --registry ./registry.json
+hovvi relay --registry ./registry.json --log ./relay.log.jsonl --audit-log ./relay.audit.jsonl
 ```
 
 List or revoke registry entries without exposing raw token values:
@@ -152,6 +153,7 @@ Operational defaults:
 - stale agents are removed after `--device-timeout-ms` (default `30000`)
 - stale sweeps run every `--sweep-interval-ms` (default `5000`)
 - WebSocket payloads are capped by `--max-payload-bytes` (default `1048576`)
+- `--log ./relay.log.jsonl` writes structured relay lifecycle, auth, routing, and cleanup events without packet payloads
 - `--audit-log ./relay.audit.jsonl` writes token/hash-redacted auth or registry operation events to a private JSONL file
 - `/healthz` returns basic liveness
 - `/statusz` and `/metrics.json` return relay id, uptime inputs, connected agent/client counts, stream counts, and counters

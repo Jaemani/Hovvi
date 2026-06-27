@@ -45,7 +45,7 @@ const HELP = `Hovvi
 Usage:
   hovvi doctor [--json] [--network]
   hovvi login [--client-id <github-oauth-client-id>] [--registry <path>] [--device <device-id>] [--account-name <name>] [--device-name <name>] [--platform <platform>]
-  hovvi relay [--host 127.0.0.1] [--port 8787] [--token <token>] [--registry <path>] [--audit-log <path>]
+  hovvi relay [--host 127.0.0.1] [--port 8787] [--token <token>] [--registry <path>] [--audit-log <path>] [--log <path>]
   hovvi up [--relay ws://127.0.0.1:8787] [--token <token>] [--name <device-name>] [--heartbeat-ms 10000]
   hovvi sessions [--json]
   hovvi attach [session-name]
@@ -246,10 +246,11 @@ async function relayCommand(args) {
   const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
   const auditLogPath = readOption(args, "--audit-log") || process.env.HOVVI_AUDIT_LOG;
+  const logPath = readOption(args, "--log") || process.env.HOVVI_RELAY_LOG;
   const deviceTimeoutMs = Number(readOption(args, "--device-timeout-ms") || process.env.HOVVI_DEVICE_TIMEOUT_MS || 30000);
   const sweepIntervalMs = Number(readOption(args, "--sweep-interval-ms") || process.env.HOVVI_SWEEP_INTERVAL_MS || 5000);
   const maxPayloadBytes = Number(readOption(args, "--max-payload-bytes") || process.env.HOVVI_MAX_PAYLOAD_BYTES || 1024 * 1024);
-  await runRelay({ host, port, token, registryPath, auditLogPath, deviceTimeoutMs, sweepIntervalMs, maxPayloadBytes });
+  await runRelay({ host, port, token, registryPath, auditLogPath, logPath, deviceTimeoutMs, sweepIntervalMs, maxPayloadBytes });
 }
 
 async function upCommand(args) {

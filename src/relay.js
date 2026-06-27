@@ -11,6 +11,7 @@ export async function runRelay({
   token = "dev",
   registryPath,
   auditLogPath,
+  logPath,
   deviceTimeoutMs = 30000,
   datagramTimeoutMs = 30000,
   sweepIntervalMs = 5000,
@@ -22,6 +23,7 @@ export async function runRelay({
     token,
     registryPath,
     auditLogPath,
+    logPath,
     deviceTimeoutMs,
     datagramTimeoutMs,
     sweepIntervalMs,
@@ -37,12 +39,13 @@ export function createRelayServer({
   token = "dev",
   registryPath,
   auditLogPath,
+  logPath,
   deviceTimeoutMs = 30000,
   datagramTimeoutMs = 30000,
   sweepIntervalMs = 5000,
   maxPayloadBytes = 1024 * 1024,
 } = {}) {
-  const state = createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs, datagramTimeoutMs });
+  const state = createRelayState({ token, registryPath, auditLogPath, logPath, deviceTimeoutMs, datagramTimeoutMs });
   const server = http.createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -61,6 +64,7 @@ export function createRelayServer({
   const wss = new WebSocketServer({ server, maxPayload: maxPayloadBytes });
   wss.on("connection", (ws) => {
     state.metrics.connectionsAccepted += 1;
+    state.log.record({ type: "relay.connection.accepted" });
     ws.on("message", (data) => handleRelayMessage(state, ws, data));
     ws.on("close", () => unregisterSocket(state, ws));
     ws.on("error", () => unregisterSocket(state, ws));
@@ -86,12 +90,23 @@ export function createRelayServer({
             sweepStaleAgents(state);
             sweepStaleDatagrams(state);
           }, sweepIntervalMs);
+          state.log.record({
+            type: "relay.listen",
+            relayId: state.relayId,
+            host,
+            port: server.address()?.port ?? port,
+            deviceTimeoutMs,
+            datagramTimeoutMs,
+            sweepIntervalMs,
+            maxPayloadBytes,
+          });
           resolve(this);
         });
       });
     },
     close() {
       clearInterval(sweep);
+      state.log.record({ type: "relay.close", relayId: state.relayId });
       for (const ws of wss.clients) ws.close();
       return new Promise((resolve, reject) => {
         server.close((error) => {
@@ -103,10 +118,18 @@ export function createRelayServer({
   };
 }
 
-export function createRelayState({ token, registryPath, auditLogPath, deviceTimeoutMs = 30000, datagramTimeoutMs = 30000 } = {}) {
+export function createRelayState({
+  token,
+  registryPath,
+  auditLogPath,
+  logPath,
+  deviceTimeoutMs = 30000,
+  datagramTimeoutMs = 30000,
+} = {}) {
   return {
     access: createAccessRegistry({ devToken: token, registryPath }),
     audit: createAuditSink({ path: auditLogPath }),
+    log: createAuditSink({ path: logPath }),
     deviceTimeoutMs,
     datagramTimeoutMs,
     relayId: randomUUID(),
@@ -135,6 +158,11 @@ export function handleRelayMessage(state, ws, data) {
     message = parseAndValidateEnvelope(data);
   } catch (error) {
     state.metrics.invalidMessages += 1;
+    state.log.record({
+      type: "relay.message.invalid",
+      field: error.field,
+      reason: error.message,
+    });
     ws.send(serialize(envelope("error", { code: "invalid_message", field: error.field, message: error.message })));
     return;
   }
@@ -145,6 +173,7 @@ export function handleRelayMessage(state, ws, data) {
 
   const meta = state.sockets.get(ws);
   if (!meta) {
+    state.log.record({ type: "relay.message.rejected", messageType: message.type, reason: "hello_required" });
     ws.send(serialize(envelope("error", { message: "hello required before other messages" })));
     return;
   }
@@ -209,6 +238,14 @@ function routeAgentRequest(state, ws, message, kind) {
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
   if (!agent || !canAccessAgent(meta, agent)) {
+    state.log.record({
+      type: "relay.route.offline",
+      operation: kind,
+      requestId: message.id,
+      deviceId: message.deviceId,
+      clientId: meta.clientId,
+      accountId: meta.principal?.accountId,
+    });
     ws.send(
       serialize(
         envelope(responseErrorType(kind), {
@@ -223,6 +260,14 @@ function routeAgentRequest(state, ws, message, kind) {
     clientWs: ws,
     agentWs: agent.ws,
     kind,
+  });
+  state.log.record({
+    type: "relay.route.open",
+    operation: kind,
+    requestId: message.id,
+    deviceId: message.deviceId,
+    clientId: meta.clientId,
+    accountId: meta.principal?.accountId,
   });
   agent.ws.send(serialize(message));
 }
@@ -262,6 +307,13 @@ function registerSocket(state, ws, message) {
       deviceId,
       clientId: message.role === "client" ? clientId : undefined,
     });
+    state.log.record({
+      type: "relay.auth.reject",
+      role: message.role,
+      reason: auth.reason,
+      deviceId,
+      clientId: message.role === "client" ? clientId : undefined,
+    });
     ws.send(serialize(envelope("error", { message: "invalid relay token" })));
     ws.close(1008, "invalid token");
     return;
@@ -270,6 +322,15 @@ function registerSocket(state, ws, message) {
   state.metrics.authAccepted += 1;
   state.audit.record({
     type: "auth.accept",
+    role: message.role,
+    subject: principal.subject,
+    source: principal.source,
+    accountId: principal.accountId,
+    deviceId,
+    clientId: message.role === "client" ? clientId : undefined,
+  });
+  state.log.record({
+    type: "relay.auth.accept",
     role: message.role,
     subject: principal.subject,
     source: principal.source,
@@ -288,6 +349,12 @@ function registerSocket(state, ws, message) {
     const meta = { role: "agent", principal, device, sessions: [], ws, lastSeenMs: now };
     state.sockets.set(ws, meta);
     state.agents.set(device.id, meta);
+    state.log.record({
+      type: "relay.agent.register",
+      deviceId: device.id,
+      accountId: principal.accountId,
+      capabilityCount: Array.isArray(device.capabilities) ? device.capabilities.length : 0,
+    });
     ws.send(serialize(envelope("hello.ok", { role: "agent", deviceId: device.id })));
     broadcastDeviceList(state);
     return;
@@ -297,6 +364,11 @@ function registerSocket(state, ws, message) {
     const meta = { role: "client", principal, clientId, ws };
     state.sockets.set(ws, meta);
     state.clients.set(clientId, meta);
+    state.log.record({
+      type: "relay.client.register",
+      clientId,
+      accountId: principal.accountId,
+    });
     ws.send(serialize(envelope("hello.ok", { role: "client", clientId })));
     sendDeviceList(state, ws);
     return;
@@ -309,6 +381,12 @@ function agentHeartbeat(state, ws, message) {
   const meta = state.sockets.get(ws);
   if (meta?.role !== "agent") return;
   if (message.deviceId !== meta.device.id) {
+    state.log.record({
+      type: "relay.agent.heartbeat.rejected",
+      deviceId: message.deviceId,
+      registeredDeviceId: meta.device.id,
+      reason: "device_mismatch",
+    });
     ws.send(serialize(envelope("error", { code: "device_mismatch", message: "heartbeat deviceId does not match registered agent" })));
     return;
   }
@@ -317,6 +395,11 @@ function agentHeartbeat(state, ws, message) {
   if (message.capabilities) {
     meta.device.capabilities = message.capabilities;
   }
+  state.log.record({
+    type: "relay.agent.heartbeat",
+    deviceId: meta.device.id,
+    capabilityCount: Array.isArray(meta.device.capabilities) ? meta.device.capabilities.length : 0,
+  });
 }
 
 function updateSessions(state, ws, message) {
@@ -325,6 +408,11 @@ function updateSessions(state, ws, message) {
   meta.sessions = Array.isArray(message.sessions) ? message.sessions : [];
   meta.lastSeenMs = Date.now();
   meta.lastSeenAt = new Date().toISOString();
+  state.log.record({
+    type: "relay.agent.sessions.update",
+    deviceId: meta.device.id,
+    sessionCount: meta.sessions.length,
+  });
   broadcastDeviceList(state);
 }
 
@@ -351,6 +439,9 @@ export function sweepStaleAgents(state, now = Date.now()) {
     unregisterSocket(state, agent.ws);
   }
   state.metrics.staleAgentsPruned += stale.length;
+  if (stale.length > 0) {
+    state.log.record({ type: "relay.agent.sweep", pruned: stale.length });
+  }
   return stale.length;
 }
 
@@ -365,6 +456,9 @@ export function sweepStaleDatagrams(state, now = Date.now()) {
     notifyDatagramClose(channel.agentWs, channelId);
   }
   state.metrics.staleDatagramsPruned += stale.length;
+  if (stale.length > 0) {
+    state.log.record({ type: "relay.datagram.sweep", pruned: stale.length });
+  }
   return stale.length;
 }
 
@@ -387,6 +481,13 @@ function forwardOpen(state, ws, message) {
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
   if (!agent || !canAccessAgent(meta, agent)) {
+    state.log.record({
+      type: "relay.forward.offline",
+      streamId: message.streamId,
+      deviceId: message.deviceId,
+      clientId: meta.clientId,
+      accountId: meta.principal?.accountId,
+    });
     ws.send(serialize(envelope("forward.error", { streamId: message.streamId, message: "device offline" })));
     return;
   }
@@ -394,6 +495,13 @@ function forwardOpen(state, ws, message) {
   state.streams.set(message.streamId, {
     clientWs: ws,
     agentWs: agent.ws,
+  });
+  state.log.record({
+    type: "relay.forward.open",
+    streamId: message.streamId,
+    deviceId: message.deviceId,
+    clientId: meta.clientId,
+    accountId: meta.principal?.accountId,
   });
   agent.ws.send(serialize(message));
 }
@@ -406,6 +514,11 @@ function forwardStreamMessage(state, ws, message) {
     target.send(serialize(message));
   }
   if (message.type === "forward.end" || message.type === "forward.error") {
+    state.log.record({
+      type: "relay.forward.close",
+      streamId: message.streamId,
+      reason: message.type,
+    });
     state.streams.delete(message.streamId);
   }
 }
@@ -415,6 +528,13 @@ function datagramOpen(state, ws, message) {
   if (meta?.role !== "client") return;
   const agent = state.agents.get(message.deviceId);
   if (!agent || !canAccessAgent(meta, agent)) {
+    state.log.record({
+      type: "relay.datagram.offline",
+      channelId: message.channelId,
+      deviceId: message.deviceId,
+      clientId: meta.clientId,
+      accountId: meta.principal?.accountId,
+    });
     ws.send(serialize(envelope("datagram.error", { channelId: message.channelId, message: "device offline" })));
     return;
   }
@@ -423,6 +543,14 @@ function datagramOpen(state, ws, message) {
     clientWs: ws,
     agentWs: agent.ws,
     lastSeenMs: Date.now(),
+  });
+  state.log.record({
+    type: "relay.datagram.open",
+    channelId: message.channelId,
+    deviceId: message.deviceId,
+    clientId: meta.clientId,
+    accountId: meta.principal?.accountId,
+    maxDatagramBytes: message.maxDatagramBytes,
   });
   agent.ws.send(serialize(message));
 }
@@ -436,6 +564,11 @@ function datagramMessage(state, ws, message) {
     target.send(serialize(message));
   }
   if (message.type === "datagram.close" || message.type === "datagram.error") {
+    state.log.record({
+      type: "relay.datagram.close",
+      channelId: message.channelId,
+      reason: message.type,
+    });
     state.datagrams.delete(message.channelId);
   }
 }
@@ -452,10 +585,20 @@ function unregisterSocket(state, ws) {
   state.sockets.delete(ws);
   if (meta.role === "agent") {
     state.agents.delete(meta.device.id);
+    state.log.record({
+      type: "relay.agent.unregister",
+      deviceId: meta.device.id,
+      accountId: meta.principal?.accountId,
+    });
     broadcastDeviceList(state);
   }
   if (meta.role === "client") {
     state.clients.delete(meta.clientId);
+    state.log.record({
+      type: "relay.client.unregister",
+      clientId: meta.clientId,
+      accountId: meta.principal?.accountId,
+    });
   }
   for (const [streamId, stream] of state.streams.entries()) {
     if (stream.clientWs === ws || stream.agentWs === ws) {
