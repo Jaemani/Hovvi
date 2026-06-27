@@ -110,6 +110,8 @@ DEC autowrap mode (`CSI ? 7 h/l`) is enabled by default and can be disabled so
 right-edge output stays on the current row instead of forcing a line feed.
 Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
 (`CSI G`/`` ` ``) are supported with bounds clamping.
+Cursor movement aliases (`CSI a/e/d`) are also supported for horizontal
+relative, vertical relative, and vertical absolute positioning.
 Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
 Application cursor-key mode (`CSI ? 1 h/l`) is tracked for mode-aware mobile
 arrow-key input.

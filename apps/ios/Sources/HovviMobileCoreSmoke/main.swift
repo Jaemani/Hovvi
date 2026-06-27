@@ -639,6 +639,16 @@ originModeScreen.apply("\u{001B}[10E")
 try require(originModeScreen.cursorRow == 3 && originModeScreen.cursorColumn == 0, "terminal screen origin mode should clamp CSI E to the bottom margin")
 originModeScreen.apply("\u{001B}[10F")
 try require(originModeScreen.cursorRow == 1 && originModeScreen.cursorColumn == 0, "terminal screen origin mode should clamp CSI F to the top margin")
+originModeScreen.apply("\u{001B}[2;4H\u{001B}[2aX\u{001B}[2eY\u{001B}[1d")
+try require(
+    originModeScreen.cursorRow == 1 && originModeScreen.cursorColumn == 7,
+    "terminal screen CSI d should move only the row and preserve the current column"
+)
+originModeScreen.apply("Z")
+try require(
+    originModeScreen.visibleLines.map(\.text) == ["", "origin Z", "     X", "      Y", ""],
+    "terminal screen should support CSI a/e/d cursor movement aliases inside origin mode"
+)
 originModeScreen.apply("\u{001B}[?6l\u{001B}[1;1Htop")
 try require(
     originModeScreen.cursorRow == 0 && originModeScreen.visibleLines[0].text == "top",
