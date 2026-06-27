@@ -852,6 +852,8 @@ try require(compactTerminalSize.rows == 12, "terminal geometry should enforce mi
 let fittedTerminalSize = TerminalGeometry.terminalSize(width: 960, height: 540)
 try require(fittedTerminalSize.columns == 120, "terminal geometry should calculate columns from surface width")
 try require(fittedTerminalSize.rows == 30, "terminal geometry should calculate rows from surface height")
+try require(TerminalGeometry.surfaceWidth(columns: 20) == 320, "terminal surface width should enforce minimum columns")
+try require(TerminalGeometry.surfaceWidth(columns: 120) == 960, "terminal surface width should scale with terminal columns")
 
 let previewSnapshot = AttachShellPreviewFixtures.attachedCodingAgent
 try require(previewSnapshot.phase == .attached, "preview fixture should model an attached terminal")

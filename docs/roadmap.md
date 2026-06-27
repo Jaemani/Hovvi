@@ -225,6 +225,9 @@ Current status:
 - Swift mobile terminal resize now derives mosh terminal dimensions from the
   terminal surface geometry only, not the entire detail view including input
   controls, through a smoke-tested `TerminalGeometry` projection.
+- Swift mobile terminal rows now render in a horizontal+vertical scroll surface
+  with no row wrapping and a smoke-tested minimum surface width derived from the
+  active terminal column count.
 - Swift mobile session rows now use a tested `SessionPresentation` projection so
   tmux, cmux, AI coding sessions, attached state, window counts, and detected
   Claude Code/Codex/Gemini/aider/Cursor Agent panes render through stable UI

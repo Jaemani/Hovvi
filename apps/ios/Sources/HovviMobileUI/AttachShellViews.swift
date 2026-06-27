@@ -53,6 +53,10 @@ public enum TerminalGeometry {
             rows: max(minimumRows, Int(height / cellHeight))
         )
     }
+
+    public static func surfaceWidth(columns: Int) -> Double {
+        Double(max(minimumColumns, columns)) * cellWidth
+    }
 }
 
 public enum SessionPresentation {
@@ -542,13 +546,18 @@ public struct TerminalSurfaceView: View {
 
     public var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
+            ScrollView([.vertical, .horizontal]) {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(viewport.lines) { line in
                         TerminalSurfaceLineView(line: line)
                             .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(
+                                minWidth: TerminalGeometry.surfaceWidth(
+                                    columns: snapshot.terminalScreen?.columns ?? TerminalGeometry.minimumColumns
+                                ),
+                                alignment: .leading
+                            )
                             .id(line.id)
                     }
                 }
@@ -603,6 +612,8 @@ private struct TerminalSurfaceLineView: View {
                 }
             }
         }
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
