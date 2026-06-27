@@ -79,6 +79,7 @@ Development can use `--token dev`. A hosted relay should use hashed token entrie
 ```bash
 hovvi token generate --role agent
 hovvi token generate --role client
+hovvi token generate --registry ./registry.json --name jaeman-iphone --role client --account acct_1 --client ios-main
 ```
 
 Create a registry JSON file:
@@ -121,6 +122,7 @@ Registry entries may be scoped and time-bound:
     {
       "name": "jaeman-mac-agent",
       "hash": "sha256:...",
+      "accountId": "acct_1",
       "roles": ["agent"],
       "deviceIds": ["dev_abc"],
       "notBefore": "2026-06-24T00:00:00.000Z",
@@ -129,6 +131,7 @@ Registry entries may be scoped and time-bound:
     {
       "name": "jaeman-iphone",
       "hash": "sha256:...",
+      "accountId": "acct_1",
       "roles": ["client"],
       "clientIds": ["ios-main"]
     }

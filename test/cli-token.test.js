@@ -28,6 +28,92 @@ test("token list and revoke manage registry files", async () => {
   assert.equal(loadRegistry(registryPath).tokens[0].disabled, true);
 });
 
+test("token generate writes account-scoped registry entries when registry is provided", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-token-generate-"));
+  const registryPath = join(dir, "registry.json");
+
+  const output = await captureStdout(() =>
+    main([
+      "token",
+      "generate",
+      "--registry",
+      registryPath,
+      "--name",
+      "jaeman-iphone",
+      "--role",
+      "client",
+      "--account",
+      "acct_1",
+      "--client",
+      "ios-1,ios-2",
+      "--expires-at",
+      "2026-07-01T00:00:00.000Z",
+    ]),
+  );
+  const generated = JSON.parse(output);
+  const stored = loadRegistry(registryPath).tokens[0];
+
+  assert.match(generated.token, /^hovvi_/);
+  assert.equal(stored.name, "jaeman-iphone");
+  assert.equal(stored.accountId, "acct_1");
+  assert.deepEqual(stored.roles, ["client"]);
+  assert.deepEqual(stored.clientIds, ["ios-1", "ios-2"]);
+  assert.equal(stored.expiresAt, "2026-07-01T00:00:00.000Z");
+  assert.equal(stored.hash, generated.registryEntry.hash);
+
+  const listOutput = await captureStdout(() => main(["token", "list", "--registry", registryPath]));
+  assert.match(listOutput, /jaeman-iphone active roles=client account=acct_1 clients=ios-1,ios-2 expires=2026-07-01T00:00:00.000Z/);
+});
+
+test("token hash writes device-scoped agent entries and rejects duplicate names", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-token-hash-"));
+  const registryPath = join(dir, "registry.json");
+
+  await captureStdout(() =>
+    main([
+      "token",
+      "hash",
+      "agent-secret",
+      "--registry",
+      registryPath,
+      "--name",
+      "mac-agent",
+      "--role",
+      "agent",
+      "--account",
+      "acct_1",
+      "--device",
+      "mac-1",
+      "--device",
+      "mac-2",
+      "--not-before",
+      "2026-06-24T00:00:00.000Z",
+    ]),
+  );
+
+  const stored = loadRegistry(registryPath).tokens[0];
+  assert.equal(stored.name, "mac-agent");
+  assert.equal(stored.accountId, "acct_1");
+  assert.deepEqual(stored.deviceIds, ["mac-1", "mac-2"]);
+  assert.equal(stored.notBefore, "2026-06-24T00:00:00.000Z");
+
+  await assert.rejects(
+    () =>
+      captureStdout(() =>
+        main([
+          "token",
+          "hash",
+          "other-secret",
+          "--registry",
+          registryPath,
+          "--name",
+          "mac-agent",
+        ]),
+      ),
+    /Registry token already exists: mac-agent/,
+  );
+});
+
 async function captureStdout(fn) {
   const originalWrite = process.stdout.write;
   let output = "";

@@ -45,7 +45,7 @@ Usage:
   hovvi fetch-scrollback --device <device-id> [session-name] [--lines 2000] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
-  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--registry <path>]
+  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--registry <path>]
 
 Commands:
   doctor    Check git, GitHub, SSH, tmux, mosh, and AI coding tools.
@@ -450,14 +450,16 @@ async function tokenCommand(args) {
   switch (action) {
     case "generate": {
       const token = `hovvi_${randomId()}${randomId()}`;
-      const entry = { name: `token-${Date.now()}`, hash: hashToken(token), roles: [role] };
+      const entry = tokenRegistryEntry({ token, role, args });
+      appendTokenRegistryEntry({ registryPath, entry });
       process.stdout.write(`${JSON.stringify({ token, registryEntry: entry }, null, 2)}\n`);
       return;
     }
     case "hash": {
       const token = args[1];
-      if (!token) throw new Error("Usage: hovvi token hash <token> [--role agent|client|*]");
-      const entry = { name: `token-${Date.now()}`, hash: hashToken(token), roles: [role] };
+      if (!token) throw new Error("Usage: hovvi token hash <token> [--role agent|client|*] [--account <account-id>]");
+      const entry = tokenRegistryEntry({ token, role, args });
+      appendTokenRegistryEntry({ registryPath, entry });
       process.stdout.write(`${JSON.stringify(entry, null, 2)}\n`);
       return;
     }
@@ -476,8 +478,10 @@ async function tokenCommand(args) {
         const status = token.disabled ? "disabled" : "active";
         const roles = token.roles.join(",");
         const constraints = [
+          token.accountId ? `account=${token.accountId}` : null,
           token.deviceIds?.length ? `devices=${token.deviceIds.join(",")}` : null,
           token.clientIds?.length ? `clients=${token.clientIds.join(",")}` : null,
+          token.notBefore ? `notBefore=${token.notBefore}` : null,
           token.expiresAt ? `expires=${token.expiresAt}` : null,
         ].filter(Boolean);
         process.stdout.write(`${token.name || "<unnamed>"} ${status} roles=${roles}`);
@@ -501,6 +505,46 @@ async function tokenCommand(args) {
     default:
       throw new Error(`Unknown token action: ${action}`);
   }
+}
+
+function tokenRegistryEntry({ token, role, args }) {
+  const name = readOption(args, "--name") || `token-${Date.now()}`;
+  const accountId = readOption(args, "--account");
+  const deviceIds = readRepeatedCsvOptions(args, "--device");
+  const clientIds = readRepeatedCsvOptions(args, "--client");
+  const notBefore = readOption(args, "--not-before");
+  const expiresAt = readOption(args, "--expires-at");
+  return {
+    name,
+    ...(accountId ? { accountId } : {}),
+    hash: hashToken(token),
+    roles: [role],
+    ...(deviceIds.length > 0 ? { deviceIds } : {}),
+    ...(clientIds.length > 0 ? { clientIds } : {}),
+    ...(notBefore ? { notBefore } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+  };
+}
+
+function appendTokenRegistryEntry({ registryPath, entry }) {
+  if (!registryPath) return;
+  const registry = loadRegistry(registryPath);
+  registry.tokens = Array.isArray(registry.tokens) ? registry.tokens : [];
+  if (registry.tokens.some((token) => token.name === entry.name)) {
+    throw new Error(`Registry token already exists: ${entry.name}`);
+  }
+  registry.tokens.push(entry);
+  saveRegistry(registryPath, registry);
+}
+
+function readRepeatedCsvOptions(args, option) {
+  const values = [];
+  for (;;) {
+    const value = readOption(args, option);
+    if (!value) break;
+    values.push(...value.split(",").map((item) => item.trim()).filter(Boolean));
+  }
+  return [...new Set(values)];
 }
 
 async function forwardCommand(args) {

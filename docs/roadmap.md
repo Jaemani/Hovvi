@@ -419,6 +419,9 @@ Current status:
   account tokens only see and operate on agents authenticated to the same
   account. Cross-account attach, forward, and datagram requests return the same
   offline-style error as missing devices to avoid leaking device existence.
+- `hovvi token generate` and `hovvi token hash` can now create account-scoped,
+  device-scoped, client-scoped, and time-bounded registry entries directly when
+  `--registry` is provided, while list output still omits raw hashes.
 - The registry has account and device upsert primitives with private file
   persistence preserved for future hosted registration workflows.
 
