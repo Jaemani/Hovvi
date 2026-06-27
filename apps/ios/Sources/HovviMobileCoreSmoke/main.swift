@@ -903,6 +903,25 @@ try require(
     composedSurface[1].runs.map(\.text).joined() == "local",
     "terminal surface live row should preserve terminal screen runs"
 )
+try require(
+    composedSurface[0].cursorColumn == nil,
+    "terminal surface should never project cursors onto scrollback rows"
+)
+try require(
+    composedSurface[1].cursorColumn == 5,
+    "terminal surface should project the visible cursor column on the live cursor row"
+)
+var hiddenCursorScreen = TerminalScreen(columns: 8, rows: 2)
+hiddenCursorScreen.apply("ab")
+hiddenCursorScreen.apply("\u{001B}[?25l")
+let hiddenCursorSnapshot = AttachShellSnapshot(
+    phase: .attached,
+    terminalScreen: hiddenCursorScreen
+)
+try require(
+    TerminalSurfaceProjection.lines(for: hiddenCursorSnapshot).allSatisfy { $0.cursorColumn == nil },
+    "terminal surface should suppress cursor projection when DEC cursor visibility is hidden"
+)
 let cappedViewport = TerminalSurfaceProjection.viewport(lines: composedSurface, maxRows: 1)
 try require(cappedViewport.lines.map(\.id) == ["live-screen-24"], "terminal surface viewport should keep the newest rows when capped")
 try require(cappedViewport.anchorId == "live-screen-24", "terminal surface viewport should anchor to the newest visible row")

@@ -33,9 +33,9 @@ runs.
 ## Consequences
 
 - Cursor visibility state is now deterministic and smoke-tested.
-- Existing text, scrollback, SGR, and line-projection tests do not change.
-- Actual cursor drawing remains a UI projection task so it can be implemented
-  without corrupting terminal text or scrollback.
+- Existing text, scrollback, SGR, and line-projection invariants do not change.
+- Actual cursor drawing is handled by ADR 0108 as UI projection metadata, without
+  corrupting terminal text or scrollback.
 
 ## Validation
 

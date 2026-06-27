@@ -103,8 +103,10 @@ respect the active scroll region.
 Cursor next/previous line (`CSI E/F`) and horizontal absolute positioning
 (`CSI G`/`` ` ``) are supported with bounds clamping.
 Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
-Cursor visibility (`CSI ? 25 h/l`) is tracked separately from terminal text so
-future cursor rendering can avoid corrupting scrollback or line content.
+Cursor visibility (`CSI ? 25 h/l`) is tracked separately from terminal text.
+The SwiftUI surface projects the live cursor as separate row metadata and draws
+it as an overlay, so cursor rendering does not corrupt scrollback or line
+content.
 Saved cursor sequences (`ESC 7/8` and `CSI s/u`) restore cursor position and
 SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.
@@ -126,8 +128,9 @@ preserving cursor position.
 `TerminalSurfaceView` composes tmux-native scrollback rows above the current
 live screen rows with separate stable IDs. Before live output arrives, it falls
 back to scrollback only.
-`TerminalSurfaceProjection` exposes that row composition as public data so CI can
-validate render inputs before simulator/device screenshot coverage is added.
+`TerminalSurfaceProjection` exposes that row composition and live cursor
+metadata as public data so CI can validate render inputs before simulator/device
+screenshot coverage is added.
 `TerminalSurfaceViewport` caps the immediate SwiftUI render input and exposes a
 bottom anchor so large scrollback snapshots do not create an unbounded terminal
 view.

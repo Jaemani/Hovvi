@@ -289,6 +289,9 @@ Current status:
 - Swift mobile terminal state now tracks DEC cursor visibility mode
   (`CSI ? 25 h/l`) separately from terminal text so future cursor rendering does
   not corrupt scrollback or line content.
+- Swift mobile terminal projection now exposes the visible live cursor as
+  separate row metadata and renders it as an overlay, leaving tmux scrollback and
+  terminal text runs unchanged.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.
@@ -351,7 +354,7 @@ Current status:
   wide grapheme cursor advancement, scroll-region line-feed behavior,
   reverse-index bounded scrolling, DEC origin mode, cursor line/column
   movement, bracketed paste mode, OSC skipping, DEC special graphics character
-  mapping, cursor visibility state, saved cursor state, line/character
+  mapping, cursor visibility state and UI projection, saved cursor state, line/character
   insert-delete, tab-stop, and erase-character behavior in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and

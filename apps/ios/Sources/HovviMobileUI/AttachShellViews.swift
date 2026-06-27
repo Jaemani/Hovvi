@@ -11,11 +11,18 @@ public struct TerminalSurfaceLine: Identifiable, Equatable, Sendable {
     public let id: String
     public let source: TerminalSurfaceLineSource
     public let runs: [TerminalScreenRun]
+    public let cursorColumn: Int?
 
-    public init(id: String, source: TerminalSurfaceLineSource, runs: [TerminalScreenRun]) {
+    public init(
+        id: String,
+        source: TerminalSurfaceLineSource,
+        runs: [TerminalScreenRun],
+        cursorColumn: Int? = nil
+    ) {
         self.id = id
         self.source = source
         self.runs = runs
+        self.cursorColumn = cursorColumn
     }
 }
 
@@ -172,7 +179,12 @@ public enum TerminalSurfaceProjection {
             return scrollbackLines
         }
         let screenLines = screen.visibleLines.map {
-            TerminalSurfaceLine(id: "live-\($0.id)", source: .live, runs: $0.runs)
+            TerminalSurfaceLine(
+                id: "live-\($0.id)",
+                source: .live,
+                runs: $0.runs,
+                cursorColumn: screen.isCursorVisible && $0.row == screen.cursorRow ? screen.cursorColumn : nil
+            )
         }
         return scrollbackLines + screenLines
     }
@@ -649,17 +661,26 @@ private struct TerminalSurfaceLineView: View {
     let line: TerminalSurfaceLine
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            if line.runs.isEmpty {
-                Text(" ")
-            } else {
-                ForEach(Array(line.runs.enumerated()), id: \.offset) { item in
-                    item.element.runView
+        ZStack(alignment: .topLeading) {
+            if let cursorColumn = line.cursorColumn {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.22))
+                    .frame(width: TerminalGeometry.cellWidth, height: TerminalGeometry.cellHeight)
+                    .offset(x: Double(cursorColumn) * TerminalGeometry.cellWidth)
+                    .allowsHitTesting(false)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                if line.runs.isEmpty {
+                    Text(" ")
+                } else {
+                    ForEach(Array(line.runs.enumerated()), id: \.offset) { item in
+                        item.element.runView
+                    }
                 }
             }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
         }
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
