@@ -852,6 +852,29 @@ try require(previewSnapshot.phase == .attached, "preview fixture should model an
 try require(previewSnapshot.devices.first?.sessions.first?.aiPanes.map(\.command) == ["claude", "codex"], "preview fixture should expose detected AI panes")
 try require(previewSnapshot.selectedDeviceId == "macbook-pro", "preview fixture should select the Mac")
 try require(previewSnapshot.selectedSessionName == "main", "preview fixture should select the tmux session")
+guard let previewSessions = previewSnapshot.devices.first?.sessions else {
+    throw SmokeError("preview fixture should expose sessions")
+}
+try require(
+    SessionPresentation.iconName(for: previewSessions[0], selected: true) == "sparkles.rectangle.stack.fill",
+    "session presentation should use AI icon for selected AI dev sessions"
+)
+try require(
+    SessionPresentation.subtitle(for: previewSessions[0]) == "AI dev / 3 windows / attached / Claude Code / Codex",
+    "session presentation should summarize AI coding sessions"
+)
+try require(
+    SessionPresentation.iconName(for: previewSessions[1]) == "rectangle.3.group",
+    "session presentation should use cmux icon for cmux sessions"
+)
+try require(
+    SessionPresentation.subtitle(for: previewSessions[1]) == "cmux / 2 windows / Codex",
+    "session presentation should summarize cmux sessions with detected AI panes"
+)
+try require(
+    SessionPresentation.subtitle(for: previewSessions[2]) == "tmux / 1 window",
+    "session presentation should summarize plain tmux sessions"
+)
 guard let previewManifest = previewSnapshot.manifest else {
     throw SmokeError("preview fixture should carry an attach manifest")
 }

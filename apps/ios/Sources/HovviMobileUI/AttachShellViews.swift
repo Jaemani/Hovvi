@@ -31,6 +31,104 @@ public struct TerminalSurfaceViewport: Equatable, Sendable {
     }
 }
 
+public struct SessionStatusBadge: Equatable, Sendable {
+    public let text: String
+    public let systemImage: String?
+
+    public init(text: String, systemImage: String? = nil) {
+        self.text = text
+        self.systemImage = systemImage
+    }
+}
+
+public enum SessionPresentation {
+    public static func iconName(for session: Session, selected: Bool = false) -> String {
+        switch session.kind {
+        case "cmux":
+            return selected ? "rectangle.3.group.fill" : "rectangle.3.group"
+        case "ai-dev":
+            return selected ? "sparkles.rectangle.stack.fill" : "sparkles.rectangle.stack"
+        default:
+            return selected ? "terminal.fill" : "terminal"
+        }
+    }
+
+    public static func subtitle(for session: Session) -> String {
+        badges(for: session).map(\.text).joined(separator: " / ")
+    }
+
+    public static func badges(for session: Session) -> [SessionStatusBadge] {
+        var badges = [
+            SessionStatusBadge(text: kindLabel(for: session.kind), systemImage: kindIconName(for: session.kind))
+        ]
+        if let windows = session.windows {
+            let noun = windows == 1 ? "window" : "windows"
+            badges.append(SessionStatusBadge(text: "\(windows) \(noun)", systemImage: "rectangle.split.3x1"))
+        }
+        if session.attached == true {
+            badges.append(SessionStatusBadge(text: "attached", systemImage: "person.crop.circle.badge.checkmark"))
+        }
+        for command in uniqueAiCommands(for: session) {
+            badges.append(SessionStatusBadge(text: command, systemImage: "sparkles"))
+        }
+        return badges
+    }
+
+    private static func kindLabel(for kind: String) -> String {
+        switch kind {
+        case "tmux":
+            return "tmux"
+        case "cmux":
+            return "cmux"
+        case "ai-dev":
+            return "AI dev"
+        default:
+            return kind
+        }
+    }
+
+    private static func kindIconName(for kind: String) -> String {
+        switch kind {
+        case "cmux":
+            return "rectangle.3.group"
+        case "ai-dev":
+            return "sparkles.rectangle.stack"
+        default:
+            return "terminal"
+        }
+    }
+
+    private static func uniqueAiCommands(for session: Session) -> [String] {
+        var seen = Set<String>()
+        var labels: [String] = []
+        for pane in session.aiPanes {
+            let label = commandLabel(pane.command)
+            if seen.insert(label).inserted {
+                labels.append(label)
+            }
+        }
+        return labels
+    }
+
+    private static func commandLabel(_ command: String) -> String {
+        let executable = command.split(separator: "/").last.map(String.init) ?? command
+        switch executable {
+        case "claude":
+            return "Claude Code"
+        case "codex":
+            return "Codex"
+        case "gemini":
+            return "Gemini"
+        case "aider":
+            return "aider"
+        case "cursor-agent":
+            return "Cursor Agent"
+        default:
+            return executable
+        }
+    }
+}
+
 public enum TerminalSurfaceProjection {
     public static let defaultViewportLineLimit = 5000
 
@@ -294,16 +392,13 @@ public struct SessionRow: View {
 
     public var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: selected ? "terminal.fill" : "terminal")
+            Image(systemName: SessionPresentation.iconName(for: session, selected: selected))
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.name)
                     .font(.headline)
                     .lineLimit(1)
-                Text(sessionKindText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                SessionBadgesView(badges: SessionPresentation.badges(for: session))
             }
             Spacer()
             if session.aiPanes.isEmpty == false {
@@ -313,16 +408,41 @@ public struct SessionRow: View {
         }
         .contentShape(Rectangle())
     }
+}
 
-    private var sessionKindText: String {
-        var parts = [session.kind]
-        if let windows = session.windows {
-            parts.append("\(windows) windows")
+@MainActor
+private struct SessionBadgesView: View {
+    let badges: [SessionStatusBadge]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                ForEach(Array(badges.enumerated()), id: \.offset) { item in
+                    SessionBadgeView(badge: item.element)
+                }
+            }
+            Text(badges.map(\.text).joined(separator: " / "))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
-        if session.aiPanes.isEmpty == false {
-            parts.append(session.aiPanes.map(\.command).joined(separator: ", "))
+    }
+}
+
+@MainActor
+private struct SessionBadgeView: View {
+    let badge: SessionStatusBadge
+
+    var body: some View {
+        HStack(spacing: 3) {
+            if let systemImage = badge.systemImage {
+                Image(systemName: systemImage)
+            }
+            Text(badge.text)
         }
-        return parts.joined(separator: " / ")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
     }
 }
 

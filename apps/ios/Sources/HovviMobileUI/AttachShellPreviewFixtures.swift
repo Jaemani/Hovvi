@@ -15,12 +15,22 @@ public enum AttachShellPreviewFixtures {
                 Session(
                     id: "tmux-main",
                     name: "main",
-                    kind: "tmux",
+                    kind: "ai-dev",
                     attached: true,
                     windows: 3,
                     aiPanes: [
                         Pane(paneId: "%12", command: "claude", cwd: "~/Codes/Hovvi", title: "Claude Code"),
                         Pane(paneId: "%15", command: "codex", cwd: "~/Codes/Hovvi", title: "Codex")
+                    ]
+                ),
+                Session(
+                    id: "cmux-dev",
+                    name: "cmux-dev",
+                    kind: "cmux",
+                    attached: false,
+                    windows: 2,
+                    aiPanes: [
+                        Pane(paneId: "%18", command: "/opt/homebrew/bin/codex", cwd: "~/Codes/Hovvi", title: "Codex")
                     ]
                 ),
                 Session(id: "tmux-build", name: "build", kind: "tmux", attached: false, windows: 1)

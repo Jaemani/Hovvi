@@ -218,6 +218,10 @@ Current status:
 - Swift mobile terminal viewport projection now caps immediate SwiftUI render
   input, exposes a deterministic bottom anchor, and reports when older rows are
   truncated above the viewport.
+- Swift mobile session rows now use a tested `SessionPresentation` projection so
+  tmux, cmux, AI coding sessions, attached state, window counts, and detected
+  Claude Code/Codex/Gemini/aider/Cursor Agent panes render through stable UI
+  metadata instead of ad hoc row strings.
 - Swift mobile attach shell fixtures now provide deterministic browsing,
   attached coding-agent, failed reattach, and capped viewport states for future
   simulator/device rendering validation without depending on a live relay.
