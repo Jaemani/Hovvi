@@ -361,6 +361,156 @@ test("login can register GitHub account and device metadata in registry", async 
   }
 });
 
+test("login can issue scoped client relay token into registry and private config", async () => {
+  const previousConfig = process.env.HOVVI_CONFIG;
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-login-client-token-"));
+  const configPath = join(dir, "config.json");
+  const registryPath = join(dir, "registry.json");
+  const auditPath = join(dir, "audit.jsonl");
+  process.env.HOVVI_CONFIG = configPath;
+
+  try {
+    const output = await captureStdout(() =>
+      main(
+        [
+          "login",
+          "--client-id",
+          "oauth-client-1",
+          "--registry",
+          registryPath,
+          "--audit-log",
+          auditPath,
+          "--issue-token",
+          "client",
+          "--relay-client",
+          "ios-main",
+          "--token-name",
+          "jaeman-ios",
+          "--expires-at",
+          "2026-07-01T00:00:00.000Z",
+        ],
+        {
+          githubDeviceLogin: async () => ({
+            accessToken: "gho_secret",
+            user: { login: "Jaemani", id: 39300288 },
+          }),
+        },
+      ),
+    );
+
+    const registry = loadRegistry(registryPath);
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    const tokenEntry = registry.tokens[0];
+    const auditEntries = readAuditEntries(auditPath);
+
+    assert.equal(tokenEntry.name, "jaeman-ios");
+    assert.equal(tokenEntry.accountId, "github:39300288");
+    assert.deepEqual(tokenEntry.roles, ["client"]);
+    assert.deepEqual(tokenEntry.clientIds, ["ios-main"]);
+    assert.equal(tokenEntry.expiresAt, "2026-07-01T00:00:00.000Z");
+    assert.equal(tokenEntry.hash, hashToken(config.relay.token));
+    assert.equal(config.relay.clientId, "ios-main");
+    assert.match(config.relay.token, /^hovvi_/);
+    assert.match(output, /Issued client relay token jaeman-ios and saved it to config/);
+    assert.equal(output.includes(config.relay.token), false);
+    assert.equal(output.includes("gho_secret"), false);
+    assert.equal(JSON.stringify(auditEntries).includes(config.relay.token), false);
+    assert.equal(JSON.stringify(auditEntries).includes(tokenEntry.hash), false);
+    assert.deepEqual(
+      auditEntries.map((entry) => entry.type),
+      ["registry.account.upsert", "registry.token.generate"],
+    );
+  } finally {
+    if (previousConfig === undefined) {
+      delete process.env.HOVVI_CONFIG;
+    } else {
+      process.env.HOVVI_CONFIG = previousConfig;
+    }
+  }
+});
+
+test("login can issue device-scoped agent relay token into registry and private config", async () => {
+  const previousConfig = process.env.HOVVI_CONFIG;
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-login-agent-token-"));
+  const configPath = join(dir, "config.json");
+  const registryPath = join(dir, "registry.json");
+  process.env.HOVVI_CONFIG = configPath;
+
+  try {
+    const output = await captureStdout(() =>
+      main(
+        [
+          "login",
+          "--client-id",
+          "oauth-client-1",
+          "--registry",
+          registryPath,
+          "--device",
+          "mac-main",
+          "--device-name",
+          "Mac Studio",
+          "--issue-token",
+          "agent",
+        ],
+        {
+          githubDeviceLogin: async () => ({
+            accessToken: "gho_secret",
+            user: { login: "Jaemani", id: 39300288 },
+          }),
+        },
+      ),
+    );
+
+    const registry = loadRegistry(registryPath);
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    const tokenEntry = registry.tokens[0];
+
+    assert.equal(tokenEntry.name, "github:39300288:agent:mac-main");
+    assert.equal(tokenEntry.accountId, "github:39300288");
+    assert.deepEqual(tokenEntry.roles, ["agent"]);
+    assert.deepEqual(tokenEntry.deviceIds, ["mac-main"]);
+    assert.equal(tokenEntry.hash, hashToken(config.relay.token));
+    assert.equal(Object.hasOwn(config.relay, "clientId"), false);
+    assert.equal(config.device.id, "mac-main");
+    assert.equal(config.device.name, "Mac Studio");
+    assert.match(output, /Registered device mac-main/);
+    assert.match(output, /Issued agent relay token github:39300288:agent:mac-main and saved it to config/);
+    assert.equal(output.includes(config.relay.token), false);
+
+    await assert.rejects(
+      () =>
+        captureStdout(() =>
+          main(
+            [
+              "login",
+              "--client-id",
+              "oauth-client-1",
+              "--registry",
+              registryPath,
+              "--device",
+              "mac-main",
+              "--issue-token",
+              "agent",
+            ],
+            {
+              githubDeviceLogin: async () => ({
+                accessToken: "gho_other",
+                user: { login: "Jaemani", id: 39300288 },
+              }),
+            },
+          ),
+        ),
+      /Registry token already exists: github:39300288:agent:mac-main/,
+    );
+  } finally {
+    if (previousConfig === undefined) {
+      delete process.env.HOVVI_CONFIG;
+    } else {
+      process.env.HOVVI_CONFIG = previousConfig;
+    }
+  }
+});
+
 async function captureStdout(fn) {
   const originalWrite = process.stdout.write;
   let output = "";

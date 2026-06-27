@@ -44,7 +44,7 @@ const HELP = `Hovvi
 
 Usage:
   hovvi doctor [--json] [--network]
-  hovvi login [--client-id <github-oauth-client-id>] [--registry <path>] [--device <device-id>] [--account-name <name>] [--device-name <name>] [--platform <platform>]
+  hovvi login [--client-id <github-oauth-client-id>] [--registry <path>] [--device <device-id>] [--account-name <name>] [--device-name <name>] [--platform <platform>] [--issue-token agent|client] [--relay-client <client-id>] [--token-name <name>] [--expires-at <iso>]
   hovvi relay [--host 127.0.0.1] [--port 8787] [--token <token>] [--registry <path>] [--audit-log <path>] [--log <path>]
   hovvi up [--relay ws://127.0.0.1:8787] [--token <token>] [--name <device-name>] [--heartbeat-ms 10000]
   hovvi sessions [--json]
@@ -171,11 +171,24 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
   const accountName = readOption(args, "--account-name");
   const deviceName = readOption(args, "--device-name");
   const platform = readOption(args, "--platform");
+  const issueToken = readOption(args, "--issue-token");
+  const relayClientId = readOption(args, "--relay-client");
+  const tokenName = readOption(args, "--token-name");
+  const expiresAt = readOption(args, "--expires-at");
 
   if (!clientId) {
     throw new Error(
       "GitHub OAuth client id is required. Set HOVVI_GITHUB_CLIENT_ID or pass --client-id.",
     );
+  }
+  if (issueToken && !["agent", "client"].includes(issueToken)) {
+    throw new Error("login --issue-token must be agent or client.");
+  }
+  if (issueToken && !registryPath) {
+    throw new Error("login --issue-token requires --registry <path>.");
+  }
+  if (issueToken === "agent" && !deviceId) {
+    throw new Error("login --issue-token agent requires --device <device-id>.");
   }
 
   const login = await githubDeviceLogin({
@@ -194,7 +207,6 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
     accountId,
     token: login.accessToken,
   };
-  saveConfig(config);
   process.stdout.write(`Logged in as ${login.user.login}.\n`);
 
   if (registryPath) {
@@ -212,6 +224,17 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
         platform,
       });
     }
+    const issued = issueToken
+      ? issueLoginRegistryToken({
+          registry,
+          role: issueToken,
+          accountId,
+          deviceId,
+          clientId: relayClientId,
+          name: tokenName,
+          expiresAt,
+        })
+      : null;
     saveRegistry(registryPath, registry);
     audit?.record({
       type: "registry.account.upsert",
@@ -231,7 +254,26 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
       });
       process.stdout.write(`Registered device ${device.deviceId} account=${device.accountId}\n`);
     }
+    if (issued) {
+      const relayConfig = {
+        ...(config.relay || {}),
+        token: issued.token,
+      };
+      if (issued.clientId) relayConfig.clientId = issued.clientId;
+      else delete relayConfig.clientId;
+      config.relay = relayConfig;
+      if (issueToken === "agent") {
+        config.device = {
+          ...(config.device || {}),
+          id: deviceId,
+          ...(deviceName ? { name: deviceName } : {}),
+        };
+      }
+      audit?.record(tokenAuditEvent("registry.token.generate", issued.entry));
+      process.stdout.write(`Issued ${issueToken} relay token ${issued.entry.name} and saved it to config.\n`);
+    }
   }
+  saveConfig(config);
 }
 
 function githubAccountId(user) {
@@ -732,6 +774,31 @@ function tokenRegistryEntry({ token, role, args }) {
     ...(notBefore ? { notBefore } : {}),
     ...(expiresAt ? { expiresAt } : {}),
   };
+}
+
+function issueLoginRegistryToken({ registry, role, accountId, deviceId, clientId, name, expiresAt }) {
+  const token = `hovvi_${randomId()}${randomId()}`;
+  const resolvedClientId = role === "client" ? clientId || `github-${accountId.replace(/[^A-Za-z0-9_.-]/g, "-")}` : undefined;
+  const entry = {
+    name: name || loginTokenName({ role, accountId, deviceId, clientId: resolvedClientId }),
+    accountId,
+    hash: hashToken(token),
+    roles: [role],
+    ...(role === "agent" ? { deviceIds: [deviceId] } : {}),
+    ...(role === "client" ? { clientIds: [resolvedClientId] } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+  };
+  registry.tokens = Array.isArray(registry.tokens) ? registry.tokens : [];
+  if (registry.tokens.some((existing) => existing.name === entry.name)) {
+    throw new Error(`Registry token already exists: ${entry.name}`);
+  }
+  registry.tokens.push(entry);
+  return { token, entry, clientId: resolvedClientId };
+}
+
+function loginTokenName({ role, accountId, deviceId, clientId }) {
+  if (role === "agent") return `${accountId}:agent:${deviceId}`;
+  return `${accountId}:client:${clientId}`;
 }
 
 function tokenListFilters({ role, args }) {
