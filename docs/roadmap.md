@@ -385,6 +385,9 @@ Current status:
   has unhealthy lifecycle state.
 - LaunchAgent plists now reference the private Hovvi config file only and avoid
   duplicating relay tokens in launchd environment variables.
+- `hovvi doctor` now checks that the private Hovvi config contains the relay URL
+  and token needed by config-only LaunchAgent startup, while redacting URL
+  credentials and never printing token values.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.

@@ -75,6 +75,10 @@ hovvi service uninstall
 The LaunchAgent plist points at the private Hovvi config file and does not store
 relay tokens directly in launchd environment variables.
 
+`hovvi doctor` checks that the private config contains a relay URL and token
+before the LaunchAgent is expected to run. Diagnostics redact URL credentials
+and report only `token=present`, never the token value.
+
 ## Relay Token Registry
 
 Development can use `--token dev`. A hosted relay should use hashed token entries:

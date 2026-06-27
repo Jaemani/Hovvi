@@ -8,6 +8,7 @@ test("runDoctor reports launchd service state without network checks", async () 
     network: false,
     commandExistsFn: () => true,
     runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787", token: "agent-secret-token" } }),
     platformFn: () => "darwin",
     serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
   });
@@ -19,7 +20,75 @@ test("runDoctor reports launchd service state without network checks", async () 
     message: "loaded",
     detail: "dev.hovvi.agent",
   });
+  assert.deepEqual(findItem(report, "relay config"), {
+    name: "relay config",
+    status: "pass",
+    message: "configured",
+    detail: "relay=ws://relay.example.test:8787/ token=present",
+  });
+  assert.doesNotMatch(JSON.stringify(report), /agent-secret-token/);
   assert.equal(findItem(report, "relay reachability").message, "Skipped. Run `hovvi doctor --network` to connect to the configured relay.");
+});
+
+test("runDoctor warns when private relay config is incomplete", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: false, detail: "not loaded" }),
+  });
+
+  assert.equal(report.ok, true);
+  assert.deepEqual(findItem(report, "relay config"), {
+    name: "relay config",
+    status: "warn",
+    message: "incomplete",
+    detail:
+      "Missing relay token in private config. Run `hovvi service install --relay <url> --token <agent-token>` before starting the LaunchAgent.",
+  });
+});
+
+test("runDoctor redacts relay URL credentials in relay config diagnostics", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "wss://user:pass@relay.example.test/hovvi", token: "super-secret-token" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  const serialized = JSON.stringify(report);
+  assert.deepEqual(findItem(report, "relay config"), {
+    name: "relay config",
+    status: "pass",
+    message: "configured",
+    detail: "relay=wss://%5Bredacted%5D:%5Bredacted%5D@relay.example.test/hovvi token=present",
+  });
+  assert.doesNotMatch(serialized, /super-secret-token|user:pass/);
+});
+
+test("runDoctor reports unreadable private relay config without network checks", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => {
+      throw new Error("invalid JSON");
+    },
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  assert.equal(report.ok, true);
+  assert.deepEqual(findItem(report, "relay config"), {
+    name: "relay config",
+    status: "warn",
+    message: "could not read config",
+    detail: "invalid JSON",
+  });
 });
 
 test("runDoctor checks configured relay only in network mode", async () => {

@@ -18,6 +18,7 @@ export async function runDoctor({
   relayReachabilityFn = checkRelayReachability,
 } = {}) {
   const items = [];
+  const configState = readConfigForDoctor(getConfigFn);
 
   for (const command of REQUIRED) {
     items.push(checkCommand(command, true, { commandExistsFn }));
@@ -28,9 +29,10 @@ export async function runDoctor({
   }
 
   items.push(...checkGitIdentity({ runTextFn }));
+  items.push(checkRelayConfig(configState));
   items.push(checkServiceState({ platformFn, serviceStatusFn }));
   if (network) {
-    const config = getConfigFn();
+    const config = configState.config || {};
     const relayUrl = process.env.HOVVI_RELAY_URL || config.relay?.url || "ws://127.0.0.1:8787";
     const githubCli = checkGithubCli({ runTextFn });
     const githubSsh = checkGithubSsh({ runTextFn });
@@ -72,6 +74,47 @@ function checkCommand(command, required, { commandExistsFn }) {
     status: required ? "fail" : "warn",
     message: required ? "missing" : "not installed",
     detail: installHint(command),
+  };
+}
+
+function readConfigForDoctor(getConfigFn) {
+  try {
+    return { config: getConfigFn() || {} };
+  } catch (error) {
+    return { config: {}, error };
+  }
+}
+
+function checkRelayConfig({ config, error }) {
+  if (error) {
+    return {
+      name: "relay config",
+      status: "warn",
+      message: "could not read config",
+      detail: error.message,
+    };
+  }
+
+  const relayUrl = config.relay?.url;
+  const relayToken = config.relay?.token;
+  const missing = [];
+  if (!relayUrl) missing.push("relay URL");
+  if (!relayToken) missing.push("relay token");
+
+  if (missing.length === 0) {
+    return {
+      name: "relay config",
+      status: "pass",
+      message: "configured",
+      detail: `relay=${redactUrlCredentials(relayUrl)} token=present`,
+    };
+  }
+
+  return {
+    name: "relay config",
+    status: "warn",
+    message: "incomplete",
+    detail: `Missing ${missing.join(" and ")} in private config. Run \`hovvi service install --relay <url> --token <agent-token>\` before starting the LaunchAgent.`,
   };
 }
 
