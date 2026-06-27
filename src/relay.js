@@ -273,6 +273,7 @@ function registerSocket(state, ws, message) {
     role: message.role,
     subject: principal.subject,
     source: principal.source,
+    accountId: principal.accountId,
     deviceId,
     clientId: message.role === "client" ? clientId : undefined,
   });

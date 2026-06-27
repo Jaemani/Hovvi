@@ -424,6 +424,8 @@ Current status:
   `--registry` is provided, while list output still omits raw hashes.
 - The registry has account and device upsert primitives with private file
   persistence preserved for future hosted registration workflows.
+- Relay accepted-auth audit events include the authenticated registry
+  `accountId` while continuing to omit raw relay tokens and token hashes.
 
 ### 8. Release and Distribution
 

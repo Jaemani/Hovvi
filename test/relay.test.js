@@ -82,6 +82,32 @@ test("relay enforces device-bound registry tokens", () => {
   assert.equal(state.audit.recent().at(-1).reason, "device_not_allowed");
 });
 
+test("relay records account id for accepted registry auth without token material", () => {
+  const state = createRelayState();
+  state.access.registry.tokens = [
+    { name: "acct-client", accountId: "acct_1", hash: hashToken("client-secret"), roles: ["client"] },
+  ];
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("hello", { role: "client", token: "client-secret", clientId: "client-1" })),
+  );
+
+  const record = state.audit.recent().at(-1);
+  assert.equal(record.type, "auth.accept");
+  assert.equal(record.role, "client");
+  assert.equal(record.subject, "acct-client");
+  assert.equal(record.source, "registry");
+  assert.equal(record.accountId, "acct_1");
+  assert.equal(record.clientId, "client-1");
+  assert.equal(JSON.stringify(record).includes("client-secret"), false);
+  assert.equal(JSON.stringify(record).includes(hashToken("client-secret")), false);
+  assert.equal(Object.hasOwn(record, "token"), false);
+  assert.equal(Object.hasOwn(record, "hash"), false);
+});
+
 test("relay scopes device snapshots to registry token account ids", () => {
   const state = createRelayState();
   state.access.registry.tokens = [
