@@ -854,6 +854,38 @@ try require(fittedTerminalSize.columns == 120, "terminal geometry should calcula
 try require(fittedTerminalSize.rows == 30, "terminal geometry should calculate rows from surface height")
 try require(TerminalGeometry.surfaceWidth(columns: 20) == 320, "terminal surface width should enforce minimum columns")
 try require(TerminalGeometry.surfaceWidth(columns: 120) == 960, "terminal surface width should scale with terminal columns")
+try require(
+    TerminalAutoFollowPolicy.shouldScrollToBottom(
+        previousAnchorId: "live-screen-23",
+        nextAnchorId: "live-screen-24",
+        followsLiveOutput: true
+    ),
+    "terminal auto-follow should scroll when following live output and anchor advances"
+)
+try require(
+    TerminalAutoFollowPolicy.shouldScrollToBottom(
+        previousAnchorId: "live-screen-23",
+        nextAnchorId: "live-screen-24",
+        followsLiveOutput: false
+    ) == false,
+    "terminal auto-follow should not scroll while the user holds scrollback"
+)
+try require(
+    TerminalAutoFollowPolicy.shouldScrollToBottom(
+        previousAnchorId: "live-screen-24",
+        nextAnchorId: "live-screen-24",
+        followsLiveOutput: true
+    ) == false,
+    "terminal auto-follow should ignore unchanged anchors"
+)
+try require(
+    TerminalAutoFollowPolicy.shouldScrollToBottom(
+        previousAnchorId: "live-screen-24",
+        nextAnchorId: nil,
+        followsLiveOutput: true
+    ) == false,
+    "terminal auto-follow should ignore empty viewports"
+)
 
 let previewSnapshot = AttachShellPreviewFixtures.attachedCodingAgent
 try require(previewSnapshot.phase == .attached, "preview fixture should model an attached terminal")

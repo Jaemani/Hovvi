@@ -59,6 +59,16 @@ public enum TerminalGeometry {
     }
 }
 
+public enum TerminalAutoFollowPolicy {
+    public static func shouldScrollToBottom(
+        previousAnchorId: String?,
+        nextAnchorId: String?,
+        followsLiveOutput: Bool
+    ) -> Bool {
+        followsLiveOutput && nextAnchorId != nil && previousAnchorId != nextAnchorId
+    }
+}
+
 public enum SessionPresentation {
     public static func iconName(for session: Session, selected: Bool = false) -> String {
         switch session.kind {
@@ -538,6 +548,7 @@ public struct TerminalDetail: View {
 public struct TerminalSurfaceView: View {
     public let snapshot: AttachShellSnapshot
     public let onResize: (MoshCoreTerminalSize) -> Void
+    @State private var followsLiveOutput = true
 
     public init(snapshot: AttachShellSnapshot, onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }) {
         self.snapshot = snapshot
@@ -546,39 +557,66 @@ public struct TerminalSurfaceView: View {
 
     public var body: some View {
         ScrollViewReader { proxy in
-            ScrollView([.vertical, .horizontal]) {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(viewport.lines) { line in
-                        TerminalSurfaceLineView(line: line)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(
-                                minWidth: TerminalGeometry.surfaceWidth(
-                                    columns: snapshot.terminalScreen?.columns ?? TerminalGeometry.minimumColumns
-                                ),
-                                alignment: .leading
-                            )
-                            .id(line.id)
+            VStack(spacing: 0) {
+                if viewport.lines.isEmpty == false {
+                    HStack {
+                        Spacer()
+                        Button {
+                            followsLiveOutput.toggle()
+                        } label: {
+                            Image(systemName: followsLiveOutput ? "arrow.down.to.line.compact" : "pause.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help(followsLiveOutput ? "Follow live output" : "Hold scroll position")
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    Divider()
+                }
+                ScrollView([.vertical, .horizontal]) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(viewport.lines) { line in
+                            TerminalSurfaceLineView(line: line)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(
+                                    minWidth: TerminalGeometry.surfaceWidth(
+                                        columns: snapshot.terminalScreen?.columns ?? TerminalGeometry.minimumColumns
+                                    ),
+                                    alignment: .leading
+                                )
+                                .id(line.id)
+                        }
+                    }
+                    .padding(12)
+                }
+                .background(Color.black.opacity(0.03))
+                .overlay {
+                    if viewport.lines.isEmpty {
+                        ContentUnavailableView("No Output", systemImage: "terminal", description: Text(emptyDescription))
                     }
                 }
-                .padding(12)
+                .onGeometryChange(for: CGSize.self) { proxy in
+                    proxy.size
+                } action: { size in
+                    onResize(TerminalGeometry.terminalSize(width: size.width, height: size.height))
+                }
             }
-            .background(Color.black.opacity(0.03))
-            .onChange(of: viewport.anchorId) { _, id in
-                guard let id else { return }
+            .onChange(of: viewport.anchorId) { previousId, id in
+                guard TerminalAutoFollowPolicy.shouldScrollToBottom(
+                    previousAnchorId: previousId,
+                    nextAnchorId: id,
+                    followsLiveOutput: followsLiveOutput
+                ) else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo(id, anchor: .bottom)
                 }
             }
-            .overlay {
-                if viewport.lines.isEmpty {
-                    ContentUnavailableView("No Output", systemImage: "terminal", description: Text(emptyDescription))
+            .onChange(of: snapshot.phase) { _, phase in
+                if phase != .attached {
+                    followsLiveOutput = true
                 }
-            }
-            .onGeometryChange(for: CGSize.self) { proxy in
-                proxy.size
-            } action: { size in
-                onResize(TerminalGeometry.terminalSize(width: size.width, height: size.height))
             }
         }
     }
