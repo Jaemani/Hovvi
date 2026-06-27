@@ -1,4 +1,5 @@
 import { platform } from "node:os";
+import { existsSync, statSync } from "node:fs";
 import WebSocket from "ws";
 import { configPath, getConfig } from "./config.js";
 import { redactUrlCredentials } from "./redaction.js";
@@ -31,6 +32,7 @@ export async function runDoctor({
 
   items.push(...checkGitIdentity({ runTextFn }));
   items.push(checkRelayConfig(configState));
+  items.push(checkConfigFileMode({ configPathFn }));
   items.push(checkServiceState({ platformFn, serviceStatusFn, configPathFn }));
   if (network) {
     const config = configState.config || {};
@@ -60,6 +62,51 @@ export async function runDoctor({
     ok: items.every((item) => item.status !== "fail"),
     items,
   };
+}
+
+function checkConfigFileMode({ configPathFn, existsFn = existsSync, statFn = statSync }) {
+  const path = configPathFn();
+  if (!existsFn(path)) {
+    return {
+      name: "private config file",
+      status: "warn",
+      message: "not found",
+      detail: path,
+    };
+  }
+
+  try {
+    const mode = statFn(path).mode & 0o777;
+    if ((mode & 0o077) !== 0) {
+      return {
+        name: "private config file",
+        status: "warn",
+        message: "permissions too broad",
+        detail: `${path} mode=${formatMode(mode)}. Run \`chmod 600 ${shellQuote(path)}\`.`,
+      };
+    }
+    return {
+      name: "private config file",
+      status: "pass",
+      message: "private",
+      detail: `${path} mode=${formatMode(mode)}`,
+    };
+  } catch (error) {
+    return {
+      name: "private config file",
+      status: "warn",
+      message: "could not inspect permissions",
+      detail: `${path}: ${error.message}`,
+    };
+  }
+}
+
+function formatMode(mode) {
+  return `0${mode.toString(8).padStart(3, "0")}`;
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
 function checkCommand(command, required, { commandExistsFn }) {

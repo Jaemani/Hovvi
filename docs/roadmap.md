@@ -388,6 +388,8 @@ Current status:
 - `hovvi doctor` now checks that the private Hovvi config contains the relay URL
   and token needed by config-only LaunchAgent startup, while redacting URL
   credentials and never printing token values.
+- `hovvi doctor` now warns when the private Hovvi config file has group/world
+  permissions, keeping persisted relay tokens auditable without printing them.
 - `hovvi service install` now requires a relay URL and agent token from flags,
   environment, or private config instead of silently installing a LaunchAgent
   with local development defaults. The generated plist points at the same

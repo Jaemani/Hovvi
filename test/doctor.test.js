@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { checkRelayReachability, runDoctor } from "../src/doctor.js";
 
 test("runDoctor reports launchd service state without network checks", async () => {
@@ -9,6 +12,7 @@ test("runDoctor reports launchd service state without network checks", async () 
     commandExistsFn: () => true,
     runTextFn: fakeGitIdentity,
     getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787", token: "agent-secret-token" } }),
+    configPathFn: () => join(tmpdir(), "hovvi-missing-test-config.json"),
     platformFn: () => "darwin",
     serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
   });
@@ -27,6 +31,7 @@ test("runDoctor reports launchd service state without network checks", async () 
     detail: "relay=ws://relay.example.test:8787/ token=present",
   });
   assert.doesNotMatch(JSON.stringify(report), /agent-secret-token/);
+  assert.equal(findItem(report, "private config file").message, "not found");
   assert.equal(findItem(report, "relay reachability").message, "Skipped. Run `hovvi doctor --network` to connect to the configured relay.");
 });
 
@@ -48,6 +53,43 @@ test("runDoctor warns when private relay config is incomplete", async () => {
     detail:
       "Missing relay token in private config. Run `hovvi login --relay <url> --issue-token agent` or `hovvi service install --relay <url> --token <agent-token>` before starting the LaunchAgent.",
   });
+});
+
+test("runDoctor passes private config file with owner-only permissions", async () => {
+  const path = tempConfigFile(0o600);
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "wss://relay.example.test", token: "secret" } }),
+    configPathFn: () => path,
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  const item = findItem(report, "private config file");
+  assert.equal(item.status, "pass");
+  assert.equal(item.message, "private");
+  assert.match(item.detail, /mode=0600/);
+});
+
+test("runDoctor warns when private config file is group or world readable", async () => {
+  const path = tempConfigFile(0o644);
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "wss://relay.example.test", token: "secret" } }),
+    configPathFn: () => path,
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  const item = findItem(report, "private config file");
+  assert.equal(item.status, "warn");
+  assert.equal(item.message, "permissions too broad");
+  assert.match(item.detail, /mode=0644/);
+  assert.match(item.detail, /chmod 600/);
 });
 
 test("runDoctor redacts relay URL credentials in relay config diagnostics", async () => {
@@ -304,6 +346,14 @@ function ok(text) {
     stderr: "",
     text,
   };
+}
+
+function tempConfigFile(mode) {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-doctor-config-mode-"));
+  const path = join(dir, "config.json");
+  writeFileSync(path, "{}\n", { mode });
+  chmodSync(path, mode);
+  return path;
 }
 
 class OpenWebSocket extends EventEmitter {

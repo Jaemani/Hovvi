@@ -91,6 +91,8 @@ relay tokens directly in launchd environment variables.
 `hovvi doctor` checks that the private config contains a relay URL and token
 before the LaunchAgent is expected to run. Diagnostics redact URL credentials
 and report only `token=present`, never the token value.
+It also warns when the private config file has group/world permissions; run
+`chmod 600 <config-path>` before using unattended LaunchAgent startup.
 
 ## Relay Token Registry
 
