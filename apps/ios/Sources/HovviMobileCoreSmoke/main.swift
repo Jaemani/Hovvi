@@ -485,6 +485,20 @@ try require(
     oscStScreen.visibleLines[0].text == "leftright",
     "terminal screen should skip OSC sequences terminated by ST"
 )
+var splitOscBelScreen = TerminalScreen(columns: 16, rows: 1)
+splitOscBelScreen.apply("a\u{001B}]0;split title")
+splitOscBelScreen.apply(" still metadata\u{0007}b")
+try require(
+    splitOscBelScreen.visibleLines[0].text == "ab",
+    "terminal screen should keep skipping split OSC sequences until BEL"
+)
+var splitOscStScreen = TerminalScreen(columns: 16, rows: 1)
+splitOscStScreen.apply("x\u{001B}]1337;split\u{001B}")
+splitOscStScreen.apply("\\y")
+try require(
+    splitOscStScreen.visibleLines[0].text == "xy",
+    "terminal screen should keep skipping split OSC sequences until ST"
+)
 var bracketedPasteModeScreen = TerminalScreen(columns: 8, rows: 1)
 bracketedPasteModeScreen.apply("\u{001B}[?2004h")
 try require(bracketedPasteModeScreen.isBracketedPasteModeEnabled, "terminal screen should enable bracketed paste mode")

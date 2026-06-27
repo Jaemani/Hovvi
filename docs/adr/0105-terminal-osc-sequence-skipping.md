@@ -18,9 +18,10 @@ broken even when the mosh stream is healthy.
 ## Decision
 
 `TerminalScreen` now recognizes OSC introducer `ESC ]` and consumes bytes until
-the standard BEL terminator or ST terminator (`ESC \`). The sequence is skipped
-and does not mutate the screen, cursor, SGR attributes, scrollback, or attach
-state.
+the standard BEL terminator or ST terminator (`ESC \`). The skip state is held
+on the screen model, so OSC payloads that are split across separate mosh receive
+frames continue to be ignored until the terminator arrives. The sequence does
+not mutate the screen, cursor, SGR attributes, scrollback, or attach state.
 
 This is intentionally a skip policy, not a full OSC implementation. Hovvi can
 add explicit models for titles, hyperlinks, or terminal-integration metadata
@@ -33,8 +34,8 @@ text.
   terminal.
 - OSC payloads remain local terminal control metadata and are not interpreted by
   the relay.
-- Split OSC sequences across separate `apply` calls are still a future terminal
-  parser enhancement; the current parser remains stateless between chunks.
+- Split OSC sequences across separate `apply` calls no longer leak title or
+  integration metadata into the live terminal while waiting for the terminator.
 
 ## Validation
 
