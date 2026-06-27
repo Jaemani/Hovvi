@@ -175,7 +175,10 @@ public enum TerminalSurfaceProjection {
                 runs: [TerminalScreenRun(text: $0.text)]
             )
         }
-        guard let screen = snapshot.terminalScreen, screen.hasVisibleText else {
+        guard let screen = snapshot.terminalScreen else {
+            return scrollbackLines
+        }
+        if screen.hasVisibleText == false && (screen.isCursorVisible == false || snapshot.terminalOutput.isEmpty) {
             return scrollbackLines
         }
         let screenLines = screen.visibleLines.map {

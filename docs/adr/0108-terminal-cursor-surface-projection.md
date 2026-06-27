@@ -21,6 +21,11 @@ scrollback rows, or SGR text runs.
 matches `TerminalScreen.cursorRow` and only when `TerminalScreen.isCursorVisible`
 is true. Scrollback rows never receive cursor metadata.
 
+When a live screen has no text but has a visible cursor after receiving live
+terminal bytes, projection still emits the live blank rows so a cleared terminal
+can show the cursor. Before first live output, projection keeps the existing
+scrollback-only fallback.
+
 `TerminalSurfaceLineView` renders the cursor as a separate SwiftUI overlay using
 terminal cell geometry. Text runs remain the source of rendered glyphs and
 attributes.

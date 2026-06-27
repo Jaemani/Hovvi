@@ -922,6 +922,20 @@ try require(
     TerminalSurfaceProjection.lines(for: hiddenCursorSnapshot).allSatisfy { $0.cursorColumn == nil },
     "terminal surface should suppress cursor projection when DEC cursor visibility is hidden"
 )
+let blankCursorSnapshot = AttachShellSnapshot(
+    phase: .attached,
+    terminalScreen: TerminalScreen(columns: 8, rows: 2),
+    terminalOutput: Data("\u{001B}[2J".utf8)
+)
+let blankCursorSurface = TerminalSurfaceProjection.lines(for: blankCursorSnapshot)
+try require(
+    blankCursorSurface.map(\.id) == ["live-screen-0", "live-screen-1"],
+    "terminal surface should project blank live rows when only the visible cursor exists"
+)
+try require(
+    blankCursorSurface[0].cursorColumn == 0,
+    "terminal surface should project cursor position on blank live screens"
+)
 let cappedViewport = TerminalSurfaceProjection.viewport(lines: composedSurface, maxRows: 1)
 try require(cappedViewport.lines.map(\.id) == ["live-screen-24"], "terminal surface viewport should keep the newest rows when capped")
 try require(cappedViewport.anchorId == "live-screen-24", "terminal surface viewport should anchor to the newest visible row")

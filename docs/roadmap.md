@@ -291,7 +291,9 @@ Current status:
   not corrupt scrollback or line content.
 - Swift mobile terminal projection now exposes the visible live cursor as
   separate row metadata and renders it as an overlay, leaving tmux scrollback and
-  terminal text runs unchanged.
+  terminal text runs unchanged. Blank live screens still project rows after live
+  terminal bytes arrive, so a cleared terminal can show the insertion point
+  while pre-live attach keeps the scrollback-only fallback.
 - JavaScript relay clients now reject pending list/attach/scrollback/forward and
   datagram operations on unexpected relay disconnect, and later calls fail
   immediately instead of waiting for per-operation timeouts.

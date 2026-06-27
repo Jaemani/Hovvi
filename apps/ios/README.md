@@ -106,7 +106,9 @@ Bracketed paste mode (`CSI ? 2004 h/l`) is tracked for mobile paste input.
 Cursor visibility (`CSI ? 25 h/l`) is tracked separately from terminal text.
 The SwiftUI surface projects the live cursor as separate row metadata and draws
 it as an overlay, so cursor rendering does not corrupt scrollback or line
-content.
+content. Blank live screens still project rows after live terminal bytes arrive,
+so a cleared terminal can show the insertion point while pre-live attach keeps
+the scrollback-only fallback.
 Saved cursor sequences (`ESC 7/8` and `CSI s/u`) restore cursor position and
 SGR attributes within current screen bounds.
 Line insert/delete sequences (`CSI L/M`) mutate only the active scroll region.
