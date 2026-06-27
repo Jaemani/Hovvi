@@ -6,7 +6,13 @@ import { join } from "node:path";
 import { main } from "../src/cli.js";
 import { saveConfig } from "../src/config.js";
 import { redactSecrets } from "../src/redaction.js";
-import { buildLaunchAgentPlist, formatServiceStatus, parseLaunchAgentConfigPath, parseLaunchctlPrint } from "../src/service.js";
+import {
+  buildLaunchAgentPlist,
+  formatServiceStatus,
+  parseLaunchAgentConfigPath,
+  parseLaunchctlPrint,
+  validateLaunchAgentConfigPath,
+} from "../src/service.js";
 
 test("launchd plist includes agent command and config-only environment", () => {
   const plist = buildLaunchAgentPlist({
@@ -154,6 +160,40 @@ test("service status formatter summarizes launchd lifecycle state", () => {
   });
 
   assert.equal(summary, "config=/Users/me/.hovvi/config.json state=running pid=123 lastExitCode=0 throttleInterval=10s");
+});
+
+test("service start preflight rejects missing LaunchAgent config path", () => {
+  assert.throws(
+    () =>
+      validateLaunchAgentConfigPath({
+        activeConfigPath: "/Users/me/.hovvi/config.json",
+        launchAgentConfigPath: undefined,
+        plistPath: "/Users/me/Library/LaunchAgents/dev.hovvi.agent.plist",
+      }),
+    /LaunchAgent plist is missing HOVVI_CONFIG/,
+  );
+});
+
+test("service start preflight rejects LaunchAgent config drift", () => {
+  assert.throws(
+    () =>
+      validateLaunchAgentConfigPath({
+        activeConfigPath: "/Users/me/.hovvi/config.json",
+        launchAgentConfigPath: "/tmp/hovvi/config.json",
+        plistPath: "/Users/me/Library/LaunchAgents/dev.hovvi.agent.plist",
+      }),
+    /LaunchAgent plist uses a different HOVVI_CONFIG/,
+  );
+});
+
+test("service start preflight accepts matching LaunchAgent config path", () => {
+  assert.doesNotThrow(() =>
+    validateLaunchAgentConfigPath({
+      activeConfigPath: "/Users/me/.hovvi/config.json",
+      launchAgentConfigPath: "/Users/me/.hovvi/config.json",
+      plistPath: "/Users/me/Library/LaunchAgents/dev.hovvi.agent.plist",
+    }),
+  );
 });
 
 async function captureStdout(fn) {

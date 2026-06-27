@@ -525,7 +525,7 @@ async function serviceCommand(args) {
       return;
     }
     case "start": {
-      const result = startService({ label });
+      const result = startService({ label, activeConfigPath: configPath() });
       process.stdout.write(`Started ${result.label}\n`);
       return;
     }
@@ -535,7 +535,7 @@ async function serviceCommand(args) {
       return;
     }
     case "restart": {
-      const result = restartService({ label });
+      const result = restartService({ label, activeConfigPath: configPath() });
       process.stdout.write(`Restarted ${result.label}\n`);
       return;
     }

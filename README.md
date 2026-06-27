@@ -68,6 +68,8 @@ hovvi service logs --stream err --lines 80
 login. You can still override them explicitly with `--relay` and `--token`.
 `hovvi service status` and `hovvi doctor` show the LaunchAgent config path and
 warn if it differs from the active CLI config.
+`hovvi service start` and `hovvi service restart` refuse to load a LaunchAgent
+whose plist is missing `HOVVI_CONFIG` or points at a different private config.
 
 Remove it:
 

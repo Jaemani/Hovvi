@@ -46,12 +46,9 @@ export function uninstallService({ label = DEFAULT_LABEL }) {
   return { label, plistPath, stopped };
 }
 
-export function startService({ label = DEFAULT_LABEL }) {
+export function startService({ label = DEFAULT_LABEL, activeConfigPath } = {}) {
   assertMacos();
-  const plistPath = servicePlistPath(label);
-  if (!existsSync(plistPath)) {
-    throw new Error(`LaunchAgent plist not found: ${plistPath}`);
-  }
+  const { plistPath } = assertServiceCanStart({ label, activeConfigPath });
   const guiTarget = launchTarget(label);
   let result = runText("launchctl", ["bootstrap", guiTarget.domain, plistPath], { timeout: 10000 });
   if (!result.ok && /already bootstrapped|service already loaded/i.test(result.text)) {
@@ -73,9 +70,11 @@ export function stopService({ label = DEFAULT_LABEL, allowFailure = false } = {}
   return { label, message: result.text };
 }
 
-export function restartService({ label = DEFAULT_LABEL }) {
+export function restartService({ label = DEFAULT_LABEL, activeConfigPath } = {}) {
+  assertMacos();
+  assertServiceCanStart({ label, activeConfigPath });
   stopService({ label, allowFailure: true });
-  return startService({ label });
+  return startService({ label, activeConfigPath });
 }
 
 export function serviceStatus({ label = DEFAULT_LABEL }) {
@@ -148,9 +147,40 @@ export function readLaunchAgentConfigPath(plistPath) {
   return parseLaunchAgentConfigPath(readFileSync(plistPath, "utf8"));
 }
 
+export function assertServiceCanStart({ label = DEFAULT_LABEL, activeConfigPath } = {}) {
+  const plistPath = servicePlistPath(label);
+  if (!existsSync(plistPath)) {
+    throw new Error(`LaunchAgent plist not found: ${plistPath}`);
+  }
+  validateLaunchAgentConfigPath({
+    activeConfigPath,
+    launchAgentConfigPath: readLaunchAgentConfigPath(plistPath),
+    plistPath,
+  });
+  return { label, plistPath };
+}
+
 export function parseLaunchAgentConfigPath(plist = "") {
   const match = /<key>HOVVI_CONFIG<\/key>\s*<string>([^<]*)<\/string>/m.exec(plist);
   return match ? xmlUnescape(match[1]) : undefined;
+}
+
+export function validateLaunchAgentConfigPath({
+  activeConfigPath,
+  launchAgentConfigPath,
+  plistPath,
+} = {}) {
+  if (!activeConfigPath) return;
+  if (!launchAgentConfigPath) {
+    throw new Error(
+      `LaunchAgent plist is missing HOVVI_CONFIG. Reinstall with \`hovvi service install\`: ${plistPath}`,
+    );
+  }
+  if (launchAgentConfigPath !== activeConfigPath) {
+    throw new Error(
+      `LaunchAgent plist uses a different HOVVI_CONFIG (${launchAgentConfigPath}). Reinstall with \`hovvi service install\` from this config (${activeConfigPath}).`,
+    );
+  }
 }
 
 export function readServiceLogs({ stream = "err", lines = 80 } = {}) {
