@@ -200,6 +200,10 @@ Current status:
   frames through relay datagrams with fake-engine smoke coverage.
 - Swift mobile core can call the C ABI scaffold through `CAbiMoshCoreEngine`;
   upstream GPL static-library linkage remains separated.
+- `npm run ios:upstream-cabi-link-check` now builds the repository-only upstream
+  C ABI static library and links a temporary Swift binary against it, proving
+  Swift can import and call the upstream-backed C ABI without changing the
+  shipped MIT SwiftPM scaffold or packaging GPL-linked artifacts.
 - Swift mobile input uses `TerminalInputCommand` byte encoding for text,
   paste-sized text, Return, Tab, Escape, Ctrl-C, and backspace before sending
   data into the mosh input path.
@@ -265,9 +269,10 @@ Current status:
 - `createReconnectingClient` wraps the low-level relay client with conservative
   reconnect-on-next-operation behavior. It does not silently retry failed
   stateful attach operations.
-- Native relay packet exchange is proven locally on Macs with `tmux` and
-  `mosh-server`; iOS C ABI linkage and terminal UI quality remain pending before
-  the mobile attach milestone can be considered complete.
+- Native relay packet exchange and repository-only Swift upstream C ABI linkage
+  are proven locally on Macs with `tmux` and `mosh-server`; terminal UI quality
+  and simulator/device execution remain pending before the mobile attach
+  milestone can be considered complete.
 
 ### 5. iOS Alpha Attach Shell
 

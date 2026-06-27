@@ -44,6 +44,7 @@
     "native:relay-attach-check": "node scripts/native-relay-attach-check.js",
     "native:relay-process-attach-check": "node scripts/native-relay-process-attach-check.js",
     "ios:simulator-preflight": "node scripts/ios-simulator-preflight.js",
+    "ios:upstream-cabi-link-check": "node scripts/ios-upstream-cabi-link-check.js",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
     "prepublishOnly": "npm run check && npm test && npm run native:check && npm run native:adapter-check && npm run mosh:vendor:verify"
   },
