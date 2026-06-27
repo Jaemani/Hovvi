@@ -25,7 +25,17 @@ import {
 import { readFlag, readOption, splitFlags } from "./flags.js";
 import { createClient } from "./relay-client.js";
 import { randomId } from "./protocol.js";
-import { hashToken, listRegistryTokens, loadRegistry, revokeRegistryToken, saveRegistry } from "./registry.js";
+import {
+  hashToken,
+  listRegistryAccounts,
+  listRegistryDevices,
+  listRegistryTokens,
+  loadRegistry,
+  revokeRegistryToken,
+  saveRegistry,
+  upsertRegistryAccount,
+  upsertRegistryDevice,
+} from "./registry.js";
 import { localMoshHarnessPreflight, runLocalMoshServerHarness } from "./mosh-harness.js";
 
 const HELP = `Hovvi
@@ -45,6 +55,8 @@ Usage:
   hovvi fetch-scrollback --device <device-id> [session-name] [--lines 2000] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
+  hovvi account <upsert|list> --registry <path> [--account <account-id>] [--name <name>] [--json]
+  hovvi device <upsert|list> --registry <path> [--account <account-id>] [--device <device-id>] [--name <name>] [--platform <platform>] [--json]
   hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--registry <path>]
 
 Commands:
@@ -65,6 +77,8 @@ Commands:
             Fetch tmux scrollback from a connected agent.
   forward   Open a local TCP tunnel through relay to a registered agent.
   service   Install and manage the macOS launchd agent.
+  account   Register or list relay accounts in a private registry file.
+  device    Register or list account-scoped devices in a private registry file.
   token     Generate or hash relay access tokens for registry files.
 `;
 
@@ -112,6 +126,10 @@ export async function main(argv) {
       return forwardCommand(rest);
     case "service":
       return serviceCommand(rest);
+    case "account":
+      return accountCommand(rest);
+    case "device":
+      return deviceCommand(rest);
     case "token":
       return tokenCommand(rest);
     case "init":
@@ -438,6 +456,104 @@ async function serviceCommand(args) {
     }
     default:
       throw new Error(`Unknown service action: ${action}`);
+  }
+}
+
+async function accountCommand(args) {
+  const [action = "list"] = args;
+  const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
+  const json = readFlag(args, "--json");
+  if (!registryPath) throw new Error("Usage: hovvi account <upsert|list> --registry <path>");
+
+  switch (action) {
+    case "upsert": {
+      const accountId = readOption(args, "--account");
+      if (!accountId) throw new Error("account upsert requires --account <account-id>");
+      const name = readOption(args, "--name");
+      const registry = loadRegistry(registryPath);
+      const account = upsertRegistryAccount(registry, { accountId, name });
+      saveRegistry(registryPath, registry);
+      if (json) {
+        process.stdout.write(`${JSON.stringify({ account }, null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(`Registered account ${account.accountId}`);
+      if (account.name) process.stdout.write(` name=${account.name}`);
+      process.stdout.write("\n");
+      return;
+    }
+    case "list": {
+      const accounts = listRegistryAccounts(loadRegistry(registryPath));
+      if (json) {
+        process.stdout.write(`${JSON.stringify({ accounts }, null, 2)}\n`);
+        return;
+      }
+      if (accounts.length === 0) {
+        process.stdout.write("No registry accounts found.\n");
+        return;
+      }
+      for (const account of accounts) {
+        process.stdout.write(`${account.accountId}`);
+        if (account.name) process.stdout.write(` name=${account.name}`);
+        if (account.updatedAt) process.stdout.write(` updated=${account.updatedAt}`);
+        process.stdout.write("\n");
+      }
+      return;
+    }
+    default:
+      throw new Error(`Unknown account action: ${action}`);
+  }
+}
+
+async function deviceCommand(args) {
+  const [action = "list"] = args;
+  const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
+  const json = readFlag(args, "--json");
+  if (!registryPath) throw new Error("Usage: hovvi device <upsert|list> --registry <path>");
+
+  switch (action) {
+    case "upsert": {
+      const accountId = readOption(args, "--account");
+      const deviceId = readOption(args, "--device");
+      if (!accountId) throw new Error("device upsert requires --account <account-id>");
+      if (!deviceId) throw new Error("device upsert requires --device <device-id>");
+      const name = readOption(args, "--name");
+      const platform = readOption(args, "--platform");
+      const registry = loadRegistry(registryPath);
+      const device = upsertRegistryDevice(registry, { accountId, deviceId, name, platform });
+      saveRegistry(registryPath, registry);
+      if (json) {
+        process.stdout.write(`${JSON.stringify({ device }, null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(`Registered device ${device.deviceId} account=${device.accountId}`);
+      if (device.name) process.stdout.write(` name=${device.name}`);
+      if (device.platform) process.stdout.write(` platform=${device.platform}`);
+      process.stdout.write("\n");
+      return;
+    }
+    case "list": {
+      const accountId = readOption(args, "--account");
+      const devices = listRegistryDevices(loadRegistry(registryPath), { accountId });
+      if (json) {
+        process.stdout.write(`${JSON.stringify({ devices }, null, 2)}\n`);
+        return;
+      }
+      if (devices.length === 0) {
+        process.stdout.write("No registry devices found.\n");
+        return;
+      }
+      for (const device of devices) {
+        process.stdout.write(`${device.deviceId} account=${device.accountId}`);
+        if (device.name) process.stdout.write(` name=${device.name}`);
+        if (device.platform) process.stdout.write(` platform=${device.platform}`);
+        if (device.updatedAt) process.stdout.write(` updated=${device.updatedAt}`);
+        process.stdout.write("\n");
+      }
+      return;
+    }
+    default:
+      throw new Error(`Unknown device action: ${action}`);
   }
 }
 

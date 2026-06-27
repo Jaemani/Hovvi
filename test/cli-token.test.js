@@ -114,6 +114,64 @@ test("token hash writes device-scoped agent entries and rejects duplicate names"
   );
 });
 
+test("account CLI upserts and lists registry accounts without token material", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-account-"));
+  const registryPath = join(dir, "registry.json");
+
+  const upsertOutput = await captureStdout(() =>
+    main(["account", "upsert", "--registry", registryPath, "--account", "acct_1", "--name", "Jaemani", "--json"]),
+  );
+  const upserted = JSON.parse(upsertOutput).account;
+  assert.equal(upserted.accountId, "acct_1");
+  assert.equal(upserted.name, "Jaemani");
+
+  const listOutput = await captureStdout(() => main(["account", "list", "--registry", registryPath, "--json"]));
+  const accounts = JSON.parse(listOutput).accounts;
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].accountId, "acct_1");
+  assert.equal(Object.hasOwn(accounts[0], "hash"), false);
+  assert.equal(Object.hasOwn(accounts[0], "token"), false);
+});
+
+test("device CLI upserts account-scoped devices and filters list output", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-device-"));
+  const registryPath = join(dir, "registry.json");
+
+  await captureStdout(() =>
+    main(["account", "upsert", "--registry", registryPath, "--account", "acct_1", "--name", "Jaemani"]),
+  );
+  await captureStdout(() =>
+    main([
+      "device",
+      "upsert",
+      "--registry",
+      registryPath,
+      "--account",
+      "acct_1",
+      "--device",
+      "mac-1",
+      "--name",
+      "Mac Studio",
+      "--platform",
+      "darwin",
+    ]),
+  );
+  await captureStdout(() =>
+    main(["device", "upsert", "--registry", registryPath, "--account", "acct_2", "--device", "mac-2"]),
+  );
+
+  const registry = loadRegistry(registryPath);
+  assert.equal(registry.accounts[0].accountId, "acct_1");
+  assert.equal(registry.devices[0].deviceId, "mac-1");
+  assert.equal(registry.devices[0].platform, "darwin");
+
+  const listOutput = await captureStdout(() =>
+    main(["device", "list", "--registry", registryPath, "--account", "acct_1", "--json"]),
+  );
+  const devices = JSON.parse(listOutput).devices;
+  assert.deepEqual(devices.map((device) => device.deviceId), ["mac-1"]);
+});
+
 async function captureStdout(fn) {
   const originalWrite = process.stdout.write;
   let output = "";

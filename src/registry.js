@@ -83,6 +83,28 @@ export function listRegistryTokens(registry) {
   }));
 }
 
+export function listRegistryAccounts(registry) {
+  return [...(Array.isArray(registry.accounts) ? registry.accounts : [])].map((account) => ({
+    accountId: account.accountId,
+    name: account.name,
+    createdAt: account.createdAt,
+    updatedAt: account.updatedAt,
+  }));
+}
+
+export function listRegistryDevices(registry, { accountId } = {}) {
+  return [...(Array.isArray(registry.devices) ? registry.devices : [])]
+    .filter((device) => !accountId || device.accountId === accountId)
+    .map((device) => ({
+      accountId: device.accountId,
+      deviceId: device.deviceId,
+      name: device.name,
+      platform: device.platform,
+      createdAt: device.createdAt,
+      updatedAt: device.updatedAt,
+    }));
+}
+
 export function upsertRegistryAccount(registry, { accountId, name, now = new Date() } = {}) {
   if (!accountId) throw new Error("Account id is required.");
   const accounts = ensureArray(registry, "accounts");

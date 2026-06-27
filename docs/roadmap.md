@@ -426,6 +426,9 @@ Current status:
   persistence preserved for future hosted registration workflows.
 - Relay accepted-auth audit events include the authenticated registry
   `accountId` while continuing to omit raw relay tokens and token hashes.
+- `hovvi account upsert/list` and `hovvi device upsert/list` expose the
+  account/device registry flow for hosted-relay rehearsals without hand-editing
+  private registry JSON.
 
 ### 8. Release and Distribution
 
