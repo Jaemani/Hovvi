@@ -62,6 +62,7 @@ hovvi service install
 hovvi service start
 hovvi service status
 hovvi service logs --stream err --lines 80
+hovvi service logs --stream both --lines 80
 ```
 
 `hovvi service install` uses the private relay URL and agent token saved by
@@ -72,6 +73,8 @@ warn if it differs from the active CLI config.
 whose plist is missing `HOVVI_CONFIG` or points at a different private config.
 They also require the private config to contain the relay URL and agent token
 the LaunchAgent will read at runtime.
+`hovvi service logs` reports missing or empty LaunchAgent log files with paths
+instead of printing nothing, supports `--stream both`, and keeps secrets redacted.
 
 Remove it:
 

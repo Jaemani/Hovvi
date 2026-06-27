@@ -8,8 +8,9 @@ import { runAgent } from "./agent.js";
 import { runRelay } from "./relay.js";
 import {
   DEFAULT_LABEL,
+  formatServiceLogOutput,
   installService,
-  readServiceLogs,
+  readServiceLog,
   restartService,
   formatServiceStatus,
   serviceStatus,
@@ -58,7 +59,7 @@ Usage:
   hovvi mosh-harness [session-name] [--json] [--no-create] [--timeout-ms 5000] [--max-datagram-bytes 1200]
   hovvi fetch-scrollback --device <device-id> [session-name] [--lines 2000] [--json]
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
-  hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
+  hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>] [--stream err|out|both] [--json]
   hovvi account <upsert|list> --registry <path> [--account <account-id>] [--name <name>] [--json]
   hovvi device <upsert|list|revoke> --registry <path> [--account <account-id>] [--device <device-id>] [--name <name>] [--platform <platform>] [--json]
   hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--active|--disabled] [--registry <path>] [--audit-log <path>]
@@ -553,7 +554,14 @@ async function serviceCommand(args) {
     case "logs": {
       const stream = readOption(args, "--stream") || "err";
       const lines = Number(readOption(args, "--lines") || 80);
-      process.stdout.write(readServiceLogs({ stream, lines }));
+      const json = readFlag(args, "--json");
+      const streams = stream === "both" ? ["out", "err"] : [stream];
+      const logs = streams.map((item) => readServiceLog({ stream: item, lines }));
+      if (json) {
+        process.stdout.write(`${JSON.stringify({ logs }, null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(formatServiceLogOutput(logs));
       return;
     }
     case "uninstall": {

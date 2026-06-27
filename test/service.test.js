@@ -8,9 +8,11 @@ import { saveConfig } from "../src/config.js";
 import { redactSecrets } from "../src/redaction.js";
 import {
   buildLaunchAgentPlist,
+  formatServiceLogOutput,
   formatServiceStatus,
   parseLaunchAgentConfigPath,
   parseLaunchctlPrint,
+  serviceLogPath,
   validateLaunchAgentConfigPath,
   validateServiceRuntimeConfig,
 } from "../src/service.js";
@@ -126,6 +128,44 @@ test("service log redaction removes relay tokens, URL credentials, and mosh keys
   assert.match(redacted, /HOVVI_RELAY_TOKEN=\[redacted\]/);
   assert.match(redacted, /wss:\/\/%5Bredacted%5D:%5Bredacted%5D@relay\.example\.com\/path/);
   assert.match(redacted, /MOSH CONNECT 60001 \[redacted\]/);
+});
+
+test("service log formatter reports missing and empty logs with paths", () => {
+  const output = formatServiceLogOutput([
+    {
+      stream: "out",
+      path: "/Users/me/.hovvi/logs/agent.out.log",
+      exists: false,
+      text: "",
+    },
+    {
+      stream: "err",
+      path: "/Users/me/.hovvi/logs/agent.err.log",
+      exists: true,
+      text: "",
+    },
+  ]);
+
+  assert.match(output, /== out \/Users\/me\/\.hovvi\/logs\/agent\.out\.log ==/);
+  assert.match(output, /No out log found/);
+  assert.match(output, /== err \/Users\/me\/\.hovvi\/logs\/agent\.err\.log ==/);
+  assert.match(output, /err log is empty/);
+});
+
+test("service log formatter terminates redacted log text with a newline", () => {
+  assert.equal(
+    formatServiceLogOutput({
+      stream: "err",
+      path: "/Users/me/.hovvi/logs/agent.err.log",
+      exists: true,
+      text: "Agent disconnected: [redacted]",
+    }),
+    "Agent disconnected: [redacted]\n",
+  );
+});
+
+test("service log path rejects unsupported stream names", () => {
+  assert.throws(() => serviceLogPath("debug"), /service logs --stream must be one of/);
 });
 
 test("launchctl print parser extracts lifecycle failure diagnostics", () => {

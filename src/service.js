@@ -194,10 +194,39 @@ export function validateServiceRuntimeConfig({ relayUrl, token } = {}) {
 }
 
 export function readServiceLogs({ stream = "err", lines = 80 } = {}) {
-  const path = join(homedir(), ".hovvi", "logs", stream === "out" ? "agent.out.log" : "agent.err.log");
-  if (!existsSync(path)) return "";
+  return readServiceLog({ stream, lines }).text;
+}
+
+export function readServiceLog({ stream = "err", lines = 80 } = {}) {
+  const path = serviceLogPath(stream);
+  if (!existsSync(path)) return { stream, path, exists: false, text: "" };
   const text = readFileSync(path, "utf8");
-  return redactSecrets(text.split(/\r?\n/).slice(-lines).join("\n"));
+  return {
+    stream,
+    path,
+    exists: true,
+    text: redactSecrets(text.split(/\r?\n/).slice(-lines).join("\n")),
+  };
+}
+
+export function serviceLogPath(stream = "err") {
+  if (!["out", "err"].includes(stream)) {
+    throw new Error("service logs --stream must be one of: err, out, both.");
+  }
+  return join(homedir(), ".hovvi", "logs", stream === "out" ? "agent.out.log" : "agent.err.log");
+}
+
+export function formatServiceLogOutput(logs = []) {
+  const entries = Array.isArray(logs) ? logs : [logs];
+  const multiple = entries.length > 1;
+  return entries
+    .map((log) => {
+      const header = multiple ? `== ${log.stream} ${log.path} ==\n` : "";
+      if (!log.exists) return `${header}No ${log.stream} log found at ${log.path}\n`;
+      if (!log.text) return `${header}${log.stream} log is empty at ${log.path}\n`;
+      return `${header}${log.text.endsWith("\n") ? log.text : `${log.text}\n`}`;
+    })
+    .join(multiple ? "\n" : "");
 }
 
 export function parseLaunchctlPrint(text = "") {
