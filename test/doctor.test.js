@@ -235,6 +235,33 @@ test("runDoctor warns when launchd service is loaded but unhealthy", async () =>
   });
 });
 
+test("runDoctor warns when LaunchAgent uses a different config path", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "wss://relay.example.test", token: "secret" } }),
+    configPathFn: () => "/Users/me/.hovvi/config.json",
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({
+      label: "dev.hovvi.agent",
+      loaded: true,
+      configPath: "/tmp/hovvi-test/config.json",
+      launchctl: {
+        state: "running",
+        healthy: true,
+      },
+    }),
+  });
+
+  assert.deepEqual(findItem(report, "launchd service"), {
+    name: "launchd service",
+    status: "warn",
+    message: "loaded with different config",
+    detail: "dev.hovvi.agent config=/tmp/hovvi-test/config.json state=running",
+  });
+});
+
 test("checkRelayReachability redacts URL credentials", async () => {
   const result = await checkRelayReachability("ws://user:secret@example.test:8787", {
     WebSocketClass: OpenWebSocket,

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { main } from "../src/cli.js";
 import { saveConfig } from "../src/config.js";
 import { redactSecrets } from "../src/redaction.js";
-import { buildLaunchAgentPlist, formatServiceStatus, parseLaunchctlPrint } from "../src/service.js";
+import { buildLaunchAgentPlist, formatServiceStatus, parseLaunchAgentConfigPath, parseLaunchctlPrint } from "../src/service.js";
 
 test("launchd plist includes agent command and config-only environment", () => {
   const plist = buildLaunchAgentPlist({
@@ -29,6 +29,19 @@ test("launchd plist includes agent command and config-only environment", () => {
   assert.doesNotMatch(plist, /HOVVI_RELAY_TOKEN/);
   assert.doesNotMatch(plist, /secret/);
   assert.match(plist, /<key>KeepAlive<\/key>/);
+});
+
+test("launchd plist config path parser reads escaped HOVVI_CONFIG", () => {
+  const plist = buildLaunchAgentPlist({
+    label: "dev.hovvi.agent",
+    nodePath: "/usr/local/bin/node",
+    binPath: "/usr/local/bin/hovvi",
+    configPath: "/Users/me/Hovvi & Test/config.json",
+    stdoutPath: "/Users/me/.hovvi/logs/agent.out.log",
+    stderrPath: "/Users/me/.hovvi/logs/agent.err.log",
+  });
+
+  assert.equal(parseLaunchAgentConfigPath(plist), "/Users/me/Hovvi & Test/config.json");
 });
 
 test("service install requires configured relay credentials", async () => {
@@ -131,6 +144,7 @@ test("launchctl print parser extracts lifecycle failure diagnostics", () => {
 
 test("service status formatter summarizes launchd lifecycle state", () => {
   const summary = formatServiceStatus({
+    configPath: "/Users/me/.hovvi/config.json",
     launchctl: {
       state: "running",
       pid: 123,
@@ -139,7 +153,7 @@ test("service status formatter summarizes launchd lifecycle state", () => {
     },
   });
 
-  assert.equal(summary, "state=running pid=123 lastExitCode=0 throttleInterval=10s");
+  assert.equal(summary, "config=/Users/me/.hovvi/config.json state=running pid=123 lastExitCode=0 throttleInterval=10s");
 });
 
 async function captureStdout(fn) {

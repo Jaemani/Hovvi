@@ -82,11 +82,13 @@ export function serviceStatus({ label = DEFAULT_LABEL }) {
   assertMacos();
   const guiTarget = launchTarget(label);
   const result = runText("launchctl", ["print", guiTarget.service], { timeout: 10000 });
+  const plistPath = servicePlistPath(label);
   const launchctl = parseLaunchctlPrint(result.text);
   return {
     label,
     loaded: result.ok,
-    plistPath: servicePlistPath(label),
+    plistPath,
+    configPath: readLaunchAgentConfigPath(plistPath),
     detail: result.text,
     launchctl,
   };
@@ -141,6 +143,16 @@ ${Object.entries(env)
 `;
 }
 
+export function readLaunchAgentConfigPath(plistPath) {
+  if (!plistPath || !existsSync(plistPath)) return undefined;
+  return parseLaunchAgentConfigPath(readFileSync(plistPath, "utf8"));
+}
+
+export function parseLaunchAgentConfigPath(plist = "") {
+  const match = /<key>HOVVI_CONFIG<\/key>\s*<string>([^<]*)<\/string>/m.exec(plist);
+  return match ? xmlUnescape(match[1]) : undefined;
+}
+
 export function readServiceLogs({ stream = "err", lines = 80 } = {}) {
   const path = join(homedir(), ".hovvi", "logs", stream === "out" ? "agent.out.log" : "agent.err.log");
   if (!existsSync(path)) return "";
@@ -167,6 +179,7 @@ export function parseLaunchctlPrint(text = "") {
 
 export function formatServiceStatus(status) {
   const parts = [];
+  if (status.configPath) parts.push(`config=${status.configPath}`);
   if (status.launchctl?.state) parts.push(`state=${status.launchctl.state}`);
   if (Number.isInteger(status.launchctl?.pid)) parts.push(`pid=${status.launchctl.pid}`);
   if (Number.isInteger(status.launchctl?.lastExitCode)) {
@@ -205,6 +218,15 @@ function xml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+function xmlUnescape(value) {
+  return String(value)
+    .replaceAll("&apos;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&gt;", ">")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&amp;", "&");
 }
 
 function matchValue(text, pattern) {

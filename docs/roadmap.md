@@ -392,6 +392,9 @@ Current status:
   environment, or private config instead of silently installing a LaunchAgent
   with local development defaults. The generated plist points at the same
   private config path the CLI read.
+- `hovvi service status` and `hovvi doctor` now surface the LaunchAgent
+  `HOVVI_CONFIG` path and warn when the loaded service points at a different
+  config file than the active CLI invocation.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.

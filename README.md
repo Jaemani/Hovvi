@@ -66,6 +66,8 @@ hovvi service logs --stream err --lines 80
 
 `hovvi service install` uses the private relay URL and agent token saved by
 login. You can still override them explicitly with `--relay` and `--token`.
+`hovvi service status` and `hovvi doctor` show the LaunchAgent config path and
+warn if it differs from the active CLI config.
 
 Remove it:
 

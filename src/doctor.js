@@ -1,6 +1,6 @@
 import { platform } from "node:os";
 import WebSocket from "ws";
-import { getConfig } from "./config.js";
+import { configPath, getConfig } from "./config.js";
 import { redactUrlCredentials } from "./redaction.js";
 import { serviceStatus } from "./service.js";
 import { commandExists, runText } from "./shell.js";
@@ -13,6 +13,7 @@ export async function runDoctor({
   commandExistsFn = commandExists,
   runTextFn = runText,
   getConfigFn = getConfig,
+  configPathFn = configPath,
   platformFn = platform,
   serviceStatusFn = serviceStatus,
   relayReachabilityFn = checkRelayReachability,
@@ -30,7 +31,7 @@ export async function runDoctor({
 
   items.push(...checkGitIdentity({ runTextFn }));
   items.push(checkRelayConfig(configState));
-  items.push(checkServiceState({ platformFn, serviceStatusFn }));
+  items.push(checkServiceState({ platformFn, serviceStatusFn, configPathFn }));
   if (network) {
     const config = configState.config || {};
     const relayUrl = process.env.HOVVI_RELAY_URL || config.relay?.url || "ws://127.0.0.1:8787";
@@ -146,7 +147,7 @@ function checkGitIdentity({ runTextFn }) {
   return items;
 }
 
-function checkServiceState({ platformFn, serviceStatusFn }) {
+function checkServiceState({ platformFn, serviceStatusFn, configPathFn }) {
   if (platformFn() !== "darwin") {
     return {
       name: "launchd service",
@@ -158,14 +159,25 @@ function checkServiceState({ platformFn, serviceStatusFn }) {
 
   try {
     const result = serviceStatusFn({});
+    const activeConfigPath = configPathFn();
     const serviceDetail = formatLaunchdServiceDetail(result);
     const unhealthy = result.loaded && result.launchctl?.healthy === false;
+    const configMismatch =
+      result.configPath &&
+      activeConfigPath &&
+      result.configPath !== activeConfigPath;
     return {
       name: "launchd service",
-      status: result.loaded && !unhealthy ? "pass" : "warn",
-      message: result.loaded ? (unhealthy ? "loaded but unhealthy" : "loaded") : "not loaded",
+      status: result.loaded && !unhealthy && !configMismatch ? "pass" : "warn",
+      message: result.loaded
+        ? unhealthy
+          ? "loaded but unhealthy"
+          : configMismatch
+            ? "loaded with different config"
+            : "loaded"
+        : "not loaded",
       detail: result.loaded
-        ? serviceDetail || result.label
+        ? serviceDetail || formatLaunchdConfigDetail(result) || result.label
         : `Install with \`hovvi service install\`. ${result.detail || ""}`.trim(),
     };
   } catch (error) {
@@ -180,6 +192,7 @@ function checkServiceState({ platformFn, serviceStatusFn }) {
 
 function formatLaunchdServiceDetail(result) {
   const parts = [result.label].filter(Boolean);
+  if (result.configPath) parts.push(`config=${result.configPath}`);
   if (result.launchctl?.state) parts.push(`state=${result.launchctl.state}`);
   if (Number.isInteger(result.launchctl?.pid)) parts.push(`pid=${result.launchctl.pid}`);
   if (Number.isInteger(result.launchctl?.lastExitCode)) parts.push(`lastExitCode=${result.launchctl.lastExitCode}`);
@@ -190,6 +203,10 @@ function formatLaunchdServiceDetail(result) {
     parts.push(`throttleInterval=${result.launchctl.throttleInterval}s`);
   }
   return parts.join(" ");
+}
+
+function formatLaunchdConfigDetail(result) {
+  return result.configPath ? `${result.label} config=${result.configPath}` : undefined;
 }
 
 function checkFirewallState({ platformFn, runTextFn }) {
