@@ -70,6 +70,8 @@ login. You can still override them explicitly with `--relay` and `--token`.
 warn if it differs from the active CLI config.
 `hovvi service start` and `hovvi service restart` refuse to load a LaunchAgent
 whose plist is missing `HOVVI_CONFIG` or points at a different private config.
+They also require the private config to contain the relay URL and agent token
+the LaunchAgent will read at runtime.
 
 Remove it:
 

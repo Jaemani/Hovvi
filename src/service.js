@@ -183,6 +183,16 @@ export function validateLaunchAgentConfigPath({
   }
 }
 
+export function validateServiceRuntimeConfig({ relayUrl, token } = {}) {
+  const missing = [];
+  if (!relayUrl) missing.push("relay URL");
+  if (!token) missing.push("relay token");
+  if (missing.length === 0) return;
+  throw new Error(
+    `Service config is missing ${missing.join(" and ")}. Run \`hovvi login --relay <url> --issue-token agent\` or \`hovvi service install --relay <url> --token <agent-token>\` before starting the LaunchAgent.`,
+  );
+}
+
 export function readServiceLogs({ stream = "err", lines = 80 } = {}) {
   const path = join(homedir(), ".hovvi", "logs", stream === "out" ? "agent.out.log" : "agent.err.log");
   if (!existsSync(path)) return "";

@@ -398,6 +398,9 @@ Current status:
 - `hovvi service start` and `hovvi service restart` now refuse to load
   LaunchAgent plists that are missing `HOVVI_CONFIG` or point at a different
   private config path than the active CLI invocation.
+- `hovvi service start` and `hovvi service restart` now also require the active
+  private config to contain the relay URL and agent token that the LaunchAgent
+  will read at runtime.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.

@@ -12,6 +12,7 @@ import {
   parseLaunchAgentConfigPath,
   parseLaunchctlPrint,
   validateLaunchAgentConfigPath,
+  validateServiceRuntimeConfig,
 } from "../src/service.js";
 
 test("launchd plist includes agent command and config-only environment", () => {
@@ -192,6 +193,29 @@ test("service start preflight accepts matching LaunchAgent config path", () => {
       activeConfigPath: "/Users/me/.hovvi/config.json",
       launchAgentConfigPath: "/Users/me/.hovvi/config.json",
       plistPath: "/Users/me/Library/LaunchAgents/dev.hovvi.agent.plist",
+    }),
+  );
+});
+
+test("service runtime config preflight rejects missing relay URL", () => {
+  assert.throws(
+    () => validateServiceRuntimeConfig({ token: "agent-token" }),
+    /Service config is missing relay URL/,
+  );
+});
+
+test("service runtime config preflight rejects missing relay token", () => {
+  assert.throws(
+    () => validateServiceRuntimeConfig({ relayUrl: "wss://relay.example.test" }),
+    /Service config is missing relay token/,
+  );
+});
+
+test("service runtime config preflight accepts relay URL and token", () => {
+  assert.doesNotThrow(() =>
+    validateServiceRuntimeConfig({
+      relayUrl: "wss://relay.example.test",
+      token: "agent-token",
     }),
   );
 });

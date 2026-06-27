@@ -16,6 +16,7 @@ import {
   startService,
   stopService,
   uninstallService,
+  validateServiceRuntimeConfig,
 } from "./service.js";
 import {
   attachTmux,
@@ -525,6 +526,7 @@ async function serviceCommand(args) {
       return;
     }
     case "start": {
+      validateServiceRuntimeConfig({ relayUrl: config.relay?.url, token: config.relay?.token });
       const result = startService({ label, activeConfigPath: configPath() });
       process.stdout.write(`Started ${result.label}\n`);
       return;
@@ -535,6 +537,7 @@ async function serviceCommand(args) {
       return;
     }
     case "restart": {
+      validateServiceRuntimeConfig({ relayUrl: config.relay?.url, token: config.relay?.token });
       const result = restartService({ label, activeConfigPath: configPath() });
       process.stdout.write(`Restarted ${result.label}\n`);
       return;
