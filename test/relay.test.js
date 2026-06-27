@@ -82,6 +82,28 @@ test("relay enforces device-bound registry tokens", () => {
   assert.equal(state.audit.recent().at(-1).reason, "device_not_allowed");
 });
 
+test("relay rejects agents for revoked account devices", () => {
+  const state = createRelayState();
+  state.access.registry.tokens = [
+    { name: "mac-agent", accountId: "acct_1", hash: hashToken("agent-secret"), roles: ["agent"] },
+  ];
+  state.access.registry.devices = [
+    { accountId: "acct_1", deviceId: "mac-1", disabled: true, disabledAt: "2026-06-24T00:00:00.000Z" },
+  ];
+  const agent = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "agent-secret", device: { id: "mac-1" } })),
+  );
+
+  assert.equal(agent.closed, true);
+  assert.equal(state.agents.has("mac-1"), false);
+  assert.equal(state.metrics.authRejected, 1);
+  assert.equal(state.audit.recent().at(-1).reason, "device_revoked");
+});
+
 test("relay records account id for accepted registry auth without token material", () => {
   const state = createRelayState();
   state.access.registry.tokens = [

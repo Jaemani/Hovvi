@@ -31,6 +31,7 @@ import {
   listRegistryDevices,
   listRegistryTokens,
   loadRegistry,
+  revokeRegistryDevice,
   revokeRegistryToken,
   saveRegistry,
   upsertRegistryAccount,
@@ -56,7 +57,7 @@ Usage:
   hovvi forward --device <device-id> [--local-port 2222] [--remote-host 127.0.0.1] [--remote-port 22]
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
   hovvi account <upsert|list> --registry <path> [--account <account-id>] [--name <name>] [--json]
-  hovvi device <upsert|list> --registry <path> [--account <account-id>] [--device <device-id>] [--name <name>] [--platform <platform>] [--json]
+  hovvi device <upsert|list|revoke> --registry <path> [--account <account-id>] [--device <device-id>] [--name <name>] [--platform <platform>] [--json]
   hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--registry <path>]
 
 Commands:
@@ -541,7 +542,7 @@ async function deviceCommand(args) {
   const [action = "list"] = args;
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
   const json = readFlag(args, "--json");
-  if (!registryPath) throw new Error("Usage: hovvi device <upsert|list> --registry <path>");
+  if (!registryPath) throw new Error("Usage: hovvi device <upsert|list|revoke> --registry <path>");
 
   switch (action) {
     case "upsert": {
@@ -576,12 +577,25 @@ async function deviceCommand(args) {
         return;
       }
       for (const device of devices) {
-        process.stdout.write(`${device.deviceId} account=${device.accountId}`);
+        const status = device.disabled ? "disabled" : "active";
+        process.stdout.write(`${device.deviceId} ${status} account=${device.accountId}`);
         if (device.name) process.stdout.write(` name=${device.name}`);
         if (device.platform) process.stdout.write(` platform=${device.platform}`);
         if (device.updatedAt) process.stdout.write(` updated=${device.updatedAt}`);
         process.stdout.write("\n");
       }
+      return;
+    }
+    case "revoke": {
+      const accountId = readOption(args, "--account");
+      const deviceId = readOption(args, "--device");
+      if (!accountId) throw new Error("device revoke requires --account <account-id>");
+      if (!deviceId) throw new Error("device revoke requires --device <device-id>");
+      const registry = loadRegistry(registryPath);
+      const revoked = revokeRegistryDevice(registry, { accountId, deviceId });
+      if (!revoked) throw new Error("No matching registry device found.");
+      saveRegistry(registryPath, registry);
+      process.stdout.write(`Revoked device ${revoked.deviceId} account=${revoked.accountId}\n`);
       return;
     }
     default:

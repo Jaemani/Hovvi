@@ -8,6 +8,7 @@ import {
   hashToken,
   listRegistryTokens,
   loadRegistry,
+  revokeRegistryDevice,
   revokeRegistryToken,
   saveRegistry,
   upsertRegistryAccount,
@@ -85,6 +86,45 @@ test("registry binds agent and client tokens to registered ids", () => {
   assert.equal(
     access.authenticateDetailed({ role: "client", token: "client-secret", clientId: "ios-2" }).reason,
     "client_not_allowed",
+  );
+});
+
+test("registry rejects revoked account devices during agent auth", () => {
+  const access = createAccessRegistry();
+  access.registry.tokens = [
+    {
+      name: "mac-agent",
+      accountId: "acct_1",
+      hash: hashToken("agent-secret"),
+      roles: ["agent"],
+    },
+  ];
+  upsertRegistryDevice(access.registry, {
+    accountId: "acct_1",
+    deviceId: "mac-1",
+    name: "Mac",
+    now: new Date("2026-06-24T00:00:00.000Z"),
+  });
+
+  assert.equal(
+    access.authenticateDetailed({ role: "agent", token: "agent-secret", deviceId: "mac-1" }).ok,
+    true,
+  );
+
+  const revoked = revokeRegistryDevice(access.registry, {
+    accountId: "acct_1",
+    deviceId: "mac-1",
+    now: new Date("2026-06-24T00:01:00.000Z"),
+  });
+
+  assert.equal(revoked.disabled, true);
+  assert.equal(
+    access.authenticateDetailed({ role: "agent", token: "agent-secret", deviceId: "mac-1" }).reason,
+    "device_revoked",
+  );
+  assert.equal(
+    access.authenticateDetailed({ role: "agent", token: "agent-secret", deviceId: "mac-2" }).ok,
+    true,
   );
 });
 

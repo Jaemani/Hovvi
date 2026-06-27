@@ -16,7 +16,7 @@ export function createAccessRegistry({ devToken, registryPath } = {}) {
 
     let deniedReason = "unknown_token";
     const match = tokenEntries.find((entry) => {
-      const result = evaluateEntry({ entry, role, token, deviceId, clientId, now });
+      const result = evaluateEntry({ registry, entry, role, token, deviceId, clientId, now });
       if (result.ok) return true;
       if (result.reason !== "hash_mismatch") deniedReason = result.reason;
       return false;
@@ -100,8 +100,10 @@ export function listRegistryDevices(registry, { accountId } = {}) {
       deviceId: device.deviceId,
       name: device.name,
       platform: device.platform,
+      disabled: Boolean(device.disabled),
       createdAt: device.createdAt,
       updatedAt: device.updatedAt,
+      disabledAt: device.disabledAt,
     }));
 }
 
@@ -157,6 +159,18 @@ export function revokeRegistryToken(registry, { name, hash, now = new Date() } =
   return entry;
 }
 
+export function revokeRegistryDevice(registry, { accountId, deviceId, now = new Date() } = {}) {
+  if (!accountId) throw new Error("Account id is required.");
+  if (!deviceId) throw new Error("Device id is required.");
+  const devices = Array.isArray(registry.devices) ? registry.devices : [];
+  const device = devices.find((entry) => entry.accountId === accountId && entry.deviceId === deviceId);
+  if (!device) return null;
+  device.disabled = true;
+  device.disabledAt = now.toISOString();
+  device.updatedAt = now.toISOString();
+  return device;
+}
+
 function normalizeRegistry(registry) {
   return {
     ...registry,
@@ -171,7 +185,7 @@ function ensureArray(registry, key) {
   return registry[key];
 }
 
-function evaluateEntry({ entry, role, token, deviceId, clientId, now }) {
+function evaluateEntry({ registry, entry, role, token, deviceId, clientId, now }) {
   if (entry.disabled) return deny("disabled");
   if (!entry.hash || entry.hash !== hashToken(token)) return deny("hash_mismatch");
 
@@ -192,11 +206,21 @@ function evaluateEntry({ entry, role, token, deviceId, clientId, now }) {
   if (role === "agent" && Array.isArray(entry.deviceIds) && !entry.deviceIds.includes(deviceId)) {
     return deny("device_not_allowed");
   }
+  if (role === "agent" && entry.accountId && registryDeviceRevoked(registry, entry, deviceId)) {
+    return deny("device_revoked");
+  }
   if (role === "client" && Array.isArray(entry.clientIds) && !entry.clientIds.includes(clientId)) {
     return deny("client_not_allowed");
   }
 
   return allow();
+}
+
+function registryDeviceRevoked(registry, tokenEntry, deviceId) {
+  if (!deviceId) return false;
+  const devices = Array.isArray(registry.devices) ? registry.devices : [];
+  const device = devices.find((entry) => entry.accountId === tokenEntry.accountId && entry.deviceId === deviceId);
+  return Boolean(device?.disabled);
 }
 
 function parseRegistryDate(value) {

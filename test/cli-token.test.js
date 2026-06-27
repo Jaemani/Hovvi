@@ -170,6 +170,17 @@ test("device CLI upserts account-scoped devices and filters list output", async 
   );
   const devices = JSON.parse(listOutput).devices;
   assert.deepEqual(devices.map((device) => device.deviceId), ["mac-1"]);
+
+  const revokeOutput = await captureStdout(() =>
+    main(["device", "revoke", "--registry", registryPath, "--account", "acct_1", "--device", "mac-1"]),
+  );
+  assert.match(revokeOutput, /Revoked device mac-1 account=acct_1/);
+
+  const revokedListOutput = await captureStdout(() =>
+    main(["device", "list", "--registry", registryPath, "--account", "acct_1"]),
+  );
+  assert.match(revokedListOutput, /mac-1 disabled account=acct_1/);
+  assert.equal(loadRegistry(registryPath).devices[0].disabled, true);
 });
 
 test("login can register GitHub account and device metadata in registry", async () => {

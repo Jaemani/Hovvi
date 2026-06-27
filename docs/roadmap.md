@@ -432,6 +432,9 @@ Current status:
 - `hovvi login --registry` can register the GitHub OAuth user as
   `github:<user-id>` and optionally register a device record, connecting the
   local OAuth login path to the account/device registry shape.
+- `hovvi device revoke` disables a registry device, and account-scoped agent
+  authentication rejects revoked device records before an agent can appear
+  online.
 
 ### 8. Release and Distribution
 
