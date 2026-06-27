@@ -388,6 +388,10 @@ Current status:
 - `hovvi doctor` now checks that the private Hovvi config contains the relay URL
   and token needed by config-only LaunchAgent startup, while redacting URL
   credentials and never printing token values.
+- `hovvi service install` now requires a relay URL and agent token from flags,
+  environment, or private config instead of silently installing a LaunchAgent
+  with local development defaults. The generated plist points at the same
+  private config path the CLI read.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.

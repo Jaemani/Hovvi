@@ -57,11 +57,15 @@ This tunnel is not the final mobile terminal UX. It proves the relay and agent c
 Install the Mac agent as a LaunchAgent:
 
 ```bash
-hovvi service install --relay wss://relay.example.com --token <agent-token> --name "Jaemans Mac"
+hovvi login --client-id <github-oauth-client-id> --registry ./registry.json --issue-token agent --relay wss://relay.example.com --device-name "Jaemans Mac"
+hovvi service install
 hovvi service start
 hovvi service status
 hovvi service logs --stream err --lines 80
 ```
+
+`hovvi service install` uses the private relay URL and agent token saved by
+login. You can still override them explicitly with `--relay` and `--token`.
 
 Remove it:
 

@@ -114,7 +114,7 @@ function checkRelayConfig({ config, error }) {
     name: "relay config",
     status: "warn",
     message: "incomplete",
-    detail: `Missing ${missing.join(" and ")} in private config. Run \`hovvi service install --relay <url> --token <agent-token>\` before starting the LaunchAgent.`,
+    detail: `Missing ${missing.join(" and ")} in private config. Run \`hovvi login --relay <url> --issue-token agent\` or \`hovvi service install --relay <url> --token <agent-token>\` before starting the LaunchAgent.`,
   };
 }
 

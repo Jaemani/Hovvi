@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { createAuditSink } from "./audit.js";
-import { getConfig, saveConfig } from "./config.js";
+import { configPath, getConfig, saveConfig } from "./config.js";
 import { runDoctor } from "./doctor.js";
 import { runGithubDeviceLogin } from "./github-auth.js";
 import { runAgent } from "./agent.js";
@@ -499,25 +499,27 @@ async function initCommand(args) {
 async function serviceCommand(args) {
   const [action = "status"] = args;
   const config = getConfig();
-  const relayUrl =
-    readOption(args, "--relay") ||
-    process.env.HOVVI_RELAY_URL ||
-    config.relay?.url ||
-    "ws://127.0.0.1:8787";
-  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  const relayUrl = readOption(args, "--relay") || process.env.HOVVI_RELAY_URL || config.relay?.url;
+  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token;
   const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME || config.device?.name;
   const label = readOption(args, "--label") || config.service?.label || DEFAULT_LABEL;
 
   switch (action) {
     case "install": {
       const print = readFlag(args, "--print");
+      if (!relayUrl) {
+        throw new Error("service install requires --relay <url> or a configured relay URL from `hovvi login --relay <url>`.");
+      }
+      if (!token) {
+        throw new Error("service install requires --token <agent-token> or a configured relay token from `hovvi login --issue-token agent`.");
+      }
       if (!print) {
         config.relay = { ...(config.relay || {}), url: relayUrl, token };
         config.service = { ...(config.service || {}), label };
         if (name) config.device = { ...(config.device || {}), name };
         saveConfig(config);
       }
-      const result = installService({ relayUrl, token, name, label, print });
+      const result = installService({ relayUrl, token, name, label, configPath: configPath(), print });
       process.stdout.write(print ? result.plist : `Installed ${result.label} at ${result.plistPath}\n`);
       if (!print) process.stdout.write("Run `hovvi service start` to load it.\n");
       return;

@@ -1,5 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { main } from "../src/cli.js";
+import { saveConfig } from "../src/config.js";
 import { redactSecrets } from "../src/redaction.js";
 import { buildLaunchAgentPlist, formatServiceStatus, parseLaunchctlPrint } from "../src/service.js";
 
@@ -24,6 +29,62 @@ test("launchd plist includes agent command and config-only environment", () => {
   assert.doesNotMatch(plist, /HOVVI_RELAY_TOKEN/);
   assert.doesNotMatch(plist, /secret/);
   assert.match(plist, /<key>KeepAlive<\/key>/);
+});
+
+test("service install requires configured relay credentials", async () => {
+  const previousConfig = process.env.HOVVI_CONFIG;
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-service-missing-config-"));
+  process.env.HOVVI_CONFIG = join(dir, "config.json");
+
+  try {
+    await assert.rejects(
+      () => captureStdout(() => main(["service", "install", "--print"])),
+      /service install requires --relay <url>/,
+    );
+
+    saveConfig({ relay: { url: "wss://relay.example.test/hovvi" } });
+    await assert.rejects(
+      () => captureStdout(() => main(["service", "install", "--print"])),
+      /service install requires --token <agent-token>/,
+    );
+  } finally {
+    if (previousConfig === undefined) {
+      delete process.env.HOVVI_CONFIG;
+    } else {
+      process.env.HOVVI_CONFIG = previousConfig;
+    }
+  }
+});
+
+test("service install print reuses private config without exposing relay token", async () => {
+  const previousConfig = process.env.HOVVI_CONFIG;
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-service-config-print-"));
+  const configPath = join(dir, "config.json");
+  process.env.HOVVI_CONFIG = configPath;
+
+  try {
+    saveConfig({
+      relay: {
+        url: "wss://relay.example.test/hovvi",
+        token: "agent-secret-token",
+      },
+      device: {
+        name: "MacBook",
+      },
+    });
+
+    const plist = await captureStdout(() => main(["service", "install", "--print"]));
+    assert.match(plist, new RegExp(configPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(plist, /agent-secret-token/);
+    assert.doesNotMatch(plist, /relay\.example\.test/);
+    assert.doesNotMatch(plist, /HOVVI_RELAY_TOKEN|HOVVI_RELAY_URL/);
+  } finally {
+    if (previousConfig === undefined) {
+      delete process.env.HOVVI_CONFIG;
+    } else {
+      process.env.HOVVI_CONFIG = previousConfig;
+    }
+  }
 });
 
 test("service log redaction removes relay tokens, URL credentials, and mosh keys", () => {
@@ -80,3 +141,20 @@ test("service status formatter summarizes launchd lifecycle state", () => {
 
   assert.equal(summary, "state=running pid=123 lastExitCode=0 throttleInterval=10s");
 });
+
+async function captureStdout(fn) {
+  const originalWrite = process.stdout.write;
+  let output = "";
+  process.stdout.write = (chunk, ...args) => {
+    output += String(chunk);
+    const callback = args.find((arg) => typeof arg === "function");
+    callback?.();
+    return true;
+  };
+  try {
+    await fn();
+    return output;
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+}

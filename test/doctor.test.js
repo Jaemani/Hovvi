@@ -46,7 +46,7 @@ test("runDoctor warns when private relay config is incomplete", async () => {
     status: "warn",
     message: "incomplete",
     detail:
-      "Missing relay token in private config. Run `hovvi service install --relay <url> --token <agent-token>` before starting the LaunchAgent.",
+      "Missing relay token in private config. Run `hovvi login --relay <url> --issue-token agent` or `hovvi service install --relay <url> --token <agent-token>` before starting the LaunchAgent.",
   });
 });
 
