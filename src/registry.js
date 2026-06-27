@@ -69,18 +69,34 @@ export function saveRegistry(registryPath, registry) {
   chmodSync(registryPath, 0o600);
 }
 
-export function listRegistryTokens(registry) {
-  return [...(Array.isArray(registry.tokens) ? registry.tokens : [])].map((entry) => ({
-    name: entry.name,
-    accountId: entry.accountId,
-    roles: entry.roles || ["agent", "client"],
-    disabled: Boolean(entry.disabled),
-    deviceIds: entry.deviceIds,
-    clientIds: entry.clientIds,
-    notBefore: entry.notBefore,
-    expiresAt: entry.expiresAt,
-    disabledAt: entry.disabledAt,
-  }));
+export function listRegistryTokens(registry, { accountId, role, deviceId, clientId, disabled } = {}) {
+  return [...(Array.isArray(registry.tokens) ? registry.tokens : [])]
+    .filter((entry) => accountId === undefined || entry.accountId === accountId)
+    .filter((entry) => disabled === undefined || Boolean(entry.disabled) === disabled)
+    .filter((entry) => {
+      if (!role) return true;
+      const roles = entry.roles || ["agent", "client"];
+      return roles.includes(role) || roles.includes("*");
+    })
+    .filter((entry) => {
+      if (!deviceId) return true;
+      return Array.isArray(entry.deviceIds) && entry.deviceIds.includes(deviceId);
+    })
+    .filter((entry) => {
+      if (!clientId) return true;
+      return Array.isArray(entry.clientIds) && entry.clientIds.includes(clientId);
+    })
+    .map((entry) => ({
+      name: entry.name,
+      accountId: entry.accountId,
+      roles: entry.roles || ["agent", "client"],
+      disabled: Boolean(entry.disabled),
+      deviceIds: entry.deviceIds,
+      clientIds: entry.clientIds,
+      notBefore: entry.notBefore,
+      expiresAt: entry.expiresAt,
+      disabledAt: entry.disabledAt,
+    }));
 }
 
 export function listRegistryAccounts(registry) {

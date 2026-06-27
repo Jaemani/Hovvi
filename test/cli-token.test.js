@@ -74,6 +74,85 @@ test("token generate writes account-scoped registry entries when registry is pro
   assert.match(listOutput, /jaeman-iphone active roles=client account=acct_1 clients=ios-1,ios-2 expires=2026-07-01T00:00:00.000Z/);
 });
 
+test("token list filters registry entries without exposing token hashes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-token-filter-"));
+  const registryPath = join(dir, "registry.json");
+  saveRegistry(registryPath, {
+    tokens: [
+      {
+        name: "mac-active",
+        hash: hashToken("agent-secret"),
+        roles: ["agent"],
+        accountId: "acct_1",
+        deviceIds: ["mac-1", "mac-2"],
+      },
+      {
+        name: "phone-active",
+        hash: hashToken("client-secret"),
+        roles: ["client"],
+        accountId: "acct_1",
+        clientIds: ["ios-1"],
+      },
+      {
+        name: "mac-disabled",
+        hash: hashToken("old-agent-secret"),
+        roles: ["agent"],
+        accountId: "acct_1",
+        deviceIds: ["mac-1"],
+        disabled: true,
+        disabledAt: "2026-06-25T00:00:00.000Z",
+      },
+      {
+        name: "other-account",
+        hash: hashToken("other-secret"),
+        roles: ["agent"],
+        accountId: "acct_2",
+        deviceIds: ["mac-1"],
+      },
+    ],
+  });
+
+  const agentOutput = await captureStdout(() =>
+    main([
+      "token",
+      "list",
+      "--registry",
+      registryPath,
+      "--account",
+      "acct_1",
+      "--role",
+      "agent",
+      "--device",
+      "mac-1",
+      "--active",
+      "--json",
+    ]),
+  );
+  const agentTokens = JSON.parse(agentOutput).tokens;
+  assert.deepEqual(agentTokens.map((token) => token.name), ["mac-active"]);
+  assert.equal(Object.hasOwn(agentTokens[0], "hash"), false);
+  assert.equal(JSON.stringify(agentTokens).includes("sha256:"), false);
+
+  const clientOutput = await captureStdout(() =>
+    main(["token", "list", "--registry", registryPath, "--client", "ios-1", "--json"]),
+  );
+  assert.deepEqual(
+    JSON.parse(clientOutput).tokens.map((token) => token.name),
+    ["phone-active"],
+  );
+
+  const disabledOutput = await captureStdout(() =>
+    main(["token", "list", "--registry", registryPath, "--account", "acct_1", "--disabled"]),
+  );
+  assert.match(disabledOutput, /mac-disabled disabled roles=agent account=acct_1 devices=mac-1/);
+  assert.doesNotMatch(disabledOutput, /mac-active/);
+
+  await assert.rejects(
+    () => captureStdout(() => main(["token", "list", "--registry", registryPath, "--active", "--disabled"])),
+    /only one of --active or --disabled/,
+  );
+});
+
 test("token hash writes device-scoped agent entries and rejects duplicate names", async () => {
   const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-token-hash-"));
   const registryPath = join(dir, "registry.json");

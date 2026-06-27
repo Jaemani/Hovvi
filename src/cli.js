@@ -59,7 +59,7 @@ Usage:
   hovvi service <install|start|stop|restart|status|logs|uninstall> [--relay <url>] [--token <token>]
   hovvi account <upsert|list> --registry <path> [--account <account-id>] [--name <name>] [--json]
   hovvi device <upsert|list|revoke> --registry <path> [--account <account-id>] [--device <device-id>] [--name <name>] [--platform <platform>] [--json]
-  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--registry <path>] [--audit-log <path>]
+  hovvi token <generate|hash|list|revoke> [token] [--role agent|client|*] [--account <account-id>] [--device <device-id>] [--client <client-id>] [--active|--disabled] [--registry <path>] [--audit-log <path>]
 
 Commands:
   doctor    Check git, GitHub, SSH, tmux, mosh, and AI coding tools.
@@ -670,7 +670,8 @@ async function tokenCommand(args) {
     }
     case "list": {
       if (!registryPath) throw new Error("Usage: hovvi token list --registry <path> [--json]");
-      const tokens = listRegistryTokens(loadRegistry(registryPath));
+      const filters = tokenListFilters({ role, args });
+      const tokens = listRegistryTokens(loadRegistry(registryPath), filters);
       if (json) {
         process.stdout.write(`${JSON.stringify({ tokens }, null, 2)}\n`);
         return;
@@ -732,6 +733,20 @@ function tokenRegistryEntry({ token, role, args }) {
   };
 }
 
+function tokenListFilters({ role, args }) {
+  const active = readFlag(args, "--active");
+  const disabled = readFlag(args, "--disabled");
+  if (active && disabled) throw new Error("token list accepts only one of --active or --disabled.");
+  return {
+    accountId: readOption(args, "--account"),
+    role: role === "*" ? undefined : role,
+    deviceId: readOption(args, "--device"),
+    clientId: readOption(args, "--client"),
+    ...(active ? { disabled: false } : {}),
+    ...(disabled ? { disabled: true } : {}),
+  };
+}
+
 function registryAudit(args) {
   const auditLogPath = readOption(args, "--audit-log") || process.env.HOVVI_AUDIT_LOG;
   return auditLogPath ? createAuditSink({ path: auditLogPath }) : null;
@@ -766,10 +781,17 @@ function appendTokenRegistryEntry({ registryPath, entry }) {
 
 function readRepeatedCsvOptions(args, option) {
   const values = [];
-  for (;;) {
-    const value = readOption(args, option);
-    if (!value) break;
+  for (let index = 0; index < args.length; ) {
+    if (args[index] !== option) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (!value || value.startsWith("--")) {
+      throw new Error(`${option} requires a value.`);
+    }
     values.push(...value.split(",").map((item) => item.trim()).filter(Boolean));
+    args.splice(index, 2);
   }
   return [...new Set(values)];
 }

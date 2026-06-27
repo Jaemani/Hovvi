@@ -117,6 +117,8 @@ hovvi account list --registry ./registry.json
 hovvi device list --registry ./registry.json --account github:39300288
 hovvi device revoke --registry ./registry.json --account github:39300288 --device mac-main
 hovvi token list --registry ./registry.json
+hovvi token list --registry ./registry.json --account github:39300288 --role agent --device mac-main --active
+hovvi token list --registry ./registry.json --client ios-main --json
 hovvi token revoke --registry ./registry.json --name jaeman-iphone
 ```
 

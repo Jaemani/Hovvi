@@ -438,6 +438,8 @@ Current status:
 - Registry management commands can write token/hash-redacted audit events for
   token generation, token hashing, token revocation, account upsert, device
   upsert, and device revocation through `--audit-log`.
+- `hovvi token list` can filter registry output by account, role, device,
+  client, and active/disabled state while still omitting raw token hashes.
 
 ### 8. Release and Distribution
 
