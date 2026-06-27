@@ -35,8 +35,6 @@ export function iosSimulatorBuildCheck({
   const result = runTextFn(
     "xcodebuild",
     [
-      "-packagePath",
-      packagePath,
       "-scheme",
       "HovviMobileApp",
       "-destination",
@@ -45,7 +43,7 @@ export function iosSimulatorBuildCheck({
       derivedDataPath,
       "build",
     ],
-    { timeout: 120000 }
+    { cwd: packagePath, timeout: 120000 }
   );
 
   if (!result.ok) {

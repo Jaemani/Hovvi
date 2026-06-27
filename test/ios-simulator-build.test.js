@@ -37,8 +37,6 @@ test("iOS simulator build check invokes xcodebuild for the selected simulator", 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "xcodebuild");
   assert.deepEqual(calls[0].args, [
-    "-packagePath",
-    "/repo/apps/ios",
     "-scheme",
     "HovviMobileApp",
     "-destination",
@@ -47,6 +45,7 @@ test("iOS simulator build check invokes xcodebuild for the selected simulator", 
     "/tmp/hovvi-ios-sim-test",
     "build",
   ]);
+  assert.equal(calls[0].options.cwd, "/repo/apps/ios");
   assert.equal(calls[0].options.timeout, 120000);
 });
 

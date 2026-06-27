@@ -25,7 +25,7 @@ The check:
 
 - reuses `iosSimulatorPreflight`;
 - skips when full Xcode or an available iOS simulator is missing;
-- on ready hosts, runs `xcodebuild` for SwiftPM package scheme
+- on ready hosts, runs `xcodebuild` from `apps/ios` for SwiftPM package scheme
   `HovviMobileApp` against the selected simulator UDID;
 - fails if `xcodebuild` fails or if `HovviMobileApp.app` is not found in
   derived data products;

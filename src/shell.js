@@ -13,6 +13,7 @@ export function run(command, args = [], options = {}) {
     encoding: "utf8",
     timeout: options.timeout ?? 5000,
     env: options.env ?? process.env,
+    cwd: options.cwd,
   });
   return {
     ok: result.status === 0,
