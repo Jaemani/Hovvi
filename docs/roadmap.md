@@ -429,6 +429,9 @@ Current status:
 - `hovvi account upsert/list` and `hovvi device upsert/list` expose the
   account/device registry flow for hosted-relay rehearsals without hand-editing
   private registry JSON.
+- `hovvi login --registry` can register the GitHub OAuth user as
+  `github:<user-id>` and optionally register a device record, connecting the
+  local OAuth login path to the account/device registry shape.
 
 ### 8. Release and Distribution
 

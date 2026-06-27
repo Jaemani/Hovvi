@@ -172,6 +172,64 @@ test("device CLI upserts account-scoped devices and filters list output", async 
   assert.deepEqual(devices.map((device) => device.deviceId), ["mac-1"]);
 });
 
+test("login can register GitHub account and device metadata in registry", async () => {
+  const previousConfig = process.env.HOVVI_CONFIG;
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-login-registry-"));
+  const configPath = join(dir, "config.json");
+  const registryPath = join(dir, "registry.json");
+  process.env.HOVVI_CONFIG = configPath;
+
+  try {
+    const output = await captureStdout(() =>
+      main(
+        [
+          "login",
+          "--client-id",
+          "oauth-client-1",
+          "--registry",
+          registryPath,
+          "--device",
+          "mac-main",
+          "--account-name",
+          "Jaemani Labs",
+          "--device-name",
+          "Mac Studio",
+          "--platform",
+          "darwin",
+        ],
+        {
+          githubDeviceLogin: async ({ clientId, onUserCode }) => {
+            assert.equal(clientId, "oauth-client-1");
+            onUserCode({ verificationUri: "https://github.com/login/device", userCode: "ABCD-EFGH" });
+            return {
+              accessToken: "gho_secret",
+              user: { login: "Jaemani", id: 39300288 },
+            };
+          },
+        },
+      ),
+    );
+
+    const registry = loadRegistry(registryPath);
+    assert.equal(registry.accounts[0].accountId, "github:39300288");
+    assert.equal(registry.accounts[0].name, "Jaemani Labs");
+    assert.equal(registry.devices[0].accountId, "github:39300288");
+    assert.equal(registry.devices[0].deviceId, "mac-main");
+    assert.equal(registry.devices[0].name, "Mac Studio");
+    assert.equal(registry.devices[0].platform, "darwin");
+    assert.match(output, /Logged in as Jaemani/);
+    assert.match(output, /Registered account github:39300288/);
+    assert.match(output, /Registered device mac-main/);
+    assert.equal(output.includes("gho_secret"), false);
+  } finally {
+    if (previousConfig === undefined) {
+      delete process.env.HOVVI_CONFIG;
+    } else {
+      process.env.HOVVI_CONFIG = previousConfig;
+    }
+  }
+});
+
 async function captureStdout(fn) {
   const originalWrite = process.stdout.write;
   let output = "";

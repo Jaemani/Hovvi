@@ -79,9 +79,10 @@ Development can use `--token dev`. A hosted relay should use hashed token entrie
 ```bash
 hovvi token generate --role agent
 hovvi token generate --role client
-hovvi account upsert --registry ./registry.json --account acct_1 --name Jaemani
-hovvi device upsert --registry ./registry.json --account acct_1 --device mac-main --name "Mac Studio" --platform darwin
-hovvi token generate --registry ./registry.json --name jaeman-iphone --role client --account acct_1 --client ios-main
+hovvi account upsert --registry ./registry.json --account github:39300288 --name Jaemani
+hovvi device upsert --registry ./registry.json --account github:39300288 --device mac-main --name "Mac Studio" --platform darwin
+hovvi login --client-id <github-oauth-client-id> --registry ./registry.json --device mac-main --account-name Jaemani
+hovvi token generate --registry ./registry.json --name jaeman-iphone --role client --account github:39300288 --client ios-main
 ```
 
 Create a registry JSON file:
@@ -113,7 +114,7 @@ List or revoke registry entries without exposing raw token values:
 
 ```bash
 hovvi account list --registry ./registry.json
-hovvi device list --registry ./registry.json --account acct_1
+hovvi device list --registry ./registry.json --account github:39300288
 hovvi token list --registry ./registry.json
 hovvi token revoke --registry ./registry.json --name jaeman-iphone
 ```

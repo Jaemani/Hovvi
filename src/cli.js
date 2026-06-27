@@ -42,7 +42,7 @@ const HELP = `Hovvi
 
 Usage:
   hovvi doctor [--json] [--network]
-  hovvi login [--client-id <github-oauth-client-id>]
+  hovvi login [--client-id <github-oauth-client-id>] [--registry <path>] [--device <device-id>] [--account-name <name>] [--device-name <name>] [--platform <platform>]
   hovvi relay [--host 127.0.0.1] [--port 8787] [--token <token>] [--registry <path>] [--audit-log <path>]
   hovvi up [--relay ws://127.0.0.1:8787] [--token <token>] [--name <device-name>] [--heartbeat-ms 10000]
   hovvi sessions [--json]
@@ -61,7 +61,7 @@ Usage:
 
 Commands:
   doctor    Check git, GitHub, SSH, tmux, mosh, and AI coding tools.
-  login     Run GitHub OAuth device login when HOVVI_GITHUB_CLIENT_ID is set.
+  login     Run GitHub OAuth device login and optionally register account/device metadata.
   relay     Start the managed relay service for development/self-hosting.
   up        Start the Mac agent and publish tmux/AI session metadata to relay.
   sessions  List local tmux sessions and detected AI coding panes.
@@ -82,7 +82,7 @@ Commands:
   token     Generate or hash relay access tokens for registry files.
 `;
 
-export async function main(argv) {
+export async function main(argv, deps = {}) {
   const [command = "help", ...rest] = argv;
 
   switch (command) {
@@ -99,7 +99,7 @@ export async function main(argv) {
     case "doctor":
       return doctorCommand(rest);
     case "login":
-      return loginCommand(rest);
+      return loginCommand(rest, deps);
     case "relay":
       return relayCommand(rest);
     case "up":
@@ -158,11 +158,16 @@ async function doctorCommand(args) {
   process.stdout.write(`\n${report.ok ? "Hovvi doctor passed." : "Hovvi doctor found issues."}\n`);
 }
 
-async function loginCommand(args) {
+async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } = {}) {
   const clientId =
     readOption(args, "--client-id") ||
     process.env.HOVVI_GITHUB_CLIENT_ID ||
     getConfig().githubClientId;
+  const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
+  const deviceId = readOption(args, "--device");
+  const accountName = readOption(args, "--account-name");
+  const deviceName = readOption(args, "--device-name");
+  const platform = readOption(args, "--platform");
 
   if (!clientId) {
     throw new Error(
@@ -170,22 +175,49 @@ async function loginCommand(args) {
     );
   }
 
-  const login = await runGithubDeviceLogin({
+  const login = await githubDeviceLogin({
     clientId,
     onUserCode: ({ verificationUri, userCode }) => {
       process.stdout.write(`Open ${verificationUri} and enter code: ${userCode}\n`);
     },
   });
+  const accountId = githubAccountId(login.user);
 
   const config = getConfig();
   config.githubClientId = clientId;
   config.github = {
     login: login.user.login,
     id: login.user.id,
+    accountId,
     token: login.accessToken,
   };
   saveConfig(config);
   process.stdout.write(`Logged in as ${login.user.login}.\n`);
+
+  if (registryPath) {
+    const registry = loadRegistry(registryPath);
+    const account = upsertRegistryAccount(registry, {
+      accountId,
+      name: accountName || login.user.login,
+    });
+    let device;
+    if (deviceId) {
+      device = upsertRegistryDevice(registry, {
+        accountId,
+        deviceId,
+        name: deviceName,
+        platform,
+      });
+    }
+    saveRegistry(registryPath, registry);
+    process.stdout.write(`Registered account ${account.accountId} name=${account.name}\n`);
+    if (device) process.stdout.write(`Registered device ${device.deviceId} account=${device.accountId}\n`);
+  }
+}
+
+function githubAccountId(user) {
+  if (user?.id === undefined || user?.id === null) throw new Error("GitHub user id is required.");
+  return `github:${user.id}`;
 }
 
 async function relayCommand(args) {
