@@ -40,6 +40,9 @@ session, transport, and terminal primitives.
 - GitHub and npm release basics are established.
 - CI runs CLI checks, tests, package dry-run, native ABI checks, native adapter
   checks, vendored mosh verification, upstream native smokes, and Swift checks.
+- `npm run package:boundary-check` inspects the actual `npm pack --dry-run`
+  file list and rejects vendored mosh source, native build artifacts, Swift
+  build artifacts, and GPL-linked upstream C ABI implementation files.
 - The upstream mosh snapshot is vendored from audited commit
   `decd9b705eb81626f694335b8d5940538beb06da`.
 - Vendor verification checks both file set and SHA-256 hashes.

@@ -46,7 +46,8 @@
     "ios:simulator-preflight": "node scripts/ios-simulator-preflight.js",
     "ios:upstream-cabi-link-check": "node scripts/ios-upstream-cabi-link-check.js",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
-    "prepublishOnly": "npm run check && npm test && npm run native:check && npm run native:adapter-check && npm run mosh:vendor:verify"
+    "package:boundary-check": "node scripts/package-boundary-check.js",
+    "prepublishOnly": "npm run check && npm test && npm run native:check && npm run native:adapter-check && npm run mosh:vendor:verify && npm run package:boundary-check"
   },
   "keywords": [
     "tmux",

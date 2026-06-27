@@ -19,6 +19,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm pack --dry-run
+      - run: npm run package:boundary-check
       - run: npm run native:check
       - run: npm run native:adapter-check
       - run: npm run mosh:vendor:verify
