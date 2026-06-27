@@ -522,10 +522,15 @@ public struct TerminalDetail: View {
                             terminalKeyButton(.arrowDown, systemImage: "arrow.down")
                             terminalKeyButton(.arrowLeft, systemImage: "arrow.left")
                             terminalKeyButton(.arrowRight, systemImage: "arrow.right")
+                            terminalKeyButton(.home, systemImage: "arrow.up.left")
+                            terminalKeyButton(.end, systemImage: "arrow.down.right")
+                            terminalKeyButton(.pageUp, systemImage: "arrow.up.to.line")
+                            terminalKeyButton(.pageDown, systemImage: "arrow.down.to.line")
                             terminalKeyButton(.escape, systemImage: "escape")
                             terminalKeyButton(.tab, systemImage: "arrow.right.to.line")
                             terminalKeyButton(.interrupt, systemImage: "xmark.octagon")
                             terminalKeyButton(.backspace, systemImage: "delete.left")
+                            terminalKeyButton(.deleteForward, systemImage: "delete.right")
                         }
                     }
                     Spacer(minLength: 8)

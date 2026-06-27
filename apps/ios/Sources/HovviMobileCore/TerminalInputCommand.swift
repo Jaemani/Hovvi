@@ -12,6 +12,11 @@ public enum TerminalInputCommand: Equatable, Sendable {
     case arrowDown
     case arrowRight
     case arrowLeft
+    case home
+    case end
+    case pageUp
+    case pageDown
+    case deleteForward
 
     public static func userText(_ text: String, bracketedPasteEnabled: Bool) -> TerminalInputCommand {
         if text.contains(where: \.isNewline) {
@@ -46,6 +51,16 @@ public enum TerminalInputCommand: Equatable, Sendable {
             return Data("\u{001B}[C".utf8)
         case .arrowLeft:
             return Data("\u{001B}[D".utf8)
+        case .home:
+            return Data("\u{001B}[H".utf8)
+        case .end:
+            return Data("\u{001B}[F".utf8)
+        case .pageUp:
+            return Data("\u{001B}[5~".utf8)
+        case .pageDown:
+            return Data("\u{001B}[6~".utf8)
+        case .deleteForward:
+            return Data("\u{001B}[3~".utf8)
         }
     }
 }

@@ -59,9 +59,10 @@ they render `AttachShellSnapshot` and emit closures for connect, select, attach,
 input, resize, and retry actions.
 
 `TerminalInputCommand` encodes text, paste-sized text, Return, Tab, Escape,
-Ctrl-C, and backspace as terminal bytes before they enter the mosh input path.
-The SwiftUI input bar sends `Data` rather than UI strings, so control keys and
-text use the same attach-session flow.
+Ctrl-C, backspace, ANSI arrow keys, Home, End, Page Up, Page Down, and forward
+Delete as terminal bytes before they enter the mosh input path. The SwiftUI
+input bar sends `Data` rather than UI strings, so control keys and text use the
+same attach-session flow.
 Multi-line input is treated as paste-sized input. When the remote terminal has
 enabled bracketed paste with `CSI ? 2004 h`, Hovvi wraps the bytes in
 `ESC [ 200 ~` and `ESC [ 201 ~`; otherwise it sends raw UTF-8.

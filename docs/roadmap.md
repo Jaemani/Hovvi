@@ -208,8 +208,9 @@ Current status:
   Swift can import and call the upstream-backed C ABI without changing the
   shipped MIT SwiftPM scaffold or packaging GPL-linked artifacts.
 - Swift mobile input uses `TerminalInputCommand` byte encoding for text,
-  paste-sized text, Return, Tab, Escape, Ctrl-C, backspace, and ANSI arrow keys
-  before sending data into the mosh input path.
+  paste-sized text, Return, Tab, Escape, Ctrl-C, backspace, ANSI arrow keys,
+  Home, End, Page Up, Page Down, and forward Delete before sending data into the
+  mosh input path.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
