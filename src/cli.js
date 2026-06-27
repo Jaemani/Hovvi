@@ -168,7 +168,7 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
     getConfig().githubClientId;
   const registryPath = readOption(args, "--registry") || process.env.HOVVI_RELAY_REGISTRY;
   const audit = registryAudit(args);
-  const deviceId = readOption(args, "--device");
+  const requestedDeviceId = readOption(args, "--device");
   const accountName = readOption(args, "--account-name");
   const deviceName = readOption(args, "--device-name");
   const platform = readOption(args, "--platform");
@@ -189,10 +189,6 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
   if (issueToken && !registryPath) {
     throw new Error("login --issue-token requires --registry <path>.");
   }
-  if (issueToken === "agent" && !deviceId) {
-    throw new Error("login --issue-token agent requires --device <device-id>.");
-  }
-
   const login = await githubDeviceLogin({
     clientId,
     onUserCode: ({ verificationUri, userCode }) => {
@@ -202,6 +198,9 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
   const accountId = githubAccountId(login.user);
 
   const config = getConfig();
+  const resolvedDeviceId =
+    requestedDeviceId ||
+    (issueToken === "agent" ? config.device?.id || `dev_${randomId()}` : undefined);
   config.githubClientId = clientId;
   config.github = {
     login: login.user.login,
@@ -225,10 +224,10 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
       name: accountName || login.user.login,
     });
     let device;
-    if (deviceId) {
+    if (resolvedDeviceId) {
       device = upsertRegistryDevice(registry, {
         accountId,
-        deviceId,
+        deviceId: resolvedDeviceId,
         name: deviceName,
         platform,
       });
@@ -238,7 +237,7 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
           registry,
           role: issueToken,
           accountId,
-          deviceId,
+          deviceId: resolvedDeviceId,
           clientId: relayClientId,
           name: tokenName,
           expiresAt,
@@ -274,7 +273,7 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
       if (issueToken === "agent") {
         config.device = {
           ...(config.device || {}),
-          id: deviceId,
+          id: resolvedDeviceId,
           ...(deviceName ? { name: deviceName } : {}),
         };
       }

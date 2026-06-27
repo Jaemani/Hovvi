@@ -444,6 +444,9 @@ Current status:
 - `hovvi login --relay <url>` can now save the relay URL into private config
   during the same login/token issuance flow, with URL credentials redacted in
   stdout.
+- `hovvi login --registry --issue-token agent` no longer requires a manually
+  chosen `--device`; it reuses the configured device id or generates one, then
+  scopes the agent token and registry device record to that id.
 - `hovvi device revoke` disables a registry device, and account-scoped agent
   authentication rejects revoked device records before an agent can appear
   online.

@@ -558,6 +558,59 @@ test("login can issue device-scoped agent relay token into registry and private 
   }
 });
 
+test("login generates a device id for agent relay tokens when none is provided", async () => {
+  const previousConfig = process.env.HOVVI_CONFIG;
+  const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-login-generated-agent-device-"));
+  const configPath = join(dir, "config.json");
+  const registryPath = join(dir, "registry.json");
+  process.env.HOVVI_CONFIG = configPath;
+
+  try {
+    const output = await captureStdout(() =>
+      main(
+        [
+          "login",
+          "--client-id",
+          "oauth-client-1",
+          "--registry",
+          registryPath,
+          "--device-name",
+          "MacBook",
+          "--issue-token",
+          "agent",
+        ],
+        {
+          githubDeviceLogin: async () => ({
+            accessToken: "gho_secret",
+            user: { login: "Jaemani", id: 39300288 },
+          }),
+        },
+      ),
+    );
+
+    const registry = loadRegistry(registryPath);
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    const device = registry.devices[0];
+    const tokenEntry = registry.tokens[0];
+
+    assert.match(config.device.id, /^dev_/);
+    assert.equal(config.device.name, "MacBook");
+    assert.equal(device.deviceId, config.device.id);
+    assert.equal(device.name, "MacBook");
+    assert.deepEqual(tokenEntry.deviceIds, [config.device.id]);
+    assert.equal(tokenEntry.hash, hashToken(config.relay.token));
+    assert.match(output, new RegExp(`Registered device ${config.device.id}`));
+    assert.equal(output.includes(config.relay.token), false);
+    assert.equal(output.includes("gho_secret"), false);
+  } finally {
+    if (previousConfig === undefined) {
+      delete process.env.HOVVI_CONFIG;
+    } else {
+      process.env.HOVVI_CONFIG = previousConfig;
+    }
+  }
+});
+
 async function captureStdout(fn) {
   const originalWrite = process.stdout.write;
   let output = "";

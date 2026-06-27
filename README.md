@@ -90,9 +90,12 @@ hovvi account upsert --registry ./registry.json --account github:39300288 --name
 hovvi device upsert --registry ./registry.json --account github:39300288 --device mac-main --name "Mac Studio" --platform darwin
 hovvi login --client-id <github-oauth-client-id> --registry ./registry.json --device mac-main --account-name Jaemani
 hovvi login --client-id <github-oauth-client-id> --registry ./registry.json --issue-token client --relay wss://relay.example.com --relay-client ios-main --token-name jaeman-iphone
-hovvi login --client-id <github-oauth-client-id> --registry ./registry.json --device mac-main --issue-token agent --relay wss://relay.example.com --token-name jaeman-mac-agent
+hovvi login --client-id <github-oauth-client-id> --registry ./registry.json --issue-token agent --relay wss://relay.example.com --token-name jaeman-mac-agent
 hovvi token generate --registry ./registry.json --name jaeman-iphone --role client --account github:39300288 --client ios-main
 ```
+
+When issuing an agent token, `hovvi login` reuses the configured device id or
+generates one and registers it, so `--device` is optional for new Mac setup.
 
 Create a registry JSON file:
 
