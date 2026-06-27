@@ -217,6 +217,10 @@ Current status:
 - Swift mobile terminal state tracks DEC autowrap mode (`CSI ? 7 h/l`), keeping
   default wrapping behavior while allowing fixed-width programs to write the
   right edge without forcing a line feed.
+- Swift mobile terminal parsing now supports RIS (`ESC c`) to reset live screen
+  state, modes, attributes, character set, tab stops, scroll region, saved
+  cursor, and alternate-screen snapshot state without mutating tmux-native
+  scrollback.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
@@ -365,7 +369,7 @@ Current status:
   cursor line/column
   movement, bracketed paste mode, application cursor-key mode, OSC skipping,
   DEC special graphics character
-  mapping, cursor visibility state and UI projection, saved cursor state, line/character
+  mapping, cursor visibility state and UI projection, RIS reset, saved cursor state, line/character
   insert-delete, tab-stop, and erase-character behavior in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, and

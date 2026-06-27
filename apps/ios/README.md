@@ -136,6 +136,9 @@ Erase-character sequences (`CSI X`) blank cells from the cursor without
 shifting the remaining row text.
 Erase display/line sequences (`CSI J/K`) support modes 0, 1, and 2 while
 preserving cursor position.
+RIS (`ESC c`) resets the live terminal screen, cursor, attributes, modes,
+character set, tab stops, scroll region, saved cursor state, and alternate-screen
+snapshot state without mutating tmux-native scrollback.
 `TerminalSurfaceView` composes tmux-native scrollback rows above the current
 live screen rows with separate stable IDs. Before live output arrives, it falls
 back to scrollback only.

@@ -199,6 +199,8 @@ public struct TerminalScreen: Equatable, Sendable {
             switch token {
             case .ignored:
                 break
+            case .reset:
+                reset()
             case .character(let character):
                 put(character)
             case .characterSet(let characterSet):
@@ -284,6 +286,24 @@ public struct TerminalScreen: Equatable, Sendable {
             }
         }
         operatingSystemCommandSkipState = parser.operatingSystemCommandSkipState
+    }
+
+    private mutating func reset() {
+        cursorColumn = 0
+        cursorRow = 0
+        isBracketedPasteModeEnabled = false
+        isCursorVisible = true
+        isApplicationCursorKeysModeEnabled = false
+        isAutoWrapModeEnabled = true
+        cells = Self.blankCells(columns: columns, rows: rows)
+        currentAttributes = TerminalTextAttributes()
+        scrollRegion = nil
+        originMode = false
+        savedCursor = nil
+        primarySnapshotBeforeAlternate = nil
+        tabStops = Self.defaultTabStops(columns: columns)
+        operatingSystemCommandSkipState = .none
+        characterSet = .ascii
     }
 
     private mutating func put(_ character: Character) {
@@ -735,6 +755,7 @@ public struct TerminalScreen: Equatable, Sendable {
 
 private enum TerminalToken {
     case ignored
+    case reset
     case character(Character)
     case characterSet(TerminalCharacterSet)
     case lineFeed
@@ -827,6 +848,10 @@ private struct TerminalEscapeParser {
         if text[index] == "H" {
             index = text.index(after: index)
             return .setHorizontalTabStop
+        }
+        if text[index] == "c" {
+            index = text.index(after: index)
+            return .reset
         }
         if text[index] == "7" {
             index = text.index(after: index)
