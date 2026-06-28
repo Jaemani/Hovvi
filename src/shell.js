@@ -12,6 +12,7 @@ export function run(command, args = [], options = {}) {
   const result = spawnSync(command, args, {
     encoding: "utf8",
     timeout: options.timeout ?? 5000,
+    killSignal: options.killSignal ?? "SIGKILL",
     env: options.env ?? process.env,
     cwd: options.cwd,
   });
