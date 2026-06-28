@@ -21,6 +21,45 @@ test("iOS simulator screenshot matrix skips when install check skips", () => {
   assert.equal(result.reason, "no simulator");
 });
 
+test("iOS simulator screenshot matrix retries transient xcodebuild preflight skips", () => {
+  let installCount = 0;
+  let waited = 0;
+  const result = iosSimulatorScreenshotMatrixCheck({
+    fixtures: ["browsing"],
+    outputDir: "/tmp/hovvi-ios-shot-matrix-retry",
+    waitMs: 0,
+    waitFn: (ms) => {
+      waited += ms;
+    },
+    installRetryWaitMs: 25,
+    installCheckFn() {
+      installCount += 1;
+      if (installCount === 1) {
+        return { status: "skipped", reason: "xcodebuild is not usable: " };
+      }
+      return {
+        status: "installed",
+        simulator: { name: "iPhone 17", udid: "SIM-1" },
+      };
+    },
+    readPngStatsFn: () => ({
+      byteLength: 4096,
+      sha256: "hash-browsing",
+      width: 1179,
+      height: 2556,
+      pixels: 3013524,
+      differentPixels: 4096,
+      uniqueColors: 64,
+      nonBlank: true,
+    }),
+    runTextFn: () => ok(""),
+  });
+
+  assert.equal(result.status, "captured");
+  assert.equal(installCount, 2);
+  assert.equal(waited, 25);
+});
+
 test("iOS simulator screenshot matrix reuses install and captures all fixtures", () => {
   const calls = [];
   let installCount = 0;

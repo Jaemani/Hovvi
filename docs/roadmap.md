@@ -342,6 +342,10 @@ Current status:
 - CI runs the screenshot matrix with `--require-captured`, so a missing
   CoreSimulator screenshot artifact fails CI instead of silently passing as a
   skipped local smoke.
+- The simulator screenshot matrix retries transient `xcodebuild is not usable`
+  preflight skips once before honoring `--require-captured`, because preceding
+  simulator build/install/launch gates can prove Xcode availability in the same
+  CI job.
 - Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
   render cap, and the deterministic `capped-viewport` fixture applies it with
   cap-specific live rows and visible session metadata so simulator screenshots

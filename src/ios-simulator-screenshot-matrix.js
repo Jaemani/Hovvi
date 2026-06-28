@@ -52,12 +52,19 @@ export function iosSimulatorScreenshotMatrixCheck({
   artifactMinimums = DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
   fixtureExpectations = DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS,
   waitMs = 1000,
+  installAttempts = 2,
+  installRetryWaitMs = 1000,
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
   readPngStatsFn = readPngStats,
   waitFn,
 } = {}) {
-  const install = installCheckFn();
+  const install = retryInstallCheck({
+    installCheckFn,
+    attempts: installAttempts,
+    retryWaitMs: installRetryWaitMs,
+    waitFn,
+  });
   if (install.status !== "installed") {
     return install;
   }
@@ -107,6 +114,34 @@ export function iosSimulatorScreenshotMatrixCheck({
         ? undefined
         : `${totalFailureCount} iOS simulator screenshot fixture assertion(s) failed.`,
   };
+}
+
+function retryInstallCheck({ installCheckFn, attempts, retryWaitMs, waitFn }) {
+  const maxAttempts = Math.max(1, Number.isFinite(attempts) ? Math.trunc(attempts) : 1);
+  let install;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    install = installCheckFn();
+    if (!shouldRetryInstallCheck(install) || attempt === maxAttempts) {
+      return install;
+    }
+    wait(retryWaitMs, waitFn);
+  }
+  return install;
+}
+
+function shouldRetryInstallCheck(install) {
+  return install?.status === "skipped" && /xcodebuild is not usable/i.test(install.reason || "");
+}
+
+function wait(ms, waitFn) {
+  const duration = Math.max(0, Number.isFinite(ms) ? Math.trunc(ms) : 0);
+  if (typeof waitFn === "function") {
+    waitFn(duration);
+    return;
+  }
+  if (duration > 0) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, duration);
+  }
 }
 
 export function safeFixtureName(fixture) {
