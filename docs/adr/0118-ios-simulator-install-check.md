@@ -22,9 +22,10 @@ The check:
 - reuses the simulator app-bundle harness with bundle retention enabled;
 - skips when simulator preflight or build prerequisites skip;
 - boots the selected simulator, tolerating an already-booted state;
-- waits for `simctl bootstatus -b`;
-- retries a stalled bootstatus once by shutting the simulator down and booting
-  it again, keeping the gate fail-closed while reducing GitHub-hosted
+- polls `simctl list devices --json` for the selected simulator to reach
+  `Booted` instead of blocking indefinitely in `simctl bootstatus -b`;
+- retries a stalled boot once by shutting the simulator down and booting it
+  again, keeping the gate fail-closed while reducing GitHub-hosted
   CoreSimulator startup flake;
 - installs `HovviMobileApp.app` with `simctl install`;
 - cleans temporary bundle and derived data when done.
@@ -37,6 +38,8 @@ a mobile app and does not change GPL-linked mobile packaging policy.
 - CI can now prove the generated app-bundle shape is accepted by CoreSimulator.
 - Transient CoreSimulator boot stalls are retried in the harness, but persistent
   boot failure still fails CI before screenshot evidence can be claimed.
+- The check avoids unbounded `bootstatus -b` waits by using bounded simulator
+  state polling.
 - Screenshot automation can build on an installed app instead of a file-only
   bundle check.
 - Production iOS signing, App Store distribution, device install, and

@@ -296,8 +296,9 @@ Current status:
 - `npm run ios:simulator-install-check` now boots the selected simulator on
   full-Xcode hosts and installs the temporary simulator bundle with `simctl`,
   proving the bundle is accepted by CoreSimulator before screenshot execution.
-  It retries one stalled bootstatus by shutdown/reboot so hosted-runner
-  CoreSimulator startup flake remains visible but recoverable.
+  It now uses bounded `simctl list devices --json` polling instead of blocking
+  `bootstatus -b`, and retries one stalled boot by shutdown/reboot so
+  hosted-runner CoreSimulator startup flake remains visible but recoverable.
 - `npm run ios:simulator-launch-check` now installs and launches the temporary
   simulator bundle with the deterministic attached coding-agent fixture, proving
   CoreSimulator can execute the app before screenshot execution.

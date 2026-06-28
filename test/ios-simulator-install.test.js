@@ -21,6 +21,9 @@ test("iOS simulator install check boots and installs the bundle", () => {
     }),
     runTextFn(command, args, options) {
       calls.push({ command, args, options });
+      if (args[1] === "list") {
+        return ok(simulatorList("Booted"));
+      }
       return ok("");
     },
   });
@@ -30,7 +33,7 @@ test("iOS simulator install check boots and installs the bundle", () => {
     calls.map((call) => call.args),
     [
       ["simctl", "boot", "SIM-1"],
-      ["simctl", "bootstatus", "SIM-1", "-b"],
+      ["simctl", "list", "devices", "--json"],
       ["simctl", "install", "SIM-1", "/tmp/HovviMobileApp.app"],
     ]
   );
@@ -47,6 +50,9 @@ test("iOS simulator install check tolerates an already booted simulator", () => 
       if (args[1] === "boot") {
         return failed("Unable to boot device in current state: Booted");
       }
+      if (args[1] === "list") {
+        return ok(simulatorList("Booted"));
+      }
       return ok("");
     },
   });
@@ -54,10 +60,11 @@ test("iOS simulator install check tolerates an already booted simulator", () => 
   assert.equal(result.status, "installed");
 });
 
-test("iOS simulator install check retries bootstatus after simulator boot stall", () => {
+test("iOS simulator install check polls simulator state until booted", () => {
   const calls = [];
-  let bootstatusCalls = 0;
+  let listCalls = 0;
   const result = iosSimulatorInstallCheck({
+    bootPollIntervalMs: 0,
     bundleCheckFn: () => ({
       status: "bundled",
       simulator: { name: "iPhone 17", udid: "SIM-1" },
@@ -65,11 +72,9 @@ test("iOS simulator install check retries bootstatus after simulator boot stall"
     }),
     runTextFn(command, args, options) {
       calls.push({ command, args, options });
-      if (args[1] === "bootstatus") {
-        bootstatusCalls += 1;
-        if (bootstatusCalls === 1) {
-          return failed("CoreSimulator boot stalled");
-        }
+      if (args[1] === "list") {
+        listCalls += 1;
+        return ok(simulatorList(listCalls === 1 ? "Booting" : "Booted"));
       }
       return ok("");
     },
@@ -80,26 +85,28 @@ test("iOS simulator install check retries bootstatus after simulator boot stall"
     calls.map((call) => call.args),
     [
       ["simctl", "boot", "SIM-1"],
-      ["simctl", "bootstatus", "SIM-1", "-b"],
-      ["simctl", "shutdown", "SIM-1"],
-      ["simctl", "boot", "SIM-1"],
-      ["simctl", "bootstatus", "SIM-1", "-b"],
+      ["simctl", "list", "devices", "--json"],
+      ["simctl", "list", "devices", "--json"],
       ["simctl", "install", "SIM-1", "/tmp/HovviMobileApp.app"],
     ]
   );
 });
 
-test("iOS simulator install check reports bootstatus failures after bounded retry", () => {
+test("iOS simulator install check retries boot when simulator never reaches booted state", () => {
+  const calls = [];
   const result = iosSimulatorInstallCheck({
     bootAttempts: 2,
+    bootPolls: 1,
+    bootPollIntervalMs: 0,
     bundleCheckFn: () => ({
       status: "bundled",
       simulator: { name: "iPhone 17", udid: "SIM-1" },
       appBundle: "/tmp/HovviMobileApp.app",
     }),
-    runTextFn(command, args) {
-      if (args[1] === "bootstatus") {
-        return failed("CoreSimulator boot stalled");
+    runTextFn(command, args, options) {
+      calls.push({ command, args, options });
+      if (args[1] === "list") {
+        return ok(simulatorList("Booting"));
       }
       return ok("");
     },
@@ -108,7 +115,17 @@ test("iOS simulator install check reports bootstatus failures after bounded retr
   assert.equal(result.status, "failed");
   assert.equal(result.reason, "Selected iOS simulator did not reach booted state.");
   assert.equal(result.bootAttempts, 2);
-  assert.match(result.simctl, /CoreSimulator boot stalled/);
+  assert.match(result.simctl, /Booting/);
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [
+      ["simctl", "boot", "SIM-1"],
+      ["simctl", "list", "devices", "--json"],
+      ["simctl", "shutdown", "SIM-1"],
+      ["simctl", "boot", "SIM-1"],
+      ["simctl", "list", "devices", "--json"],
+    ]
+  );
 });
 
 test("iOS simulator install check reports install failures", () => {
@@ -119,6 +136,9 @@ test("iOS simulator install check reports install failures", () => {
       appBundle: "/tmp/HovviMobileApp.app",
     }),
     runTextFn(command, args) {
+      if (args[1] === "list") {
+        return ok(simulatorList("Booted"));
+      }
       if (args[1] === "install") {
         return failed("invalid bundle");
       }
@@ -149,4 +169,19 @@ function failed(text) {
     stderr: text,
     text,
   };
+}
+
+function simulatorList(state) {
+  return JSON.stringify({
+    devices: {
+      "com.apple.CoreSimulator.SimRuntime.iOS-18-5": [
+        {
+          name: "iPhone 17",
+          udid: "SIM-1",
+          state,
+          isAvailable: true,
+        },
+      ],
+    },
+  });
 }

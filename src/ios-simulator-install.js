@@ -6,6 +6,8 @@ export function iosSimulatorInstallCheck({
   bundleCheckFn = (options) => iosSimulatorAppBundleCheck(options),
   runTextFn = runText,
   bootAttempts = 2,
+  bootPolls = 24,
+  bootPollIntervalMs = 5000,
 } = {}) {
   const bundle = bundleCheckFn({ keepBundle: true });
   if (bundle.status !== "bundled") {
@@ -32,7 +34,13 @@ export function iosSimulatorInstallCheck({
     };
   }
 
-  const boot = bootSimulator({ udid, runTextFn, attempts: bootAttempts });
+  const boot = bootSimulator({
+    udid,
+    runTextFn,
+    attempts: bootAttempts,
+    polls: bootPolls,
+    pollIntervalMs: bootPollIntervalMs,
+  });
   if (!boot.ok) {
     cleanupBundle(bundle);
     return {
@@ -65,10 +73,10 @@ function isAlreadyBooted(text) {
   return /already booted|current state.*booted/i.test(text ?? "");
 }
 
-function bootSimulator({ udid, runTextFn, attempts }) {
+function bootSimulator({ udid, runTextFn, attempts, polls, pollIntervalMs }) {
   const maxAttempts = Math.max(1, Number.isFinite(attempts) ? Math.trunc(attempts) : 1);
   let lastBoot;
-  let lastBootstatus;
+  let lastStatus;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     lastBoot = runTextFn("xcrun", ["simctl", "boot", udid], { timeout: 120000 });
     if (!lastBoot.ok && isAlreadyBooted(lastBoot.text) === false) {
@@ -80,13 +88,12 @@ function bootSimulator({ udid, runTextFn, attempts }) {
       };
     }
 
-    lastBootstatus = runTextFn("xcrun", ["simctl", "bootstatus", udid, "-b"], {
-      timeout: 120000,
-    });
-    if (lastBootstatus.ok) {
+    lastStatus = waitForBootedSimulator({ udid, runTextFn, polls, pollIntervalMs });
+    if (lastStatus.ok) {
       return {
         ok: true,
         attempts: attempt,
+        polls: lastStatus.polls,
       };
     }
 
@@ -99,8 +106,41 @@ function bootSimulator({ udid, runTextFn, attempts }) {
     ok: false,
     attempts: maxAttempts,
     reason: "Selected iOS simulator did not reach booted state.",
-    text: lastBootstatus?.text ?? lastBoot?.text ?? "",
+    text: lastStatus?.text ?? lastBoot?.text ?? "",
   };
+}
+
+function waitForBootedSimulator({ udid, runTextFn, polls, pollIntervalMs }) {
+  const maxPolls = Math.max(1, Number.isFinite(polls) ? Math.trunc(polls) : 1);
+  const intervalMs = Math.max(0, Number.isFinite(pollIntervalMs) ? Math.trunc(pollIntervalMs) : 0);
+  let lastText = "";
+  for (let poll = 1; poll <= maxPolls; poll += 1) {
+    const status = runTextFn("xcrun", ["simctl", "list", "devices", "--json"], { timeout: 30000 });
+    lastText = status.text;
+    if (status.ok && simulatorState(status.text, udid) === "Booted") {
+      return { ok: true, polls: poll, text: status.text };
+    }
+    if (poll < maxPolls && intervalMs > 0) sleep(intervalMs);
+  }
+  return { ok: false, polls: maxPolls, text: lastText };
+}
+
+function simulatorState(text, udid) {
+  try {
+    const parsed = JSON.parse(text || "{}");
+    for (const devices of Object.values(parsed.devices || {})) {
+      if (!Array.isArray(devices)) continue;
+      const match = devices.find((device) => device.udid === udid);
+      if (match) return match.state;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function cleanupBundle(bundle) {
