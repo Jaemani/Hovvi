@@ -739,6 +739,9 @@ private extension TerminalScreenRun {
         if attributes.underline {
             text = text.underline()
         }
+        if attributes.strikethrough {
+            text = text.strikethrough()
+        }
         if let color = effectiveForegroundColor {
             text = text.foregroundColor(color)
         }
@@ -747,9 +750,9 @@ private extension TerminalScreenRun {
 
     var effectiveForegroundColor: Color? {
         if attributes.inverse {
-            return attributes.background?.swiftUIColor ?? .white
+            return faintAdjusted(attributes.background?.swiftUIColor ?? .white)
         }
-        return attributes.foreground?.swiftUIColor
+        return faintAdjusted(attributes.foreground?.swiftUIColor)
     }
 
     var effectiveBackgroundColor: Color? {
@@ -757,6 +760,11 @@ private extension TerminalScreenRun {
             return attributes.foreground?.swiftUIColor ?? .black
         }
         return attributes.background?.swiftUIColor
+    }
+
+    func faintAdjusted(_ color: Color?) -> Color? {
+        guard attributes.faint else { return color }
+        return (color ?? .primary).opacity(0.55)
     }
 }
 

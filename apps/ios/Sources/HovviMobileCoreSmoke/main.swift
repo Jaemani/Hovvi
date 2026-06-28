@@ -962,6 +962,17 @@ let inverseRuns = inverseScreen.visibleLines[0].runs
 try require(inverseRuns.map(\.text) == ["inverse", "plain"], "terminal screen should split inverse SGR runs")
 try require(inverseRuns[0].attributes.inverse, "terminal screen should preserve inverse SGR")
 try require(inverseRuns[1].attributes.inverse == false, "terminal screen should reset inverse SGR")
+var faintStrikeScreen = TerminalScreen(columns: 32, rows: 1)
+faintStrikeScreen.apply("\u{001B}[2mfaint\u{001B}[22mplain\u{001B}[9mstrike\u{001B}[29mdone")
+let faintStrikeRuns = faintStrikeScreen.visibleLines[0].runs
+try require(
+    faintStrikeRuns.map(\.text) == ["faint", "plain", "strike", "done"],
+    "terminal screen should split faint and strikethrough SGR runs"
+)
+try require(faintStrikeRuns[0].attributes.faint, "terminal screen should preserve faint SGR")
+try require(faintStrikeRuns[1].attributes.faint == false, "terminal SGR 22 should reset faint intensity")
+try require(faintStrikeRuns[2].attributes.strikethrough, "terminal screen should preserve strikethrough SGR")
+try require(faintStrikeRuns[3].attributes.strikethrough == false, "terminal SGR 29 should reset strikethrough")
 var scrollRegionScreen = TerminalScreen(columns: 8, rows: 5)
 scrollRegionScreen.apply("\u{001B}[1;1Htop")
 scrollRegionScreen.apply("\u{001B}[2;1Hone")

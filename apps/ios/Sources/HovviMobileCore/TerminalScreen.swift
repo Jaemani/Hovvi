@@ -26,23 +26,29 @@ public struct TerminalScreenRun: Equatable, Sendable {
 
 public struct TerminalTextAttributes: Equatable, Sendable {
     public var bold: Bool
+    public var faint: Bool
     public var italic: Bool
     public var underline: Bool
+    public var strikethrough: Bool
     public var inverse: Bool
     public var foreground: TerminalAnsiColor?
     public var background: TerminalAnsiColor?
 
     public init(
         bold: Bool = false,
+        faint: Bool = false,
         italic: Bool = false,
         underline: Bool = false,
+        strikethrough: Bool = false,
         inverse: Bool = false,
         foreground: TerminalAnsiColor? = nil,
         background: TerminalAnsiColor? = nil
     ) {
         self.bold = bold
+        self.faint = faint
         self.italic = italic
         self.underline = underline
+        self.strikethrough = strikethrough
         self.inverse = inverse
         self.foreground = foreground
         self.background = background
@@ -656,20 +662,27 @@ public struct TerminalScreen: Equatable, Sendable {
                 currentAttributes = TerminalTextAttributes()
             case 1:
                 currentAttributes.bold = true
+            case 2:
+                currentAttributes.faint = true
             case 3:
                 currentAttributes.italic = true
             case 4:
                 currentAttributes.underline = true
             case 7:
                 currentAttributes.inverse = true
+            case 9:
+                currentAttributes.strikethrough = true
             case 22:
                 currentAttributes.bold = false
+                currentAttributes.faint = false
             case 23:
                 currentAttributes.italic = false
             case 24:
                 currentAttributes.underline = false
             case 27:
                 currentAttributes.inverse = false
+            case 29:
+                currentAttributes.strikethrough = false
             case 30...37:
                 currentAttributes.foreground = TerminalAnsiColor(standardIndex: value - 30)
             case 40...47:
