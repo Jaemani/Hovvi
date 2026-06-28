@@ -306,8 +306,8 @@ Current status:
   are caught before exact golden baselines exist.
 - The simulator screenshot matrix metadata now carries a versioned artifact
   summary with expected fixture coverage, per-fixture PNG hashes, nonblank
-  status, and distinct-image invariants so CI artifacts can be audited without
-  re-running CoreSimulator.
+  status, minimum image quality bounds, and distinct-image invariants so CI
+  artifacts can be audited without re-running CoreSimulator.
 - Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
   render cap, and the deterministic `capped-viewport` fixture applies it with
   cap-specific live rows and visible session metadata so simulator screenshots

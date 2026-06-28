@@ -228,8 +228,8 @@ matrix check reuses one install to capture browsing, attached coding-agent,
 failed attach, and capped viewport shell fixtures. It records PNG metadata and
 rejects duplicate fixture images before exact golden baselines exist. Matrix
 metadata also includes a versioned artifact summary with expected fixtures,
-per-fixture PNG hashes, nonblank status, and distinct-image invariants for CI
-audit.
+per-fixture PNG hashes, nonblank status, minimum image quality bounds, and
+distinct-image invariants for CI audit.
 
 ## Product Direction
 

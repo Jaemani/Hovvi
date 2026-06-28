@@ -23,8 +23,9 @@ selector produced different rendered states without freezing exact pixels.
 
 Write a versioned matrix artifact summary beside the raw per-fixture results.
 The artifact records expected fixtures, captured fixture count, per-fixture PNG
-hashes, nonblank status, and distinct-image invariants. This keeps CI evidence
-machine-auditable without requiring CoreSimulator reruns.
+hashes, nonblank status, minimum image quality bounds, and distinct-image
+invariants. This keeps CI evidence machine-auditable without requiring
+CoreSimulator reruns.
 
 ## Consequences
 
@@ -38,6 +39,8 @@ machine-auditable without requiring CoreSimulator reruns.
   work.
 - The artifact schema version gives future visual baselines a compatibility
   boundary instead of relying on ad hoc JSON result shape.
+- Minimum image bounds reject tiny or under-sampled screenshots that are
+  technically nonblank but not useful as mobile UI evidence.
 - Exact golden comparisons remain intentionally out of scope until the UI is
   stable enough to version pixel baselines.
 

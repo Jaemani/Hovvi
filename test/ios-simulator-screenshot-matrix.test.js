@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
   DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
   IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
   buildScreenshotMatrixArtifact,
@@ -82,9 +83,14 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
   ]);
   assert.equal(result.artifact.fixtureCount, 4);
   assert.equal(result.artifact.capturedFixtureCount, 4);
+  assert.deepEqual(
+    result.artifact.minimums,
+    DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS
+  );
   assert.equal(result.artifact.allImagesHaveHashes, true);
   assert.equal(result.artifact.allImagesDistinct, true);
   assert.equal(result.artifact.allImagesNonBlank, true);
+  assert.equal(result.artifact.allImagesMeetMinimums, true);
   assert.deepEqual(result.artifact.imageSha256ByFixture, {
     browsing: "hash-browsing",
     "attached-coding-agent": "hash-attached-coding-agent",
@@ -205,8 +211,83 @@ test("iOS simulator screenshot matrix artifact verifier rejects missing or weak 
     findScreenshotMatrixArtifactFailures(artifact).map((entry) => entry.reason),
     [
       "Captured screenshot artifact was not marked nonblank.",
+      "Captured screenshot artifact did not meet a minimum image quality bound.",
       "Captured screenshot matrix artifact did not contain distinct image hashes.",
       "Captured screenshot matrix artifact included a blank image.",
+      "Captured screenshot matrix artifact did not meet minimum image quality bounds.",
+    ]
+  );
+});
+
+test("iOS simulator screenshot matrix artifact verifier rejects undersized images", () => {
+  const artifact = buildScreenshotMatrixArtifact({
+    fixtures: ["browsing"],
+    results: [
+      {
+        status: "captured",
+        fixture: "browsing",
+        screenshot: "/tmp/browsing.png",
+        image: {
+          byteLength: 512,
+          sha256: "hash-browsing",
+          width: 200,
+          height: 400,
+          pixels: 80000,
+          uniqueColors: 4,
+          nonBlank: true,
+        },
+      },
+    ],
+  });
+
+  assert.equal(artifact.allImagesMeetMinimums, false);
+  assert.deepEqual(
+    findScreenshotMatrixArtifactFailures(artifact)
+      .filter((entry) => entry.reason.includes("minimum image quality"))
+      .map((entry) => ({
+        fixture: entry.fixture,
+        field: entry.field,
+        expectedMinimum: entry.expectedMinimum,
+        actual: entry.actual,
+        reason: entry.reason,
+      })),
+    [
+      {
+        fixture: "browsing",
+        field: "width",
+        expectedMinimum: 300,
+        actual: 200,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      },
+      {
+        fixture: "browsing",
+        field: "height",
+        expectedMinimum: 500,
+        actual: 400,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      },
+      {
+        fixture: "browsing",
+        field: "byteLength",
+        expectedMinimum: 1024,
+        actual: 512,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      },
+      {
+        fixture: "browsing",
+        field: "uniqueColors",
+        expectedMinimum: 8,
+        actual: 4,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      },
+      {
+        fixture: undefined,
+        field: undefined,
+        expectedMinimum: undefined,
+        actual: undefined,
+        reason:
+          "Captured screenshot matrix artifact did not meet minimum image quality bounds.",
+      },
     ]
   );
 });
@@ -240,6 +321,7 @@ test("iOS simulator screenshot matrix artifact verifier rejects fixture drift", 
     uniqueImageCount: 2,
     allImagesDistinct: true,
     allImagesNonBlank: true,
+    allImagesMeetMinimums: true,
   });
 
   assert.deepEqual(

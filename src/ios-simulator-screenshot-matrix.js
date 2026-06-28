@@ -13,10 +13,18 @@ export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES = [
 
 export const IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION = 1;
 
+export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS = {
+  width: 300,
+  height: 500,
+  byteLength: 1024,
+  uniqueColors: 8,
+};
+
 export function iosSimulatorScreenshotMatrixCheck({
   fixtures = DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
   outputDir,
   requireDistinctImages = true,
+  artifactMinimums = DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
   waitMs = 1000,
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
@@ -45,7 +53,12 @@ export function iosSimulatorScreenshotMatrixCheck({
   const failures = results.filter((result) => result.status !== "captured");
   const duplicateImageFailures =
     failures.length === 0 && requireDistinctImages ? findDuplicateImageFailures(results) : [];
-  const artifact = buildScreenshotMatrixArtifact({ fixtures, results, requireDistinctImages });
+  const artifact = buildScreenshotMatrixArtifact({
+    fixtures,
+    results,
+    requireDistinctImages,
+    minimums: artifactMinimums,
+  });
   const artifactFailures =
     failures.length === 0 && duplicateImageFailures.length === 0
       ? findScreenshotMatrixArtifactFailures(artifact)
@@ -77,7 +90,12 @@ export function safeFixtureName(fixture) {
     .replace(/^-+|-+$/g, "");
 }
 
-export function buildScreenshotMatrixArtifact({ fixtures, results, requireDistinctImages = true }) {
+export function buildScreenshotMatrixArtifact({
+  fixtures,
+  results,
+  requireDistinctImages = true,
+  minimums = DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
+}) {
   const screenshots = results.map((result) => ({
     fixture: result.fixture,
     status: result.status,
@@ -99,6 +117,7 @@ export function buildScreenshotMatrixArtifact({ fixtures, results, requireDistin
   return {
     schemaVersion: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
     requireDistinctImages,
+    minimums: { ...minimums },
     expectedFixtures: [...fixtures],
     fixtureCount: fixtures.length,
     capturedFixtureCount: capturedScreenshots.length,
@@ -110,6 +129,9 @@ export function buildScreenshotMatrixArtifact({ fixtures, results, requireDistin
     uniqueImageCount: uniqueHashes.size,
     allImagesDistinct: uniqueHashes.size === capturedScreenshots.length,
     allImagesNonBlank: capturedScreenshots.every((entry) => entry.nonBlank === true),
+    allImagesMeetMinimums: capturedScreenshots.every((entry) =>
+      screenshotMeetsMinimums(entry, minimums)
+    ),
   };
 }
 
@@ -156,6 +178,11 @@ export function findScreenshotMatrixArtifactFailures(artifact) {
         reason: "Captured screenshot artifact was not marked nonblank.",
       });
     }
+    if (entry.status === "captured") {
+      for (const failure of findScreenshotMinimumFailures(entry, artifact.minimums)) {
+        failures.push(failure);
+      }
+    }
   }
   for (const fixture of artifact.expectedFixtures) {
     if (!seenFixtures.has(fixture)) {
@@ -180,7 +207,36 @@ export function findScreenshotMatrixArtifactFailures(artifact) {
       reason: "Captured screenshot matrix artifact included a blank image.",
     });
   }
+  if (!artifact.allImagesMeetMinimums) {
+    failures.push({
+      reason: "Captured screenshot matrix artifact did not meet minimum image quality bounds.",
+    });
+  }
   return failures;
+}
+
+function findScreenshotMinimumFailures(entry, minimums) {
+  const failures = [];
+  for (const [field, minimum] of Object.entries(minimums ?? {})) {
+    if (typeof minimum !== "number") {
+      continue;
+    }
+    const actual = entry[field];
+    if (typeof actual !== "number" || actual < minimum) {
+      failures.push({
+        fixture: entry.fixture,
+        field,
+        expectedMinimum: minimum,
+        actual,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      });
+    }
+  }
+  return failures;
+}
+
+function screenshotMeetsMinimums(entry, minimums) {
+  return findScreenshotMinimumFailures(entry, minimums).length === 0;
 }
 
 function findDuplicateImageFailures(results) {
