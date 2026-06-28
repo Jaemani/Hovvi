@@ -5,6 +5,7 @@ import {
   DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS,
   DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
   IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
+  IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT,
   buildScreenshotMatrixArtifact,
   findScreenshotMatrixArtifactFailures,
   iosSimulatorScreenshotMatrixCheck,
@@ -523,6 +524,7 @@ test("iOS simulator screenshot matrix artifact verifier rejects semantic expecta
 });
 
 test("iOS simulator screenshot matrix fixture names are stable", () => {
+  assert.equal(IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.schemaVersion, 1);
   assert.deepEqual(DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES, [
     "browsing",
     "attached-coding-agent",

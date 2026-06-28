@@ -4,6 +4,35 @@ import HovviMobileCore
 public enum AttachShellPreviewFixtures {
     public static let defaultViewportLineLimit = 12
     public static let environmentKey = "HOVVI_IOS_SNAPSHOT_FIXTURE"
+    public static let fixtureNames = [
+        "browsing",
+        "attached-coding-agent",
+        "failed-attach",
+        "capped-viewport"
+    ]
+
+    public static let fixtureExpectations: [String: ScreenshotFixtureExpectation] = [
+        "browsing": ScreenshotFixtureExpectation(
+            role: "device-session-browser",
+            state: "browsing",
+            requiredSignals: ["device-list", "session-list"]
+        ),
+        "attached-coding-agent": ScreenshotFixtureExpectation(
+            role: "relay-backed-terminal",
+            state: "attached",
+            requiredSignals: ["coding-agent-session", "terminal-live-output"]
+        ),
+        "failed-attach": ScreenshotFixtureExpectation(
+            role: "recoverable-error",
+            state: "failed",
+            requiredSignals: ["recovery-action", "redacted-error"]
+        ),
+        "capped-viewport": ScreenshotFixtureExpectation(
+            role: "mobile-terminal-viewport",
+            state: "attached",
+            requiredSignals: ["terminal-live-output", "viewport-cap"]
+        )
+    ]
 
     public static let devices = [
         Device(
@@ -124,8 +153,63 @@ public enum AttachShellPreviewFixtures {
         }
     }
 
+    public static func expectation(named name: String?) -> ScreenshotFixtureExpectation? {
+        guard let name = normalizedFixtureName(name) else {
+            return nil
+        }
+        return fixtureExpectations[name]
+    }
+
+    public static func semanticSignals(for snapshot: AttachShellSnapshot) -> Set<String> {
+        var signals = Set<String>()
+        if snapshot.devices.isEmpty == false {
+            signals.insert("device-list")
+        }
+        if snapshot.devices.contains(where: { $0.sessions.isEmpty == false }) {
+            signals.insert("session-list")
+        }
+        if selectedSession(in: snapshot)?.aiPanes.isEmpty == false {
+            signals.insert("coding-agent-session")
+        }
+        let liveRows = TerminalSurfaceProjection.lines(for: snapshot).filter { $0.source == .live }
+        if snapshot.terminalOutput.isEmpty == false || liveRows.contains(where: { row in
+            row.runs.contains { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+        }) {
+            signals.insert("terminal-live-output")
+        }
+        if snapshot.recoveryAction != nil {
+            signals.insert("recovery-action")
+        }
+        if let error = snapshot.error,
+           error.message.isEmpty == false,
+           error.message.contains("MDEyMzQ1Njc4OWFiY2RlZg") == false,
+           error.message.localizedCaseInsensitiveContains("HOVVI_RELAY_TOKEN") == false {
+            signals.insert("redacted-error")
+        }
+        if let limit = snapshot.terminalViewportLineLimit,
+           limit > 0,
+           TerminalSurfaceProjection.viewport(for: snapshot).isTruncatedAbove {
+            signals.insert("viewport-cap")
+        }
+        return signals
+    }
+
     public static func terminalViewport(maxRows: Int = defaultViewportLineLimit) -> TerminalSurfaceViewport {
         TerminalSurfaceProjection.viewport(for: attachedCodingAgent, maxRows: maxRows)
+    }
+
+    private static func normalizedFixtureName(_ name: String?) -> String? {
+        let normalized = name?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized?.isEmpty == false ? normalized : nil
+    }
+
+    private static func selectedSession(in snapshot: AttachShellSnapshot) -> Session? {
+        guard let selectedDeviceId = snapshot.selectedDeviceId,
+              let selectedSessionName = snapshot.selectedSessionName,
+              let device = snapshot.devices.first(where: { $0.id == selectedDeviceId }) else {
+            return nil
+        }
+        return device.sessions.first(where: { $0.name == selectedSessionName })
     }
 
     private static var scrollback: ScrollbackBuffer {
@@ -204,5 +288,17 @@ public enum AttachShellPreviewFixtures {
                 command: ["tmux", "-CC", "attach-session", "-t", "main"]
             )
         )
+    }
+}
+
+public struct ScreenshotFixtureExpectation: Equatable, Sendable {
+    public let role: String
+    public let state: String
+    public let requiredSignals: [String]
+
+    public init(role: String, state: String, requiredSignals: [String]) {
+        self.role = role
+        self.state = state
+        self.requiredSignals = requiredSignals.sorted()
     }
 }

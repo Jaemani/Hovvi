@@ -1,38 +1,26 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { iosSimulatorInstallCheck } from "./ios-simulator-install.js";
 import { captureInstalledIosSimulatorScreenshot } from "./ios-simulator-screenshot.js";
 import { readPngStats } from "./png-image-stats.js";
 import { runText } from "./shell.js";
 
-export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES = [
-  "browsing",
-  "attached-coding-agent",
-  "failed-attach",
-  "capped-viewport",
-];
+export const IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT = readFixtureContract();
 
-export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS = {
-  browsing: {
-    role: "device-session-browser",
-    state: "browsing",
-    requiredSignals: ["device-list", "session-list"],
-  },
-  "attached-coding-agent": {
-    role: "relay-backed-terminal",
-    state: "attached",
-    requiredSignals: ["coding-agent-session", "terminal-live-output"],
-  },
-  "failed-attach": {
-    role: "recoverable-error",
-    state: "failed",
-    requiredSignals: ["recovery-action", "redacted-error"],
-  },
-  "capped-viewport": {
-    role: "mobile-terminal-viewport",
-    state: "attached",
-    requiredSignals: ["terminal-live-output", "viewport-cap"],
-  },
-};
+export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES =
+  IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.map((fixture) => fixture.name);
+
+export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS = Object.fromEntries(
+  IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.map((fixture) => [
+    fixture.name,
+    {
+      role: fixture.role,
+      state: fixture.state,
+      requiredSignals: fixture.requiredSignals,
+    },
+  ])
+);
 
 export const IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION = 2;
 
@@ -410,4 +398,26 @@ function findDuplicateImageFailures(results) {
     seen.set(hash, result);
   }
   return failures;
+}
+
+function readFixtureContract() {
+  const contractPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../docs/ios-screenshot-fixtures.json"
+  );
+  const contract = JSON.parse(readFileSync(contractPath, "utf8"));
+  if (!Array.isArray(contract.fixtures) || contract.fixtures.length === 0) {
+    throw new Error("iOS screenshot fixture contract must define fixtures.");
+  }
+  return {
+    schemaVersion: contract.schemaVersion,
+    fixtures: contract.fixtures.map((fixture) => ({
+      name: String(fixture.name),
+      role: String(fixture.role),
+      state: String(fixture.state),
+      requiredSignals: Array.isArray(fixture.requiredSignals)
+        ? fixture.requiredSignals.map((signal) => String(signal)).sort()
+        : [],
+    })),
+  };
 }

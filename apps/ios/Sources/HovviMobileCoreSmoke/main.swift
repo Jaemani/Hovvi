@@ -1322,6 +1322,38 @@ try require(
     AttachShellPreviewFixtures.snapshot(named: "unknown") == nil,
     "preview fixture selector should ignore unknown fixtures instead of changing app behavior"
 )
+let screenshotContract = try loadScreenshotFixtureContract()
+try require(
+    screenshotContract.fixtures.map(\.name) == AttachShellPreviewFixtures.fixtureNames,
+    "screenshot fixture contract should match Swift fixture order"
+)
+for fixture in screenshotContract.fixtures {
+    guard let snapshot = AttachShellPreviewFixtures.snapshot(named: fixture.name) else {
+        throw SmokeError("screenshot fixture contract referenced missing Swift fixture \(fixture.name)")
+    }
+    guard let swiftExpectation = AttachShellPreviewFixtures.expectation(named: fixture.name) else {
+        throw SmokeError("Swift fixture \(fixture.name) should expose semantic expectations")
+    }
+    try require(
+        swiftExpectation == ScreenshotFixtureExpectation(
+            role: fixture.role,
+            state: fixture.state,
+            requiredSignals: fixture.requiredSignals
+        ),
+        "Swift screenshot fixture expectation should match repository contract for \(fixture.name)"
+    )
+    try require(
+        snapshot.phase.rawValue == fixture.state,
+        "Swift screenshot fixture phase should match repository contract for \(fixture.name)"
+    )
+    let signals = AttachShellPreviewFixtures.semanticSignals(for: snapshot)
+    for signal in fixture.requiredSignals {
+        try require(
+            signals.contains(signal),
+            "Swift screenshot fixture \(fixture.name) should expose semantic signal \(signal)"
+        )
+    }
+}
 
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))
@@ -1968,4 +2000,37 @@ actor FakeAttachShellRelay: AttachShellRelaying {
     func enqueue(frame: RelayDatagramFrame) {
         frames.append(frame)
     }
+}
+
+struct ScreenshotFixtureContract: Decodable {
+    let schemaVersion: Int
+    let fixtures: [ScreenshotFixtureContractEntry]
+}
+
+struct ScreenshotFixtureContractEntry: Decodable {
+    let name: String
+    let role: String
+    let state: String
+    let requiredSignals: [String]
+}
+
+func loadScreenshotFixtureContract() throws -> ScreenshotFixtureContract {
+    let fileManager = FileManager.default
+    let currentDirectory = fileManager.currentDirectoryPath
+    let candidates = [
+        "docs/ios-screenshot-fixtures.json",
+        "../../docs/ios-screenshot-fixtures.json"
+    ].map {
+        URL(fileURLWithPath: $0, relativeTo: URL(fileURLWithPath: currentDirectory, isDirectory: true))
+            .standardizedFileURL
+    }
+
+    for candidate in candidates where fileManager.fileExists(atPath: candidate.path) {
+        let data = try Data(contentsOf: candidate)
+        let contract = try JSONDecoder().decode(ScreenshotFixtureContract.self, from: data)
+        try require(contract.schemaVersion == 1, "screenshot fixture contract schema version should be supported")
+        return contract
+    }
+
+    throw SmokeError("could not find docs/ios-screenshot-fixtures.json from \(currentDirectory)")
 }

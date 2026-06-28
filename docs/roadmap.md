@@ -347,6 +347,11 @@ Current status:
   semantic fixture expectations (`role`, `state`, and `requiredSignals`) so CI
   artifacts show which mobile attach state each deterministic screenshot is
   intended to prove.
+- Screenshot fixture expectations now live in
+  `docs/ios-screenshot-fixtures.json`, and Swift smoke reads the same contract
+  to verify each deterministic preview snapshot exposes the required semantic
+  signals before simulator screenshots can be treated as meaningful attach-shell
+  evidence.
 - CI runs the screenshot matrix with `--require-captured`, so a missing
   CoreSimulator screenshot artifact fails CI instead of silently passing as a
   skipped local smoke.
@@ -501,10 +506,10 @@ Current status:
   insert-delete, explicit cursor movement aliases, tab-stop, cursor tabulation, and erase-character behavior in
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, device screenshot
-  execution, and stricter visual assertions are still pending. Simulator
-  screenshot smoke execution now covers the browsing, attached coding-agent, and
-  failed attach, and capped viewport SwiftPM bundle fixtures with duplicate
-  image detection.
+  execution, and exact golden visual baselines are still pending. Simulator
+  screenshot smoke execution now covers browsing, attached coding-agent, failed
+  attach, and capped viewport SwiftPM bundle fixtures with semantic fixture
+  contract validation, duplicate image detection, and image-quality bounds.
 
 ### 6. Mac Agent and CLI Hardening
 

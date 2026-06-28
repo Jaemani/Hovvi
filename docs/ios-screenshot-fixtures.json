@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "name": "browsing",
+      "role": "device-session-browser",
+      "state": "browsing",
+      "requiredSignals": ["device-list", "session-list"]
+    },
+    {
+      "name": "attached-coding-agent",
+      "role": "relay-backed-terminal",
+      "state": "attached",
+      "requiredSignals": ["coding-agent-session", "terminal-live-output"]
+    },
+    {
+      "name": "failed-attach",
+      "role": "recoverable-error",
+      "state": "failed",
+      "requiredSignals": ["recovery-action", "redacted-error"]
+    },
+    {
+      "name": "capped-viewport",
+      "role": "mobile-terminal-viewport",
+      "state": "attached",
+      "requiredSignals": ["terminal-live-output", "viewport-cap"]
+    }
+  ]
+}
