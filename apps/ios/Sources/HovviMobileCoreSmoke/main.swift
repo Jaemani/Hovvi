@@ -457,6 +457,27 @@ try require(developmentBootstrap.relayURL == AppBootstrapConfig.defaultRelayURL,
 try require(developmentBootstrap.relayToken == AppBootstrapConfig.developmentRelayToken, "app bootstrap should keep explicit development fallback")
 try require(developmentBootstrap.relayTokenSource == .developmentDefault, "app bootstrap should record development fallback")
 try require(developmentBootstrap.usesDevelopmentDefaultToken, "app bootstrap should expose development fallback use")
+try require(developmentBootstrap.validationIssue == nil, "app bootstrap should allow development tokens for the local relay")
+let hostedBootstrapWithoutToken = AppBootstrapConfig(environment: ["HOVVI_RELAY_URL": "wss://user:pass@relay.example.test"])
+try require(hostedBootstrapWithoutToken.usesDevelopmentDefaultToken, "hosted bootstrap without token should still record development fallback")
+try require(hostedBootstrapWithoutToken.validationIssue?.title == "Relay token required", "hosted bootstrap should reject development fallback tokens")
+try require(
+    hostedBootstrapWithoutToken.validationIssue?.message.contains("user:pass") == false,
+    "hosted bootstrap validation should redact relay URL credentials"
+)
+try require(
+    hostedBootstrapWithoutToken.validationIssue?.message.contains("relay.example.test") == true,
+    "hosted bootstrap validation should preserve relay host context"
+)
+try require(
+    hostedBootstrapWithoutToken.validationIssue?.message.contains("redacted") == true,
+    "hosted bootstrap validation should include a redaction marker"
+)
+let localExplicitBootstrap = AppBootstrapConfig(environment: ["HOVVI_RELAY_URL": "ws://localhost:8787"])
+try require(localExplicitBootstrap.validationIssue == nil, "app bootstrap should allow development fallback on localhost")
+let invalidURLBootstrap = AppBootstrapConfig(environment: ["HOVVI_RELAY_URL": "://not-a-url"])
+try require(invalidURLBootstrap.relayURLWasInvalid, "app bootstrap should record invalid relay URLs")
+try require(invalidURLBootstrap.validationIssue?.title == "Invalid relay URL", "app bootstrap should reject invalid relay URLs")
 try require(AppBootstrapConfig.redactToken("dev") == "[redacted]", "short bootstrap tokens should be fully redacted")
 
 var scrollbackBuffer = ScrollbackBuffer(

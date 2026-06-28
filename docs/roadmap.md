@@ -406,6 +406,11 @@ Current status:
 - `AppBootstrapConfig` parses the local alpha relay URL, token, token source,
   and client id in `HovviMobileCore` with smoke coverage for redaction and
   fallback behavior.
+- `AppBootstrapConfig` now validates iOS alpha relay bootstrap input before
+  network use: relay URLs must be absolute `ws`/`wss` URLs with a host, and the
+  development fallback token is allowed only for local relays. Non-local relays
+  require an explicit relay token until hosted mobile login replaces the
+  bootstrap boundary.
 - `AttachShellModel` exists in `HovviMobileCore` as the first native shell state
   coordinator and is covered by `HovviMobileCoreSmoke` with fake relay/core
   attach, input, remote receive, resize, tick, shutdown, mosh key redaction, and

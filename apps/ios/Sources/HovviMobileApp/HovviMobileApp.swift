@@ -41,6 +41,7 @@ final class HovviAppController: ObservableObject {
 
     private let model: AttachShellModel
     private let fixtureSnapshot: AttachShellSnapshot?
+    private let bootstrapIssue: AppBootstrapIssue?
     private var receiveTask: Task<Void, Never>?
     private var tickTask: Task<Void, Never>?
     private var attachLoopGeneration = 0
@@ -52,16 +53,23 @@ final class HovviAppController: ObservableObject {
             named: environment[AttachShellPreviewFixtures.environmentKey]
         )
         let config = AppBootstrapConfig(environment: environment)
+        self.bootstrapIssue = config.validationIssue
         let relay = RelayClient(url: config.relayURL, token: config.relayToken, clientId: config.clientId)
         self.model = AttachShellModel(relay: relay)
         if let fixtureSnapshot {
             self.snapshot = fixtureSnapshot
+        } else if let bootstrapIssue {
+            self.snapshot = Self.bootstrapFailureSnapshot(bootstrapIssue)
         }
     }
 
     func connect() {
         if let fixtureSnapshot {
             snapshot = fixtureSnapshot
+            return
+        }
+        if let bootstrapIssue {
+            snapshot = Self.bootstrapFailureSnapshot(bootstrapIssue)
             return
         }
         cancelAttachLoops()
@@ -112,6 +120,10 @@ final class HovviAppController: ObservableObject {
 
     func retry() {
         guard fixtureSnapshot == nil else { return }
+        if let bootstrapIssue {
+            snapshot = Self.bootstrapFailureSnapshot(bootstrapIssue)
+            return
+        }
         switch snapshot.recoveryAction {
         case .reattachSession:
             attach()
@@ -268,5 +280,13 @@ final class HovviAppController: ObservableObject {
 
     nonisolated private static func currentMoshTimeMs() -> UInt64 {
         UInt64(Date().timeIntervalSince1970 * 1000)
+    }
+
+    private static func bootstrapFailureSnapshot(_ issue: AppBootstrapIssue) -> AttachShellSnapshot {
+        AttachShellSnapshot(
+            phase: .failed,
+            error: AttachShellError(title: issue.title, message: issue.message),
+            recoveryAction: .connectRelay
+        )
     }
 }
