@@ -341,6 +341,9 @@ Current status:
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
   tmux scrollback, and the last live terminal screen.
+- Swift mobile recovery labels and retry routing now share a tested
+  `AttachShellRecoveryPolicy`, keeping relay reconnect and selected-session
+  reattach behavior from drifting between UI and app controller code.
 - Swift mobile attach errors redact relay URL credentials, relay tokens, bearer
   tokens, and printable mosh keys before reaching SwiftUI.
 - Swift mobile reconnect and explicit reattach now close any stale relay datagram

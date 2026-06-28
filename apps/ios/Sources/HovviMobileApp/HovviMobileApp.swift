@@ -124,10 +124,9 @@ final class HovviAppController: ObservableObject {
             snapshot = Self.bootstrapFailureSnapshot(bootstrapIssue)
             return
         }
-        switch snapshot.recoveryAction {
-        case .reattachSession:
+        if AttachShellRecoveryPolicy.shouldReattachSession(for: snapshot.recoveryAction) {
             attach()
-        case .connectRelay, nil:
+        } else {
             connect()
         }
     }

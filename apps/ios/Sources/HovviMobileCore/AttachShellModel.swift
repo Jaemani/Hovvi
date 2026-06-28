@@ -34,6 +34,23 @@ public enum AttachShellRecoveryAction: String, Codable, Equatable, Sendable {
     case reattachSession
 }
 
+public enum AttachShellRecoveryPolicy {
+    public static func retryTitle(for action: AttachShellRecoveryAction?) -> String {
+        switch action {
+        case .reattachSession:
+            return "Reattach"
+        case .connectRelay:
+            return "Reconnect"
+        case nil:
+            return "Retry"
+        }
+    }
+
+    public static func shouldReattachSession(for action: AttachShellRecoveryAction?) -> Bool {
+        action == .reattachSession
+    }
+}
+
 public struct AttachShellError: Codable, Equatable, Sendable, CustomStringConvertible {
     public let title: String
     public let message: String

@@ -383,14 +383,7 @@ public struct DeviceSidebar: View {
     }
 
     private var retryTitle: String {
-        switch snapshot.recoveryAction {
-        case .reattachSession:
-            "Reattach"
-        case .connectRelay:
-            "Reconnect"
-        case nil:
-            "Retry"
-        }
+        AttachShellRecoveryPolicy.retryTitle(for: snapshot.recoveryAction)
     }
 }
 

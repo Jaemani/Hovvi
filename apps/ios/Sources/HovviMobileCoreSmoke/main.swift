@@ -405,6 +405,30 @@ try require(
     AttachShellLifecyclePolicy.shouldStartTickLoop(afterApplying: .browsing) == false,
     "attach lifecycle should not start ticks after browsing snapshots"
 )
+try require(
+    AttachShellRecoveryPolicy.retryTitle(for: .reattachSession) == "Reattach",
+    "attach recovery policy should label session recovery as reattach"
+)
+try require(
+    AttachShellRecoveryPolicy.retryTitle(for: .connectRelay) == "Reconnect",
+    "attach recovery policy should label relay recovery as reconnect"
+)
+try require(
+    AttachShellRecoveryPolicy.retryTitle(for: nil) == "Retry",
+    "attach recovery policy should keep a generic fallback retry label"
+)
+try require(
+    AttachShellRecoveryPolicy.shouldReattachSession(for: .reattachSession),
+    "attach recovery policy should route session recovery to attach"
+)
+try require(
+    AttachShellRecoveryPolicy.shouldReattachSession(for: .connectRelay) == false,
+    "attach recovery policy should route relay recovery to connect"
+)
+try require(
+    AttachShellRecoveryPolicy.shouldReattachSession(for: nil) == false,
+    "attach recovery policy should route unknown recovery to connect"
+)
 
 let cAbiUnavailableEngine = CAbiMoshCoreEngine()
 do {
