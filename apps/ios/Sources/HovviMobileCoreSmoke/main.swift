@@ -385,6 +385,18 @@ try require(
     AttachShellLifecyclePolicy.shouldApplyLoopSnapshot(loopGeneration: 1, currentGeneration: 2) == false,
     "attach lifecycle should reject stale receive or tick loop snapshots"
 )
+try require(
+    AttachShellLifecyclePolicy.shouldStartTickLoop(afterApplying: .attached),
+    "attach lifecycle should continue ticking after attached snapshots"
+)
+try require(
+    AttachShellLifecyclePolicy.shouldStartTickLoop(afterApplying: .failed) == false,
+    "attach lifecycle should not start ticks after failed snapshots"
+)
+try require(
+    AttachShellLifecyclePolicy.shouldStartTickLoop(afterApplying: .browsing) == false,
+    "attach lifecycle should not start ticks after browsing snapshots"
+)
 
 let cAbiUnavailableEngine = CAbiMoshCoreEngine()
 do {

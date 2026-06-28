@@ -32,6 +32,11 @@ The receive loop now clears its task handle on exit when it still owns the
 current generation. The tick loop uses the same generation guard before
 publishing snapshots.
 
+After the receive loop publishes a current-generation snapshot, it starts or
+keeps the tick loop only for an attached phase. Failed, browsing, or disconnected
+snapshots can still surface to SwiftUI, but they must not restart terminal tick
+work.
+
 ## Consequences
 
 - Reconnect, reattach, retry, and background/resume transitions cannot be
@@ -40,6 +45,7 @@ publishing snapshots.
 - Recoverable failures from the active generation still surface to SwiftUI; the
   guard rejects only stale generations, not failed phases from the current
   generation.
+- Failed snapshots do not restart the tick loop after being published.
 - The app target keeps lifecycle ownership while the core policy exposes the
   testable invariant.
 
