@@ -503,6 +503,11 @@ Current status:
   development `dev` token is accepted only for loopback relays. `hovvi doctor`
   reports invalid relay config with credentials redacted before service start or
   client attach commands can use it.
+- A config-only service rehearsal now covers the clean Mac path without launchd
+  side effects: private config supplies relay URL, token, and device identity;
+  `hovvi service install --print` emits a plist containing only `HOVVI_CONFIG`;
+  agent runtime resolves from config with no flags; and a local relay client can
+  see the configured device and deterministic tmux session.
 - `hovvi service logs` now reports missing and empty LaunchAgent logs with file
   paths, supports `--stream both`, and keeps relay tokens, URL credentials,
   bearer tokens, and printable mosh keys redacted.

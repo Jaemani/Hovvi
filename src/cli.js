@@ -5,6 +5,7 @@ import { configPath, getConfig, saveConfig } from "./config.js";
 import { runDoctor } from "./doctor.js";
 import { runGithubDeviceLogin } from "./github-auth.js";
 import { runAgent } from "./agent.js";
+import { resolveAgentRuntimeConfig } from "./agent-runtime-config.js";
 import { runRelay } from "./relay.js";
 import {
   DEFAULT_LABEL,
@@ -311,16 +312,10 @@ async function relayCommand(args) {
 
 async function upCommand(args) {
   const config = getConfig();
-  const relayUrl =
-    readOption(args, "--relay") ||
-    process.env.HOVVI_RELAY_URL ||
-    config.relay?.url ||
-    "ws://127.0.0.1:8787";
-  const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
-  const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME || config.device?.name;
-  const heartbeatIntervalMs = Number(readOption(args, "--heartbeat-ms") || process.env.HOVVI_HEARTBEAT_MS || 10000);
-  const publishIntervalMs = Number(readOption(args, "--publish-ms") || process.env.HOVVI_PUBLISH_MS || 5000);
-  validateRelayCredentials({ relayUrl, token, label: "Agent relay config" });
+  const { relayUrl, token, name, heartbeatIntervalMs, publishIntervalMs } = resolveAgentRuntimeConfig(args, {
+    env: process.env,
+    config,
+  });
   await runAgent({ relayUrl, token, name, heartbeatIntervalMs, publishIntervalMs });
 }
 

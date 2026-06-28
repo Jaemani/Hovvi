@@ -46,7 +46,14 @@ export function buildDeviceCapabilities({ commandExistsFn = commandExists } = {}
   return capabilities;
 }
 
-export async function connectAgent({ relayUrl, token, device, publishIntervalMs, heartbeatIntervalMs }) {
+export async function connectAgent({
+  relayUrl,
+  token,
+  device,
+  publishIntervalMs,
+  heartbeatIntervalMs,
+  listSessionsFn = listSessions,
+}) {
   const ws = new WebSocket(relayUrl);
   const forwards = new Map();
   const datagrams = new Map();
@@ -83,7 +90,7 @@ export async function connectAgent({ relayUrl, token, device, publishIntervalMs,
     );
   };
   const publish = async () => {
-    const sessions = await listSessions();
+    const sessions = await listSessionsFn();
     ws.send(serialize(envelope("sessions.update", { sessions })));
   };
   heartbeat();
