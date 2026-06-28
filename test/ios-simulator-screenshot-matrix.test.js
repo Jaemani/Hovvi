@@ -33,7 +33,10 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
     },
     readPngStatsFn(filePath) {
       assert.match(filePath, /\/tmp\/hovvi-ios-shot-matrix\/.+\.png$/);
+      const fixture = filePath.match(/\/([^/]+)\.png$/)?.[1] ?? "unknown";
       return {
+        byteLength: 4096,
+        sha256: `hash-${fixture}`,
         width: 1179,
         height: 2556,
         pixels: 3013524,
@@ -97,6 +100,41 @@ test("iOS simulator screenshot matrix reports fixture failures", () => {
   assert.equal(result.status, "failed");
   assert.equal(result.failureCount, 1);
   assert.match(result.reason, /1 iOS simulator screenshot fixture/);
+});
+
+test("iOS simulator screenshot matrix rejects duplicate fixture images", () => {
+  const result = iosSimulatorScreenshotMatrixCheck({
+    fixtures: ["browsing", "failed-attach"],
+    outputDir: "/tmp/hovvi-ios-shot-matrix-duplicate",
+    waitMs: 0,
+    waitFn: () => {},
+    installCheckFn: () => ({
+      status: "installed",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+    }),
+    readPngStatsFn: () => ({
+      byteLength: 4096,
+      sha256: "same-image",
+      width: 1179,
+      height: 2556,
+      pixels: 3013524,
+      uniqueColors: 64,
+      nonBlank: true,
+    }),
+    runTextFn: () => ok(""),
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.failureCount, 1);
+  assert.deepEqual(result.duplicateImageFailures, [
+    {
+      fixture: "failed-attach",
+      duplicateOf: "browsing",
+      sha256: "same-image",
+      reason: "Captured screenshot fixture matched a previous fixture image.",
+    },
+  ]);
+  assert.match(result.reason, /fixture assertion/);
 });
 
 test("iOS simulator screenshot matrix fixture names are stable", () => {

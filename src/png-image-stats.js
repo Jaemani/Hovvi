@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { inflateSync } from "node:zlib";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -47,7 +48,11 @@ export function analyzePng(buffer) {
     throw new Error("PNG IDAT chunk is missing.");
   }
 
-  return samplePixels(ihdr, Buffer.concat(idat));
+  return {
+    byteLength: buffer.length,
+    sha256: createHash("sha256").update(buffer).digest("hex"),
+    ...samplePixels(ihdr, Buffer.concat(idat)),
+  };
 }
 
 function parseIhdr(data) {

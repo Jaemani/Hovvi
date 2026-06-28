@@ -25,6 +25,9 @@ The matrix check:
   `failed-attach`, and `capped-viewport` fixtures using
   `HOVVI_IOS_SNAPSHOT_FIXTURE`;
 - captures and validates a nonblank PNG for each fixture;
+- records PNG byte length and SHA-256 metadata for each fixture capture;
+- requires fixture screenshots to have distinct hashes by default, catching
+  selector regressions before pixel-perfect golden assertions exist;
 - writes stable screenshot paths under `--output-dir=<path>`;
 - writes one JSON metadata artifact with fixture names, simulator identity,
   per-fixture screenshot paths, and PNG statistics;
@@ -42,6 +45,8 @@ against upstream mosh.
   fixture.
 - Future visual assertions can compare against matrix metadata and fixture
   names instead of adding ad hoc screenshot scripts.
+- Exact golden image baselines remain deferred, but duplicate fixture images now
+  fail the matrix check.
 
 ## Validation
 

@@ -225,7 +225,8 @@ node scripts/ios-simulator-screenshot-matrix-check.js --output-dir=.artifacts/io
 The screenshot check validates a nonblank PNG and can preserve JSON metadata
 with fixture, bundle id, simulator, screenshot path, and parsed image stats. The
 matrix check reuses one install to capture browsing, attached coding-agent,
-failed attach, and capped viewport shell fixtures.
+failed attach, and capped viewport shell fixtures. It records PNG metadata and
+rejects duplicate fixture images before exact golden baselines exist.
 
 ## Product Direction
 

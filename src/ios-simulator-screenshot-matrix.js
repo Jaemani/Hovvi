@@ -14,6 +14,7 @@ export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES = [
 export function iosSimulatorScreenshotMatrixCheck({
   fixtures = DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
   outputDir,
+  requireDistinctImages = true,
   waitMs = 1000,
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
@@ -40,17 +41,21 @@ export function iosSimulatorScreenshotMatrixCheck({
     })
   );
   const failures = results.filter((result) => result.status !== "captured");
+  const duplicateImageFailures =
+    failures.length === 0 && requireDistinctImages ? findDuplicateImageFailures(results) : [];
+  const failureCount = failures.length + duplicateImageFailures.length;
 
   return {
-    status: failures.length === 0 ? "captured" : "failed",
+    status: failureCount === 0 ? "captured" : "failed",
     simulator: install.simulator,
     fixtures,
     results,
-    failureCount: failures.length,
+    duplicateImageFailures,
+    failureCount,
     reason:
-      failures.length === 0
+      failureCount === 0
         ? undefined
-        : `${failures.length} iOS simulator screenshot fixture(s) failed.`,
+        : `${failureCount} iOS simulator screenshot fixture assertion(s) failed.`,
   };
 }
 
@@ -60,4 +65,31 @@ export function safeFixtureName(fixture) {
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function findDuplicateImageFailures(results) {
+  const seen = new Map();
+  const failures = [];
+  for (const result of results) {
+    const hash = result.image?.sha256;
+    if (!hash) {
+      failures.push({
+        fixture: result.fixture,
+        reason: "Captured screenshot metadata did not include a PNG SHA-256 hash.",
+      });
+      continue;
+    }
+    const previous = seen.get(hash);
+    if (previous) {
+      failures.push({
+        fixture: result.fixture,
+        duplicateOf: previous.fixture,
+        sha256: hash,
+        reason: "Captured screenshot fixture matched a previous fixture image.",
+      });
+      continue;
+    }
+    seen.set(hash, result);
+  }
+  return failures;
 }

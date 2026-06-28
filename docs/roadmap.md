@@ -301,6 +301,9 @@ Current status:
 - `npm run ios:simulator-screenshot-matrix-check` now reuses one simulator
   install to capture deterministic browsing, attached coding-agent, and failed
   attach fixture PNGs, preserving the PNG set and metadata artifact in CI.
+- The simulator screenshot matrix now records PNG byte length and SHA-256
+  metadata and rejects duplicate fixture images, so fixture selector regressions
+  are caught before exact golden baselines exist.
 - Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
   render cap, and the deterministic `capped-viewport` fixture applies it so
   simulator screenshots can exercise mobile-sized terminal windows without
@@ -407,7 +410,8 @@ Current status:
 - A signed Xcode/iOS bundle target, hosted login bootstrap, device screenshot
   execution, and stricter visual assertions are still pending. Simulator
   screenshot smoke execution now covers the browsing, attached coding-agent, and
-  failed attach, and capped viewport SwiftPM bundle fixtures.
+  failed attach, and capped viewport SwiftPM bundle fixtures with duplicate
+  image detection.
 
 ### 6. Mac Agent and CLI Hardening
 

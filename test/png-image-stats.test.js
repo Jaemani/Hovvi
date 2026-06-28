@@ -17,6 +17,8 @@ test("PNG stats detect nonblank RGB image data", () => {
   assert.equal(stats.width, 2);
   assert.equal(stats.height, 1);
   assert.equal(stats.colorType, 2);
+  assert.equal(stats.byteLength, png.length);
+  assert.match(stats.sha256, /^[0-9a-f]{64}$/);
   assert.equal(stats.nonBlank, true);
   assert.equal(stats.uniqueColors, 2);
 });
