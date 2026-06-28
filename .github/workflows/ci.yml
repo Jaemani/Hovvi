@@ -36,14 +36,14 @@ jobs:
       - run: npm run ios:simulator-app-bundle-check
       - run: npm run ios:simulator-install-check
       - run: npm run ios:simulator-launch-check
-      - run: node scripts/ios-simulator-screenshot-check.js --output=.artifacts/ios/hovvi-ios-screenshot.png --metadata=.artifacts/ios/hovvi-ios-screenshot.json
+      - run: node scripts/ios-simulator-screenshot-matrix-check.js --output-dir=.artifacts/ios/screenshots --metadata=.artifacts/ios/hovvi-ios-screenshot-matrix.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: hovvi-ios-simulator-screenshot
           path: |
-            .artifacts/ios/hovvi-ios-screenshot.png
-            .artifacts/ios/hovvi-ios-screenshot.json
+            .artifacts/ios/screenshots/*.png
+            .artifacts/ios/hovvi-ios-screenshot-matrix.json
           if-no-files-found: ignore
       - run: swift build
         working-directory: apps/ios

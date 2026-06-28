@@ -219,10 +219,13 @@ npm run ios:simulator-app-bundle-check
 npm run ios:simulator-install-check
 npm run ios:simulator-launch-check
 node scripts/ios-simulator-screenshot-check.js --output=.artifacts/ios/hovvi-ios-screenshot.png --metadata=.artifacts/ios/hovvi-ios-screenshot.json
+node scripts/ios-simulator-screenshot-matrix-check.js --output-dir=.artifacts/ios/screenshots --metadata=.artifacts/ios/hovvi-ios-screenshot-matrix.json
 ```
 
 The screenshot check validates a nonblank PNG and can preserve JSON metadata
-with fixture, bundle id, simulator, screenshot path, and parsed image stats.
+with fixture, bundle id, simulator, screenshot path, and parsed image stats. The
+matrix check reuses one install to capture browsing, attached coding-agent, and
+failed attach shell fixtures.
 
 ## Product Direction
 

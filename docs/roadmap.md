@@ -298,6 +298,9 @@ Current status:
   validates that the image is well-formed and nonblank before later golden
   visual assertions. CI preserves the captured PNG and machine-readable
   screenshot metadata as artifacts when the simulator gate runs on full Xcode.
+- `npm run ios:simulator-screenshot-matrix-check` now reuses one simulator
+  install to capture deterministic browsing, attached coding-agent, and failed
+  attach fixture PNGs, preserving the PNG set and metadata artifact in CI.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
@@ -399,7 +402,8 @@ Current status:
   `HovviMobileCoreSmoke`.
 - A signed Xcode/iOS bundle target, hosted login bootstrap, device screenshot
   execution, and stricter visual assertions are still pending. Simulator
-  screenshot smoke execution is covered through the temporary SwiftPM bundle.
+  screenshot smoke execution now covers the browsing, attached coding-agent, and
+  failed attach SwiftPM bundle fixtures.
 
 ### 6. Mac Agent and CLI Hardening
 

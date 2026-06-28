@@ -34,6 +34,39 @@ export function iosSimulatorScreenshotCheck({
     };
   }
 
+  return captureInstalledIosSimulatorScreenshot({
+    install,
+    fixture,
+    keepScreenshot,
+    outputPath,
+    waitMs,
+    runTextFn,
+    readPngStatsFn,
+    tempDirFn,
+    waitFn,
+  });
+}
+
+export function captureInstalledIosSimulatorScreenshot({
+  install,
+  fixture = "attached-coding-agent",
+  keepScreenshot = false,
+  outputPath,
+  waitMs = 1000,
+  runTextFn = runText,
+  readPngStatsFn = readPngStats,
+  tempDirFn = () => mkdtempSync(path.join(tmpdir(), "hovvi-ios-shot-")),
+  waitFn = sleepSync,
+} = {}) {
+  const udid = install?.simulator?.udid;
+  if (!udid) {
+    return {
+      status: "failed",
+      reason: "iOS simulator install check did not return a simulator UDID.",
+      install,
+    };
+  }
+
   const launch = runTextFn(
     "xcrun",
     ["simctl", "launch", "--terminate-running-process", udid, HOVVI_IOS_BUNDLE_ID],
