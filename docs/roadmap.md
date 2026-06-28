@@ -509,8 +509,10 @@ Current status:
 - A config-only service rehearsal now covers the clean Mac path without launchd
   side effects: private config supplies relay URL, token, and device identity;
   `hovvi service install --print` emits a plist containing only `HOVVI_CONFIG`;
-  agent runtime resolves from config with no flags; and a local relay client can
-  see the configured device and deterministic tmux session.
+  `hovvi doctor` validates the same private config, service config path, file
+  permissions, and token redaction; agent runtime resolves from config with no
+  flags; and a local relay client can see the configured device and
+  deterministic tmux session.
 - `hovvi service logs` now reports missing and empty LaunchAgent logs with file
   paths, supports `--stream both`, and keeps relay tokens, URL credentials,
   bearer tokens, and printable mosh keys redacted.

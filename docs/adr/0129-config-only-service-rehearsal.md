@@ -24,6 +24,9 @@ Add a repository smoke that rehearses the service path without invoking launchd:
 - render `hovvi service install --print` and verify the plist contains only the
   config path, not relay URL or token material.
 - resolve the agent runtime from private config with no flags.
+- run doctor against the same private config and LaunchAgent status seam,
+  verifying relay config, private file permissions, loaded-service config path,
+  and token redaction as one clean-path check.
 - start an agent connection against a local relay using a deterministic session
   discovery seam.
 - verify a relay client can see the configured device and session.
@@ -37,6 +40,9 @@ outside the command wrapper.
 
 - The clean Mac service contract has one local proof that does not depend on
   launchd side effects or tmux availability during early JavaScript tests.
+- Doctor coverage now stays tied to the same private config and plist contract,
+  so future changes cannot make install/start readiness look healthy while the
+  clean service rehearsal is broken.
 - The production agent still uses real tmux session discovery by default.
 - The LaunchAgent still references only `HOVVI_CONFIG`; no relay secret is added
   back to the plist.

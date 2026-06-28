@@ -7,6 +7,7 @@ import { connectAgent, getDevice } from "../src/agent.js";
 import { resolveAgentRuntimeConfig } from "../src/agent-runtime-config.js";
 import { main } from "../src/cli.js";
 import { getConfig, saveConfig } from "../src/config.js";
+import { runDoctor } from "../src/doctor.js";
 import { createRelayServer } from "../src/relay.js";
 import { createClient } from "../src/relay-client.js";
 
@@ -40,6 +41,50 @@ test("config-only service rehearsal installs plist shape and appears in local re
     assert.doesNotMatch(plist, new RegExp(relay.url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
     const runtime = resolveAgentRuntimeConfig([], { env: {}, config: getConfig() });
+    const doctor = await runDoctor({
+      network: false,
+      commandExistsFn: () => true,
+      runTextFn: fakeGitIdentity,
+      getConfigFn: getConfig,
+      configPathFn: () => configPath,
+      platformFn: () => "darwin",
+      serviceStatusFn: () => ({
+        label: "dev.hovvi.agent",
+        loaded: true,
+        configPath,
+        launchctl: {
+          state: "running",
+          healthy: true,
+        },
+      }),
+    });
+    assert.equal(doctor.ok, true);
+    assert.deepEqual(findDoctorItem(doctor, "relay config"), {
+      name: "relay config",
+      status: "pass",
+      message: "configured",
+      detail: `relay=${relay.url}/ token=present`,
+    });
+    assert.deepEqual(findDoctorItem(doctor, "private config directory"), {
+      name: "private config directory",
+      status: "pass",
+      message: "private",
+      detail: `${dir} mode=0700`,
+    });
+    assert.deepEqual(findDoctorItem(doctor, "private config file"), {
+      name: "private config file",
+      status: "pass",
+      message: "private",
+      detail: `${configPath} mode=0600`,
+    });
+    assert.deepEqual(findDoctorItem(doctor, "launchd service"), {
+      name: "launchd service",
+      status: "pass",
+      message: "loaded",
+      detail: `dev.hovvi.agent config=${configPath} state=running`,
+    });
+    assert.doesNotMatch(JSON.stringify(doctor), /agent-token/);
+
     const device = getDevice();
     agentDone = connectAgent({
       ...runtime,
@@ -84,6 +129,31 @@ test("config-only service rehearsal installs plist shape and appears in local re
     }
   }
 });
+
+function findDoctorItem(report, name) {
+  return report.items.find((item) => item.name === name);
+}
+
+function fakeGitIdentity(command, args) {
+  if (command === "git" && args.join(" ") === "config --get user.name") return ok("Jaemani");
+  if (command === "git" && args.join(" ") === "config --get user.email") {
+    return ok("jaemani@example.com");
+  }
+  if (command === "git" && args.join(" ") === "var GIT_AUTHOR_IDENT") {
+    return ok("Jaemani <jaemani@example.com> 1710000000 +0900");
+  }
+  return ok("");
+}
+
+function ok(text) {
+  return {
+    ok: true,
+    status: 0,
+    stdout: text,
+    stderr: "",
+    text,
+  };
+}
 
 async function captureStdout(fn) {
   const originalWrite = process.stdout.write;
