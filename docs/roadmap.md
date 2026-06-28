@@ -422,6 +422,10 @@ Current status:
 - Swift mobile terminal parsing now also handles 8-bit C1 CSI, OSC, and ST
   controls, routing C1 CSI through the existing parser and skipping C1-delimited
   OSC metadata even when split across receive frames.
+- Swift mobile terminal parsing now handles ESC and C1 index controls
+  (`IND`/`NEL`), C1 horizontal tab stop, and C1 reverse index by routing them
+  through the existing scroll-region, carriage-return, tab-stop, and
+  reverse-index screen behavior.
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.

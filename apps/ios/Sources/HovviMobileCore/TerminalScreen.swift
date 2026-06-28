@@ -888,6 +888,19 @@ private struct TerminalEscapeParser {
         case 0x09:
             advanceOneScalar()
             return .horizontalTab
+        case 0x84:
+            advanceOneScalar()
+            return .lineFeed
+        case 0x85:
+            advanceOneScalar()
+            pendingTokens.append(.lineFeed)
+            return .carriageReturn
+        case 0x88:
+            advanceOneScalar()
+            return .setHorizontalTabStop
+        case 0x8D:
+            advanceOneScalar()
+            return .reverseIndex
         case 0x9B:
             advanceOneScalar()
             return parseControlSequenceIntroducer()
@@ -909,6 +922,15 @@ private struct TerminalEscapeParser {
         if text[index] == "M" {
             index = text.index(after: index)
             return .reverseIndex
+        }
+        if text[index] == "D" {
+            index = text.index(after: index)
+            return .lineFeed
+        }
+        if text[index] == "E" {
+            index = text.index(after: index)
+            pendingTokens.append(.lineFeed)
+            return .carriageReturn
         }
         if text[index] == "H" {
             index = text.index(after: index)

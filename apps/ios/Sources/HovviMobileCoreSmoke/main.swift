@@ -694,6 +694,30 @@ try require(
     c1ControlScreen.visibleLines[0].text == "Zbc",
     "terminal screen should parse C1 CSI sequences without printing control bytes"
 )
+var indexControlScreen = TerminalScreen(columns: 8, rows: 3)
+indexControlScreen.apply("one\u{001B}Dtwo\u{001B}Ethree")
+try require(
+    indexControlScreen.visibleLines.map(\.text) == ["one", "   two", "three"],
+    "terminal screen should parse ESC D index and ESC E next-line controls"
+)
+var c1IndexControlScreen = TerminalScreen(columns: 8, rows: 3)
+c1IndexControlScreen.apply("one\u{0084}two\u{0085}three")
+try require(
+    c1IndexControlScreen.visibleLines.map(\.text) == ["one", "   two", "three"],
+    "terminal screen should parse C1 IND and NEL controls"
+)
+var c1ReverseIndexScreen = TerminalScreen(columns: 8, rows: 3)
+c1ReverseIndexScreen.apply("\u{001B}[1;1Htop\u{001B}[2;1Hmid\u{001B}[3;1Hbot\u{001B}[1;3r\u{001B}[1;1H\u{008D}")
+try require(
+    c1ReverseIndexScreen.visibleLines.map(\.text) == ["", "top", "mid"],
+    "terminal screen should parse C1 RI as reverse index inside the active scroll region"
+)
+var c1HorizontalTabSetScreen = TerminalScreen(columns: 12, rows: 1)
+c1HorizontalTabSetScreen.apply("\u{001B}[1;4H\u{0088}\u{001B}[1;1Ha\tb")
+try require(
+    c1HorizontalTabSetScreen.visibleLines[0].text == "a  b",
+    "terminal screen should parse C1 HTS as a horizontal tab stop"
+)
 var c1OscScreen = TerminalScreen(columns: 16, rows: 1)
 c1OscScreen.apply("a\u{009D}0;c1 title\u{009C}b")
 try require(
