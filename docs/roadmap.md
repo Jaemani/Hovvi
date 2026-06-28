@@ -334,6 +334,9 @@ Current status:
 - Swift mobile foreground lifecycle now resumes receive and tick loops for an
   attached session after background pause, with a smoke-tested lifecycle policy
   and duplicate receive-loop guard.
+- Swift mobile attach receive/tick loops now use a generation guard before
+  publishing snapshots and clear the receive task handle on exit, preventing
+  stale loop results from overwriting reconnect, retry, or reattach state.
 - Swift mobile terminal parsing now skips OSC title/integration sequences
   terminated by BEL or ST, including when split across receive frames, preventing
   common shell/tmux metadata from corrupting live terminal text.

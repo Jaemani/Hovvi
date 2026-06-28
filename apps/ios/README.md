@@ -96,6 +96,9 @@ mosh resize packets.
 tick loop follows `nextTickAfterMs` when present and otherwise polls
 conservatively while attached so input, receive, retransmit, ack, prediction,
 and shutdown progress all use the same frame application path.
+Receive and tick loops are generation-guarded, so stale async results from a
+previous attach lifecycle cannot overwrite reconnect, retry, or reattach state
+after a newer lifecycle has started.
 
 `TerminalScreen` keeps the live terminal screen separate from tmux scrollback.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor

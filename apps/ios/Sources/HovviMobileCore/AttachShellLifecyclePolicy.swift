@@ -6,4 +6,11 @@ public enum AttachShellLifecyclePolicy {
     public static func shouldPauseAttachLoops(enteringBackground: Bool) -> Bool {
         enteringBackground
     }
+
+    public static func shouldApplyLoopSnapshot(
+        loopGeneration: Int,
+        currentGeneration: Int
+    ) -> Bool {
+        loopGeneration == currentGeneration
+    }
 }

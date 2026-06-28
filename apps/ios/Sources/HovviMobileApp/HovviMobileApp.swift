@@ -148,14 +148,26 @@ final class HovviAppController: ObservableObject {
 
     private func startReceiveLoop() {
         guard receiveTask == nil else { return }
+        let generation = attachLoopGeneration
         receiveTask = Task { [model] in
+            defer {
+                Task { @MainActor in
+                    if attachLoopGeneration == generation {
+                        receiveTask = nil
+                    }
+                }
+            }
             while Task.isCancelled == false {
                 let next = await model.receiveNext(timeout: .seconds(30))
                 await MainActor.run {
-                    snapshot = next
-                    if next.phase == .attached {
-                        startTickLoop()
+                    guard AttachShellLifecyclePolicy.shouldApplyLoopSnapshot(
+                        loopGeneration: generation,
+                        currentGeneration: attachLoopGeneration
+                    ) else {
+                        return
                     }
+                    snapshot = next
+                    startTickLoop()
                 }
                 if next.phase != .attached {
                     break
@@ -189,6 +201,12 @@ final class HovviAppController: ObservableObject {
                 }
                 let next = await model.tick(nowMs: Self.currentMoshTimeMs())
                 await MainActor.run {
+                    guard AttachShellLifecyclePolicy.shouldApplyLoopSnapshot(
+                        loopGeneration: generation,
+                        currentGeneration: attachLoopGeneration
+                    ) else {
+                        return
+                    }
                     snapshot = next
                 }
                 if next.phase != .attached {

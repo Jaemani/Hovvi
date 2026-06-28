@@ -377,6 +377,14 @@ try require(AttachShellLifecyclePolicy.shouldRunAttachLoops(phase: .browsing) ==
 try require(AttachShellLifecyclePolicy.shouldRunAttachLoops(phase: .failed) == false, "attach lifecycle should not run loops after failure")
 try require(AttachShellLifecyclePolicy.shouldPauseAttachLoops(enteringBackground: true), "attach lifecycle should pause loops in background")
 try require(AttachShellLifecyclePolicy.shouldPauseAttachLoops(enteringBackground: false) == false, "attach lifecycle should not pause loops outside background")
+try require(
+    AttachShellLifecyclePolicy.shouldApplyLoopSnapshot(loopGeneration: 2, currentGeneration: 2),
+    "attach lifecycle should apply snapshots from the active loop generation"
+)
+try require(
+    AttachShellLifecyclePolicy.shouldApplyLoopSnapshot(loopGeneration: 1, currentGeneration: 2) == false,
+    "attach lifecycle should reject stale receive or tick loop snapshots"
+)
 
 let cAbiUnavailableEngine = CAbiMoshCoreEngine()
 do {
