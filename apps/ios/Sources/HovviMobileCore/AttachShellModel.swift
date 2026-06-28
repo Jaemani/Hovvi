@@ -150,14 +150,16 @@ public actor AttachShellModel {
     private let relay: any AttachShellRelaying
     private let makeEngine: @Sendable () -> any MoshCoreEngine
     private var attachSession: MoshAttachSession?
-    private var snapshot = AttachShellSnapshot()
+    private var snapshot: AttachShellSnapshot
 
     public init(
         relay: any AttachShellRelaying,
-        makeEngine: @escaping @Sendable () -> any MoshCoreEngine = { CAbiMoshCoreEngine() }
+        makeEngine: @escaping @Sendable () -> any MoshCoreEngine = { CAbiMoshCoreEngine() },
+        initialSnapshot: AttachShellSnapshot = AttachShellSnapshot()
     ) {
         self.relay = relay
         self.makeEngine = makeEngine
+        self.snapshot = initialSnapshot
     }
 
     public func currentSnapshot() -> AttachShellSnapshot {
@@ -180,7 +182,8 @@ public actor AttachShellModel {
                 phase: .browsing,
                 devices: devices,
                 selectedDeviceId: selection.deviceId,
-                selectedSessionName: selection.sessionName
+                selectedSessionName: selection.sessionName,
+                terminalViewportLineLimit: snapshot.terminalViewportLineLimit
             )
         } catch {
             fail(title: "Could not connect to relay", error: error, recoveryAction: .connectRelay)
@@ -206,7 +209,8 @@ public actor AttachShellModel {
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
             selectedDeviceId: deviceId,
-            selectedSessionName: selectedSession
+            selectedSessionName: selectedSession,
+            terminalViewportLineLimit: snapshot.terminalViewportLineLimit
         )
         return snapshot
     }
@@ -226,7 +230,8 @@ public actor AttachShellModel {
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
             selectedDeviceId: snapshot.selectedDeviceId,
-            selectedSessionName: sessionName
+            selectedSessionName: sessionName,
+            terminalViewportLineLimit: snapshot.terminalViewportLineLimit
         )
         return snapshot
     }
@@ -299,6 +304,7 @@ public actor AttachShellModel {
                 scrollback: buffer,
                 terminalScreen: screen,
                 terminalOutput: frame.terminalOutput,
+                terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
                 nextTickAfterMs: frame.nextTickAfterMs,
                 cleanShutdown: frame.cleanShutdown
             )
@@ -476,6 +482,7 @@ public actor AttachShellModel {
             scrollback: snapshot.scrollback,
             terminalScreen: terminalScreen,
             terminalOutput: frame.terminalOutput,
+            terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
             nextTickAfterMs: frame.nextTickAfterMs,
             cleanShutdown: frame.cleanShutdown,
             error: nil,
@@ -493,6 +500,7 @@ public actor AttachShellModel {
                 scrollback: snapshot.scrollback,
                 terminalScreen: snapshot.terminalScreen,
                 terminalOutput: snapshot.terminalOutput,
+                terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
                 nextTickAfterMs: nil,
                 cleanShutdown: true,
                 error: nil,
@@ -525,6 +533,7 @@ public actor AttachShellModel {
             scrollback: snapshot.scrollback,
             terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
+            terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,
             error: error,
@@ -546,6 +555,7 @@ public actor AttachShellModel {
             scrollback: snapshot.scrollback,
             terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
+            terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,
             error: AttachShellError(title: title, message: message),

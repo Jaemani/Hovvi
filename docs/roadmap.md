@@ -384,6 +384,10 @@ Current status:
   shutdown frame as a recoverable terminal interruption, clears the active mosh
   session, preserves selected device/session, scrollback, and live terminal
   state, and routes retry to selected-session reattach.
+- Swift mobile attach model now preserves terminal viewport render caps across
+  connect, selection, attach, input, clean shutdown, and recoverable failure
+  transitions without trimming tmux-native scrollback or mutating live terminal
+  state.
 - Swift mobile resize handling now deduplicates unchanged terminal sizes in the
   core attach model, preventing duplicate mosh resize packets from repeated UI
   geometry callbacks.

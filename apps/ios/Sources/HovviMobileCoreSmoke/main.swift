@@ -1548,6 +1548,77 @@ relayClosedSnapshot = await relayClosedShell.sendInput(Data("stale".utf8))
 try require(relayClosedSnapshot.phase == AttachShellPhase.failed, "relay datagram close should detach stale mosh session")
 try require(relayClosedSnapshot.error?.title == "No active terminal", "relay datagram close should prevent stale input")
 
+let viewportRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let viewportShell = AttachShellModel(
+    relay: viewportRelay,
+    makeEngine: { FakeMoshCoreEngine() },
+    initialSnapshot: AttachShellSnapshot(
+        phase: .browsing,
+        devices: snapshot.devices,
+        selectedDeviceId: "dev_1",
+        selectedSessionName: "main",
+        terminalViewportLineLimit: 6
+    )
+)
+var viewportSnapshot = await viewportShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "connect should preserve terminal viewport cap")
+viewportSnapshot = await viewportShell.selectDevice("dev_1")
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "device selection should preserve terminal viewport cap")
+viewportSnapshot = await viewportShell.selectSession("main")
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "session selection should preserve terminal viewport cap")
+viewportSnapshot = await viewportShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "attach should preserve terminal viewport cap")
+viewportSnapshot = await viewportShell.sendInput(Data("hi".utf8))
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "input should preserve terminal viewport cap")
+await viewportRelay.enqueue(frame: .close)
+viewportSnapshot = await viewportShell.receiveNext(timeout: Duration.seconds(1))
+try require(viewportSnapshot.phase == .failed, "viewport shell should fail after relay datagram close")
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "failure should preserve terminal viewport cap")
+viewportSnapshot = await viewportShell.sendInput(Data("stale".utf8))
+try require(viewportSnapshot.terminalViewportLineLimit == 6, "stale input error should preserve terminal viewport cap")
+
+let viewportCleanShutdownRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let viewportCleanShutdownShell = AttachShellModel(
+    relay: viewportCleanShutdownRelay,
+    makeEngine: { CleanShutdownReceiveMoshCoreEngine() },
+    initialSnapshot: AttachShellSnapshot(
+        phase: .browsing,
+        devices: snapshot.devices,
+        selectedDeviceId: "dev_1",
+        selectedSessionName: "main",
+        terminalViewportLineLimit: 6
+    )
+)
+var viewportCleanShutdownSnapshot = await viewportCleanShutdownShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(
+    viewportCleanShutdownSnapshot.terminalViewportLineLimit == 6,
+    "clean-shutdown fixture attach should preserve terminal viewport cap"
+)
+await viewportCleanShutdownRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xC0]), sequence: 11))
+viewportCleanShutdownSnapshot = await viewportCleanShutdownShell.receiveNext(timeout: Duration.seconds(1))
+try require(viewportCleanShutdownSnapshot.phase == .browsing, "clean shutdown should leave attached mode")
+try require(viewportCleanShutdownSnapshot.cleanShutdown, "clean shutdown should remain explicit")
+try require(
+    viewportCleanShutdownSnapshot.terminalViewportLineLimit == 6,
+    "clean shutdown should preserve terminal viewport cap"
+)
+
 let attachShellView = HovviAttachShellView(snapshot: shellSnapshot)
 let terminalSurfaceView = TerminalSurfaceView(snapshot: shellSnapshot)
 let deviceSidebar = DeviceSidebar(snapshot: shellSnapshot)
