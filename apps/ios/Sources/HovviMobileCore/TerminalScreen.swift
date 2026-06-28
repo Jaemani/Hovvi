@@ -781,6 +781,11 @@ public struct TerminalScreen: Equatable, Sendable {
                 operatingSystemCommandSkipState = .none
                 return String(text[index...])
             }
+            if scalar.value == 0x9C {
+                index = text.index(after: index)
+                operatingSystemCommandSkipState = .none
+                return String(text[index...])
+            }
             if scalar.value == 0x1B {
                 index = text.index(after: index)
                 guard index < text.endIndex else {
@@ -883,6 +888,13 @@ private struct TerminalEscapeParser {
         case 0x09:
             advanceOneScalar()
             return .horizontalTab
+        case 0x9B:
+            advanceOneScalar()
+            return parseControlSequenceIntroducer()
+        case 0x9D:
+            advanceOneScalar()
+            operatingSystemCommandSkipState = consumeOperatingSystemCommand()
+            return .ignored
         case 0x1B:
             advanceOneScalar()
             return parseEscape()
@@ -925,7 +937,10 @@ private struct TerminalEscapeParser {
         }
         guard text[index] == "[" else { return nil }
         index = text.index(after: index)
+        return parseControlSequenceIntroducer()
+    }
 
+    private mutating func parseControlSequenceIntroducer() -> TerminalToken? {
         var parameters = ""
         while index < text.endIndex {
             let character = text[index]
@@ -955,6 +970,10 @@ private struct TerminalEscapeParser {
                 continue
             }
             if scalar.value == 0x07 {
+                advanceOneScalar()
+                return .none
+            }
+            if scalar.value == 0x9C {
                 advanceOneScalar()
                 return .none
             }

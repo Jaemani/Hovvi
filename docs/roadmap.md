@@ -419,6 +419,9 @@ Current status:
 - Swift mobile terminal parsing now skips OSC title/integration sequences
   terminated by BEL or ST, including when split across receive frames, preventing
   common shell/tmux metadata from corrupting live terminal text.
+- Swift mobile terminal parsing now also handles 8-bit C1 CSI, OSC, and ST
+  controls, routing C1 CSI through the existing parser and skipping C1-delimited
+  OSC metadata even when split across receive frames.
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.

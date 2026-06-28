@@ -688,6 +688,25 @@ try require(
     splitOscStScreen.visibleLines[0].text == "xy",
     "terminal screen should keep skipping split OSC sequences until ST"
 )
+var c1ControlScreen = TerminalScreen(columns: 16, rows: 1)
+c1ControlScreen.apply("abc\u{009B}1;1HZ")
+try require(
+    c1ControlScreen.visibleLines[0].text == "Zbc",
+    "terminal screen should parse C1 CSI sequences without printing control bytes"
+)
+var c1OscScreen = TerminalScreen(columns: 16, rows: 1)
+c1OscScreen.apply("a\u{009D}0;c1 title\u{009C}b")
+try require(
+    c1OscScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip C1 OSC sequences terminated by C1 ST"
+)
+var splitC1OscScreen = TerminalScreen(columns: 16, rows: 1)
+splitC1OscScreen.apply("x\u{009D}0;split")
+splitC1OscScreen.apply(" metadata\u{009C}y")
+try require(
+    splitC1OscScreen.visibleLines[0].text == "xy",
+    "terminal screen should keep skipping split C1 OSC sequences until C1 ST"
+)
 var asciiCharsetScreen = TerminalScreen(columns: 16, rows: 1)
 asciiCharsetScreen.apply("a\u{001B}(Bb")
 try require(
