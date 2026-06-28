@@ -416,7 +416,7 @@ public actor AttachShellModel {
                 terminalScreen: snapshot.terminalScreen,
                 terminalOutput: snapshot.terminalOutput,
                 terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
-                nextTickAfterMs: snapshot.nextTickAfterMs,
+                nextTickAfterMs: tickDelay(for: snapshot.phase, snapshot.nextTickAfterMs),
                 cleanShutdown: snapshot.cleanShutdown
             )
         } catch {
@@ -483,7 +483,7 @@ public actor AttachShellModel {
             terminalScreen: terminalScreen,
             terminalOutput: frame.terminalOutput,
             terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
-            nextTickAfterMs: frame.nextTickAfterMs,
+            nextTickAfterMs: tickDelay(for: snapshot.phase, frame.nextTickAfterMs),
             cleanShutdown: frame.cleanShutdown,
             error: nil,
             recoveryAction: nil
@@ -524,8 +524,9 @@ public actor AttachShellModel {
         error: AttachShellError? = nil,
         recoveryAction: AttachShellRecoveryAction? = nil
     ) {
+        let nextPhase = phase ?? snapshot.phase
         snapshot = AttachShellSnapshot(
-            phase: phase ?? snapshot.phase,
+            phase: nextPhase,
             devices: snapshot.devices,
             selectedDeviceId: selectedDeviceId ?? snapshot.selectedDeviceId,
             selectedSessionName: selectedSessionName ?? snapshot.selectedSessionName,
@@ -534,7 +535,7 @@ public actor AttachShellModel {
             terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
             terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
-            nextTickAfterMs: snapshot.nextTickAfterMs,
+            nextTickAfterMs: tickDelay(for: nextPhase, snapshot.nextTickAfterMs),
             cleanShutdown: snapshot.cleanShutdown,
             error: error,
             recoveryAction: recoveryAction
@@ -556,7 +557,7 @@ public actor AttachShellModel {
             terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
             terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
-            nextTickAfterMs: snapshot.nextTickAfterMs,
+            nextTickAfterMs: nil,
             cleanShutdown: snapshot.cleanShutdown,
             error: AttachShellError(title: title, message: message),
             recoveryAction: recoveryAction
@@ -578,10 +579,14 @@ public actor AttachShellModel {
             terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
             terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
-            nextTickAfterMs: snapshot.nextTickAfterMs,
+            nextTickAfterMs: tickDelay(for: snapshot.phase, snapshot.nextTickAfterMs),
             cleanShutdown: snapshot.cleanShutdown,
             error: AttachShellError(title: title, message: message),
             recoveryAction: recoveryAction
         )
+    }
+
+    private func tickDelay(for phase: AttachShellPhase, _ delay: UInt32?) -> UInt32? {
+        phase == .attached ? delay : nil
     }
 }

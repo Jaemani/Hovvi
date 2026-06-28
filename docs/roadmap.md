@@ -466,6 +466,10 @@ Current status:
 - `HovviMobileApp` now guards async user actions with a generation check so
   stale connect, selection, attach, input, resize, or scrollback refresh results
   cannot overwrite newer UI state after a later exclusive action starts.
+- Swift mobile attach snapshots now enforce attached-only mosh tick scheduling:
+  browsing, failed, explicit shutdown, and remote clean-shutdown states clear
+  stale `nextTickAfterMs` while preserving terminal screen, scrollback,
+  selection, and recovery context.
 - `AppBootstrapConfig` parses the local alpha relay URL, token, token source,
   and client id in `HovviMobileCore` with smoke coverage for redaction and
   fallback behavior.

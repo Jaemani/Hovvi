@@ -1337,6 +1337,7 @@ await cleanShutdownRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xC0]), se
 cleanShutdownSnapshot = await cleanShutdownShell.receiveNext(timeout: Duration.seconds(1))
 try require(cleanShutdownSnapshot.phase == AttachShellPhase.browsing, "attach shell should leave attached phase after remote clean shutdown")
 try require(cleanShutdownSnapshot.cleanShutdown, "attach shell should expose remote clean shutdown")
+try require(cleanShutdownSnapshot.nextTickAfterMs == nil, "remote clean shutdown should clear pending mosh ticks")
 try require(
     cleanShutdownSnapshot.terminalScreen?.visibleLines.first?.text == "bye",
     "attach shell should preserve terminal output from the clean shutdown frame"
@@ -1352,6 +1353,7 @@ try require(cleanShutdownSnapshot.error?.title == "No active terminal", "clean s
 shellSnapshot = await shell.shutdown()
 try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shutdown should return to browsing")
 try require(shellSnapshot.cleanShutdown, "attach shell should expose clean shutdown")
+try require(shellSnapshot.nextTickAfterMs == nil, "attach shell shutdown should clear pending mosh ticks")
 try require(await shellRelay.closedChannelId == "dg_shell", "attach shell shutdown should close relay datagram")
 
 let cleanupRelay = FakeAttachShellRelay(
@@ -1495,6 +1497,7 @@ try require(interruptedSnapshot.phase == AttachShellPhase.attached, "interrupted
 interruptedSnapshot = await interruptedShell.receiveNext(timeout: Duration.seconds(1))
 try require(interruptedSnapshot.phase == AttachShellPhase.failed, "attach shell should fail when live receive is interrupted")
 try require(interruptedSnapshot.recoveryAction == .reattachSession, "attach shell interruption should recommend reattach")
+try require(interruptedSnapshot.nextTickAfterMs == nil, "interrupted attach should clear pending mosh ticks")
 try require(interruptedSnapshot.selectedDeviceId == "dev_1", "attach shell failure should preserve selected device")
 try require(interruptedSnapshot.selectedSessionName == "main", "attach shell failure should preserve selected session")
 try require(
@@ -1527,6 +1530,7 @@ try require(relayClosedSnapshot.phase == AttachShellPhase.attached, "relay close
 await relayClosedRelay.enqueue(frame: .close)
 relayClosedSnapshot = await relayClosedShell.receiveNext(timeout: Duration.seconds(1))
 try require(relayClosedSnapshot.phase == AttachShellPhase.failed, "attach shell should fail when relay datagram closes")
+try require(relayClosedSnapshot.nextTickAfterMs == nil, "relay datagram close should clear pending mosh ticks")
 try require(
     relayClosedSnapshot.error?.title == "Terminal connection interrupted",
     "relay datagram close should surface terminal interruption"
@@ -1614,6 +1618,7 @@ await viewportCleanShutdownRelay.enqueue(frame: RelayDatagramFrame.data(Data([0x
 viewportCleanShutdownSnapshot = await viewportCleanShutdownShell.receiveNext(timeout: Duration.seconds(1))
 try require(viewportCleanShutdownSnapshot.phase == .browsing, "clean shutdown should leave attached mode")
 try require(viewportCleanShutdownSnapshot.cleanShutdown, "clean shutdown should remain explicit")
+try require(viewportCleanShutdownSnapshot.nextTickAfterMs == nil, "clean shutdown should clear pending mosh ticks")
 try require(
     viewportCleanShutdownSnapshot.terminalViewportLineLimit == 6,
     "clean shutdown should preserve terminal viewport cap"
