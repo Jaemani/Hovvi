@@ -380,6 +380,10 @@ Current status:
 - Swift mobile mosh relay datagram sessions now treat relay `datagram.error` as
   terminal for the active channel, clear the connected channel id, preserve the
   relay error for UI recovery, and reject later stale sends immediately.
+- Swift mobile attach now treats relay `datagram.close` without a core clean
+  shutdown frame as a recoverable terminal interruption, clears the active mosh
+  session, preserves selected device/session, scrollback, and live terminal
+  state, and routes retry to selected-session reattach.
 - Swift mobile resize handling now deduplicates unchanged terminal sizes in the
   core attach model, preventing duplicate mosh resize packets from repeated UI
   geometry callbacks.

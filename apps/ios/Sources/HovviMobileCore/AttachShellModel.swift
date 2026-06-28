@@ -356,6 +356,14 @@ public actor AttachShellModel {
         do {
             if let frame = try await attachSession.receiveNext(timeout: timeout) {
                 await apply(frame)
+            } else {
+                try? await attachSession.closeTransport()
+                self.attachSession = nil
+                fail(
+                    title: "Terminal connection interrupted",
+                    message: "Relay datagram channel closed before mosh reported a clean shutdown.",
+                    recoveryAction: .reattachSession
+                )
             }
         } catch {
             try? await attachSession.closeTransport()

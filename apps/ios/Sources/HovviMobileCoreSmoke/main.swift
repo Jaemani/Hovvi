@@ -266,8 +266,20 @@ await fakeRelay.enqueue(frame: .data(Data([0x04, 0x05]), sequence: 12))
 let receivedMoshPacket = try await moshSession.receivePacket(timeout: .seconds(1))
 try require(receivedMoshPacket?.bytes == Data([0x04, 0x05]), "mosh session should receive relay datagram packet")
 try require(receivedMoshPacket?.relaySequence == 12, "mosh session should preserve relay sequence")
+await fakeRelay.enqueue(frame: .close)
+let closedMoshPacket = try await moshSession.receivePacket(timeout: .seconds(1))
+try require(closedMoshPacket == nil, "mosh session should surface relay datagram close")
+try require(
+    await moshSession.connectedChannelId() == nil,
+    "mosh session should clear channel after relay datagram close"
+)
+do {
+    _ = try await moshSession.sendPacket(Data([0x06]))
+    throw SmokeError("mosh session should reject stale sends after relay datagram close")
+} catch MoshRelayDatagramSessionError.notConnected {
+}
 try await moshSession.close()
-try require(await fakeRelay.closedChannelId == "dg_fake", "mosh session should close relay datagram channel")
+try require(await fakeRelay.closedChannelId == nil, "mosh session close should no-op after relay datagram close")
 
 let datagramErrorRelay = FakeDatagramRelay()
 let datagramErrorSession = try MoshRelayDatagramSession(
@@ -1494,6 +1506,47 @@ try require(
     "attach shell failure should preserve the last live terminal screen"
 )
 try require(await interruptedRelay.closedChannelId == "dg_shell", "attach shell failure should close the relay datagram")
+
+let relayClosedRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let relayClosedShell = AttachShellModel(relay: relayClosedRelay) {
+    FakeMoshCoreEngine()
+}
+var relayClosedSnapshot = await relayClosedShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+relayClosedSnapshot = await relayClosedShell.selectDevice("dev_1")
+relayClosedSnapshot = await relayClosedShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+relayClosedSnapshot = await relayClosedShell.sendInput(Data("hi".utf8))
+try require(relayClosedSnapshot.phase == AttachShellPhase.attached, "relay close shell should attach before close")
+await relayClosedRelay.enqueue(frame: .close)
+relayClosedSnapshot = await relayClosedShell.receiveNext(timeout: Duration.seconds(1))
+try require(relayClosedSnapshot.phase == AttachShellPhase.failed, "attach shell should fail when relay datagram closes")
+try require(
+    relayClosedSnapshot.error?.title == "Terminal connection interrupted",
+    "relay datagram close should surface terminal interruption"
+)
+try require(
+    relayClosedSnapshot.error?.message.contains("clean shutdown") == true,
+    "relay datagram close should distinguish unclean close from mosh shutdown"
+)
+try require(relayClosedSnapshot.recoveryAction == .reattachSession, "relay datagram close should recommend reattach")
+try require(
+    relayClosedSnapshot.terminalScreen?.visibleLines.first?.text == "local",
+    "relay datagram close should preserve last live terminal screen"
+)
+try require(
+    await relayClosedRelay.closedChannelIds.isEmpty,
+    "relay datagram close should not send a duplicate close for an already closed channel"
+)
+relayClosedSnapshot = await relayClosedShell.sendInput(Data("stale".utf8))
+try require(relayClosedSnapshot.phase == AttachShellPhase.failed, "relay datagram close should detach stale mosh session")
+try require(relayClosedSnapshot.error?.title == "No active terminal", "relay datagram close should prevent stale input")
 
 let attachShellView = HovviAttachShellView(snapshot: shellSnapshot)
 let terminalSurfaceView = TerminalSurfaceView(snapshot: shellSnapshot)
