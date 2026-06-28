@@ -318,10 +318,11 @@ Current status:
 - CI now places explicit timeouts around each simulator gate and the shared
   shell runner uses `SIGKILL` for timed-out child processes, so CoreSimulator
   hangs become bounded failures instead of job-level stalls.
-- `npm run ios:simulator-launch-check` now installs and launches the temporary
-  simulator bundle with the deterministic attached coding-agent fixture, proving
-  CoreSimulator can execute the app before screenshot execution. Launch and
-  screenshot capture commands now use internal `simctl` timeouts and explicit
+- `npm run ios:simulator-launch-check` now reuses an already installed simulator
+  app before falling back to install-then-launch, so the CI launch gate proves
+  CoreSimulator can execute the deterministic attached coding-agent fixture
+  without adding a redundant rebuild after the install gate. Launch and
+  screenshot capture commands use internal `simctl` timeouts and explicit
   timeout diagnostics, so matrix failures identify the stalled operation before
   the CI step timeout is reached.
 - `npm run ios:simulator-screenshot-check` now launches the deterministic

@@ -48,6 +48,71 @@ test("iOS simulator launch check launches fixture and terminates app", () => {
   );
 });
 
+test("iOS simulator launch check can reuse an already installed app", () => {
+  const calls = [];
+  let installCalled = false;
+  const result = iosSimulatorLaunchCheck({
+    reuseInstalledApp: true,
+    preflightFn: () => ({
+      status: "ready",
+      simulators: [{ name: "iPhone 17", udid: "SIM-1", state: "Booted" }],
+    }),
+    installCheckFn: () => {
+      installCalled = true;
+      return {
+        status: "installed",
+        simulator: { name: "iPhone 17", udid: "SIM-1" },
+      };
+    },
+    runTextFn(command, args, options) {
+      calls.push({ command, args, options });
+      return ok(args[1] === "launch" ? `${HOVVI_IOS_BUNDLE_ID}: 1234` : "");
+    },
+  });
+
+  assert.equal(result.status, "launched");
+  assert.equal(result.reusedInstalledApp, true);
+  assert.equal(installCalled, false);
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [
+      ["simctl", "launch", "--terminate-running-process", "SIM-1", HOVVI_IOS_BUNDLE_ID],
+      ["simctl", "terminate", "SIM-1", HOVVI_IOS_BUNDLE_ID],
+    ]
+  );
+});
+
+test("iOS simulator launch check falls back to install when reuse launch fails", () => {
+  const launches = [];
+  let installCalled = false;
+  const result = iosSimulatorLaunchCheck({
+    reuseInstalledApp: true,
+    preflightFn: () => ({
+      status: "ready",
+      simulators: [{ name: "iPhone 17", udid: "SIM-1", state: "Booted" }],
+    }),
+    installCheckFn: () => {
+      installCalled = true;
+      return {
+        status: "installed",
+        simulator: { name: "iPhone 17", udid: "SIM-1" },
+      };
+    },
+    runTextFn(command, args) {
+      if (args[1] === "launch") {
+        launches.push(args);
+        return launches.length === 1 ? failed("not installed") : ok(`${HOVVI_IOS_BUNDLE_ID}: 1234`);
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "launched");
+  assert.equal(result.reusedInstalledApp, undefined);
+  assert.equal(installCalled, true);
+  assert.equal(launches.length, 2);
+});
+
 test("iOS simulator launch check accepts an explicit fixture", () => {
   const result = iosSimulatorLaunchCheck({
     fixture: "failed-reattach",

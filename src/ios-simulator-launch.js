@@ -1,4 +1,5 @@
 import { iosSimulatorInstallCheck } from "./ios-simulator-install.js";
+import { iosSimulatorPreflight } from "./ios-preflight.js";
 import { describeSimctlResult } from "./simctl-diagnostics.js";
 import { runText } from "./shell.js";
 
@@ -8,10 +9,35 @@ export const HOVVI_IOS_SNAPSHOT_FIXTURE_KEY = "HOVVI_IOS_SNAPSHOT_FIXTURE";
 export function iosSimulatorLaunchCheck({
   fixture = "attached-coding-agent",
   installCheckFn = iosSimulatorInstallCheck,
+  preflightFn = iosSimulatorPreflight,
   runTextFn = runText,
+  reuseInstalledApp = false,
   launchTimeoutMs = 60000,
   terminateTimeoutMs = 15000,
 } = {}) {
+  if (reuseInstalledApp) {
+    const preflight = preflightFn();
+    if (preflight.status === "ready") {
+      const simulator = preflight.simulators?.find((candidate) => candidate.state === "Booted")
+        ?? preflight.simulators?.[0];
+      if (simulator?.udid) {
+        const installedLaunch = launchInstalledSimulatorApp({
+          simulator,
+          fixture,
+          runTextFn,
+          launchTimeoutMs,
+          terminateTimeoutMs,
+        });
+        if (installedLaunch.status === "launched") {
+          return {
+            ...installedLaunch,
+            reusedInstalledApp: true,
+          };
+        }
+      }
+    }
+  }
+
   const install = installCheckFn();
   if (install.status !== "installed") {
     return install;
@@ -26,6 +52,23 @@ export function iosSimulatorLaunchCheck({
     };
   }
 
+  return launchInstalledSimulatorApp({
+    simulator: install.simulator,
+    fixture,
+    runTextFn,
+    launchTimeoutMs,
+    terminateTimeoutMs,
+  });
+}
+
+function launchInstalledSimulatorApp({
+  simulator,
+  fixture,
+  runTextFn,
+  launchTimeoutMs,
+  terminateTimeoutMs,
+}) {
+  const udid = simulator.udid;
   const launch = runTextFn(
     "xcrun",
     ["simctl", "launch", "--terminate-running-process", udid, HOVVI_IOS_BUNDLE_ID],
@@ -48,7 +91,7 @@ export function iosSimulatorLaunchCheck({
     return {
       status: "failed",
       reason: "Could not launch HovviMobileApp on the selected iOS simulator.",
-      simulator: install.simulator,
+      simulator,
       simctl: describeSimctlResult(launch),
       terminate: describeSimctlResult(terminate),
     };
@@ -56,7 +99,7 @@ export function iosSimulatorLaunchCheck({
 
   return {
     status: "launched",
-    simulator: install.simulator,
+    simulator,
     bundleId: HOVVI_IOS_BUNDLE_ID,
     fixture,
   };

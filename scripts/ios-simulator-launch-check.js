@@ -4,7 +4,7 @@ import { iosSimulatorLaunchCheck } from "../src/ios-simulator-launch.js";
 const args = new Set(process.argv.slice(2));
 const fixtureArg = process.argv.find((arg) => arg.startsWith("--fixture="));
 const fixture = fixtureArg ? fixtureArg.slice("--fixture=".length) : undefined;
-const result = iosSimulatorLaunchCheck({ fixture });
+const result = iosSimulatorLaunchCheck({ fixture, reuseInstalledApp: true });
 
 if (args.has("--json")) {
   console.log(JSON.stringify(result, null, 2));
