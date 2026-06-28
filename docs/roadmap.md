@@ -279,6 +279,9 @@ Current status:
   `simctl`, and an available iOS simulator before future screenshot execution.
   The current local environment has Command Line Tools active, so simulator
   screenshot execution remains pending.
+- iOS simulator preflight now retries transient `simctl list` failures before
+  declaring the simulator unavailable, keeping CI screenshot evidence
+  fail-closed without treating temporary CoreSimulator restarts as final.
 - `HovviMobileApp` now supports deterministic screenshot fixtures through
   `HOVVI_IOS_SNAPSHOT_FIXTURE`, so future simulator/device screenshot gates can
   render attached, browsing, and failed states without requiring a live relay.

@@ -32,6 +32,10 @@ The matrix check:
 - writes one JSON metadata artifact with fixture names, simulator identity,
   per-fixture screenshot paths, and PNG statistics;
 - uploads the PNG set and metadata JSON from CI;
+- retries CoreSimulator device discovery briefly before deciding the simulator
+  environment is unavailable, because GitHub-hosted macOS runners can restart
+  CoreSimulator services between earlier install/launch gates and the matrix
+  gate;
 - runs with `--require-captured` in CI so skipped screenshot evidence fails the
   workflow instead of silently passing without CoreSimulator artifacts.
 
@@ -45,6 +49,9 @@ against upstream mosh.
   and capped terminal viewport surfaces on CoreSimulator.
 - Simulator install/build cost is paid once for the matrix instead of once per
   fixture.
+- Transient `simctl list` failures remain visible after bounded retry, while
+  deterministic CI artifact requirements stay fail-closed through
+  `--require-captured`.
 - Future visual assertions can compare against matrix metadata and fixture
   names instead of adding ad hoc screenshot scripts.
 - Exact golden image baselines remain deferred, but duplicate fixture images now
@@ -55,7 +62,7 @@ against upstream mosh.
 ## Validation
 
 - `npm run check`
-- `node --test test/ios-simulator-screenshot-matrix.test.js test/ios-simulator-screenshot.test.js`
+- `node --test test/ios-preflight.test.js test/ios-simulator-screenshot-matrix.test.js test/ios-simulator-screenshot.test.js`
 - `node scripts/ios-simulator-screenshot-matrix-check.js --json --metadata=/tmp/hovvi-ios-screenshot-matrix.json`
 - `npm test`
 - `npm run package:boundary-check`

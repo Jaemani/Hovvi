@@ -75,6 +75,63 @@ test("iOS simulator preflight reports ready with available iOS simulators", () =
   });
 });
 
+test("iOS simulator preflight retries transient simctl failures", () => {
+  let simctlCalls = 0;
+  const waits = [];
+  const result = iosSimulatorPreflight({
+    platform: "darwin",
+    commandExistsFn: () => true,
+    simctlRetryDelayMs: 0,
+    waitFn: (ms) => waits.push(ms),
+    runTextFn(command, args) {
+      if (command === "xcode-select" && args[0] === "-p") {
+        return ok("/Applications/Xcode.app/Contents/Developer");
+      }
+      if (command === "xcodebuild" && args[0] === "-version") {
+        return ok("Xcode 17.0\nBuild version 17A000");
+      }
+      if (command === "xcrun" && args.join(" ") === "simctl list devices available --json") {
+        simctlCalls += 1;
+        if (simctlCalls === 1) {
+          return fail("CoreSimulatorService is restarting");
+        }
+        return ok(iosDeviceJson());
+      }
+      throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
+    },
+  });
+
+  assert.equal(result.status, "ready");
+  assert.equal(simctlCalls, 2);
+  assert.deepEqual(waits, [0]);
+});
+
+test("iOS simulator preflight retries transient simctl JSON parse failures", () => {
+  let simctlCalls = 0;
+  const result = iosSimulatorPreflight({
+    platform: "darwin",
+    commandExistsFn: () => true,
+    simctlRetryDelayMs: 0,
+    waitFn: () => {},
+    runTextFn(command, args) {
+      if (command === "xcode-select" && args[0] === "-p") {
+        return ok("/Applications/Xcode.app/Contents/Developer");
+      }
+      if (command === "xcodebuild" && args[0] === "-version") {
+        return ok("Xcode 17.0\nBuild version 17A000");
+      }
+      if (command === "xcrun" && args.join(" ") === "simctl list devices available --json") {
+        simctlCalls += 1;
+        return ok(simctlCalls === 1 ? "{" : iosDeviceJson());
+      }
+      throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
+    },
+  });
+
+  assert.equal(result.status, "ready");
+  assert.equal(simctlCalls, 2);
+});
+
 function ok(text) {
   return {
     ok: true,
@@ -83,4 +140,29 @@ function ok(text) {
     stderr: "",
     text,
   };
+}
+
+function fail(text) {
+  return {
+    ok: false,
+    status: 1,
+    stdout: "",
+    stderr: text,
+    text,
+  };
+}
+
+function iosDeviceJson() {
+  return JSON.stringify({
+    devices: {
+      "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [
+        {
+          name: "iPhone 17",
+          udid: "SIM-1",
+          state: "Shutdown",
+          isAvailable: true,
+        },
+      ],
+    },
+  });
 }
