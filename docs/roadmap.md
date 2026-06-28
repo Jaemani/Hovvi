@@ -197,6 +197,10 @@ Current status:
 - The relay server now enforces each channel's `maxDatagramBytes` against
   inbound `datagram.data` from either peer, returning structured errors and
   releasing channel state instead of forwarding oversized payloads.
+- The Mac agent now treats relay `datagram.error` the same as `datagram.close`
+  for local bridge cleanup, and the UDP bridge closes itself after local
+  oversize rejection so relay-side channel teardown cannot leave an agent-local
+  datagram bridge behind.
 - JavaScript and Swift attach paths reject unsupported attach manifest
   `kind`/`version` values before selecting a mosh relay datagram transport.
 - `npm run native:relay-attach-check` runs the repository-only native mosh probe

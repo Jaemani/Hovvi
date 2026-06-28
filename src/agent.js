@@ -53,6 +53,7 @@ export async function connectAgent({
   publishIntervalMs,
   heartbeatIntervalMs,
   listSessionsFn = listSessions,
+  createDatagramBridgeFn = createUdpDatagramBridge,
 }) {
   const ws = new WebSocket(relayUrl);
   const forwards = new Map();
@@ -67,7 +68,9 @@ export async function connectAgent({
   });
 
   ws.send(serialize(envelope("hello", { role: "agent", token, device })));
-  ws.on("message", (data) => handleAgentMessage(ws, forwards, datagrams, moshServers, device, data));
+  ws.on("message", (data) =>
+    handleAgentMessage(ws, forwards, datagrams, moshServers, device, data, { createDatagramBridgeFn }),
+  );
   ws.on("close", () => {
     clearInterval(publishTimer);
     clearInterval(heartbeatTimer);
@@ -108,7 +111,7 @@ export async function connectAgent({
   });
 }
 
-function handleAgentMessage(ws, forwards, datagrams, moshServers, device, data) {
+function handleAgentMessage(ws, forwards, datagrams, moshServers, device, data, { createDatagramBridgeFn }) {
   let message;
   try {
     message = parseAndValidateEnvelope(data);
@@ -120,7 +123,7 @@ function handleAgentMessage(ws, forwards, datagrams, moshServers, device, data) 
     case "forward.open":
       return openForward(ws, forwards, message);
     case "datagram.open":
-      return openDatagram(ws, datagrams, message);
+      return openDatagram(ws, datagrams, message, createDatagramBridgeFn);
     case "session.attach.prepare":
       return prepareAttach(ws, device, moshServers, message);
     case "session.scrollback.fetch":
@@ -132,6 +135,7 @@ function handleAgentMessage(ws, forwards, datagrams, moshServers, device, data) 
     case "datagram.data":
       return writeDatagram(datagrams, message);
     case "datagram.close":
+    case "datagram.error":
       return closeDatagram(datagrams, message.channelId);
     default:
       return;
@@ -232,15 +236,18 @@ function closeForward(forwards, streamId) {
   forwards.delete(streamId);
 }
 
-function openDatagram(ws, datagrams, message) {
+function openDatagram(ws, datagrams, message, createDatagramBridgeFn = createUdpDatagramBridge) {
   try {
-    const bridge = createUdpDatagramBridge({
+    const bridge = createDatagramBridgeFn({
       channelId: message.channelId,
       remoteHost: message.remoteHost || "127.0.0.1",
       remotePort: message.remotePort,
       maxDatagramBytes: Number(message.maxDatagramBytes || 1200),
       send(type, payload) {
         ws.send(serialize(envelope(type, payload)));
+      },
+      onClose() {
+        datagrams.delete(message.channelId);
       },
     });
     datagrams.set(message.channelId, bridge);

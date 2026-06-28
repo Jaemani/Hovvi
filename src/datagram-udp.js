@@ -6,6 +6,7 @@ export function createUdpDatagramBridge({
   remotePort,
   maxDatagramBytes = 65507,
   send,
+  onClose = () => {},
   socket = createSocket("udp4"),
 }) {
   if (!channelId) throw new Error("channelId is required.");
@@ -39,6 +40,7 @@ export function createUdpDatagramBridge({
         channelId,
         message: `datagram exceeds maxDatagramBytes (${bytes.length} > ${datagramLimit})`,
       });
+      close();
       return false;
     }
     socket.send(bytes);
@@ -49,6 +51,7 @@ export function createUdpDatagramBridge({
     if (closed) return;
     closed = true;
     socket.close();
+    onClose();
   }
 
   return {

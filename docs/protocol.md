@@ -206,6 +206,9 @@ The returned channel supports `send(bytes)`, `nextMessage({ timeoutMs })`, and
 serializing or sending a `datagram.data` envelope. `datagram.error` rejects
 pending opens or pending reads and `datagram.close` marks the channel closed.
 The relay and client must release channel state after either peer closes.
+Agents must also treat relay `datagram.error` as terminal for the local UDP
+bridge, matching `datagram.close`, and must release local bridge state after a
+local oversize rejection emits `datagram.error`.
 
 The relay also enforces each channel's `maxDatagramBytes` against inbound
 `datagram.data` messages from either peer. Oversized data is not forwarded; the
