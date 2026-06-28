@@ -1267,6 +1267,38 @@ try require(
     "attach shell tick should flush core tick packets through relay datagrams"
 )
 
+let cleanShutdownRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let cleanShutdownShell = AttachShellModel(relay: cleanShutdownRelay) {
+    CleanShutdownReceiveMoshCoreEngine()
+}
+var cleanShutdownSnapshot = await cleanShutdownShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+cleanShutdownSnapshot = await cleanShutdownShell.selectDevice("dev_1")
+cleanShutdownSnapshot = await cleanShutdownShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(cleanShutdownSnapshot.phase == AttachShellPhase.attached, "clean shutdown shell should attach before remote shutdown")
+await cleanShutdownRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xC0]), sequence: 11))
+cleanShutdownSnapshot = await cleanShutdownShell.receiveNext(timeout: Duration.seconds(1))
+try require(cleanShutdownSnapshot.phase == AttachShellPhase.browsing, "attach shell should leave attached phase after remote clean shutdown")
+try require(cleanShutdownSnapshot.cleanShutdown, "attach shell should expose remote clean shutdown")
+try require(
+    cleanShutdownSnapshot.terminalScreen?.visibleLines.first?.text == "bye",
+    "attach shell should preserve terminal output from the clean shutdown frame"
+)
+try require(
+    await cleanShutdownRelay.closedChannelIds == ["dg_shell"],
+    "attach shell should close relay datagram after remote clean shutdown"
+)
+cleanShutdownSnapshot = await cleanShutdownShell.sendInput(Data("stale".utf8))
+try require(cleanShutdownSnapshot.phase == AttachShellPhase.failed, "attach shell should detach mosh session after remote clean shutdown")
+try require(cleanShutdownSnapshot.error?.title == "No active terminal", "clean shutdown should prevent stale input from using closed transport")
+
 shellSnapshot = await shell.shutdown()
 try require(shellSnapshot.phase == AttachShellPhase.browsing, "attach shell shutdown should return to browsing")
 try require(shellSnapshot.cleanShutdown, "attach shell should expose clean shutdown")
@@ -1486,6 +1518,34 @@ actor FakeMoshCoreEngine: MoshCoreEngine {
     func shutdown() async throws -> MoshCoreFrame {
         events.append("shutdown")
         return MoshCoreFrame(outboundPackets: [Data([0xA4])], cleanShutdown: true)
+    }
+}
+
+actor CleanShutdownReceiveMoshCoreEngine: MoshCoreEngine {
+    func start(configuration: MoshCoreConfiguration) async throws -> MoshCoreFrame {
+        MoshCoreFrame(outboundPackets: [Data([0xA0])], nextTickAfterMs: 10)
+    }
+
+    func receivePacket(_ packet: MoshRelayDatagramPacket) async throws -> MoshCoreFrame {
+        try require(packet.bytes == Data([0xC0]), "clean shutdown fake core should receive remote packet")
+        try require(packet.relaySequence == 11, "clean shutdown fake core should preserve relay sequence")
+        return MoshCoreFrame(terminalOutput: Data("bye".utf8), cleanShutdown: true)
+    }
+
+    func sendUserInput(_ bytes: Data) async throws -> MoshCoreFrame {
+        throw SmokeError("clean shutdown fake core should not receive stale input")
+    }
+
+    func resize(to size: MoshCoreTerminalSize) async throws -> MoshCoreFrame {
+        throw SmokeError("clean shutdown fake core should not resize")
+    }
+
+    func tick(nowMs: UInt64) async throws -> MoshCoreFrame {
+        throw SmokeError("clean shutdown fake core should not tick")
+    }
+
+    func shutdown() async throws -> MoshCoreFrame {
+        MoshCoreFrame(cleanShutdown: true)
     }
 }
 

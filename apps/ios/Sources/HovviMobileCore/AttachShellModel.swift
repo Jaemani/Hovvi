@@ -304,7 +304,7 @@ public actor AttachShellModel {
             return snapshot
         }
         do {
-            apply(try await attachSession.sendUserInput(bytes))
+            await apply(try await attachSession.sendUserInput(bytes))
         } catch {
             try? await attachSession.closeTransport()
             self.attachSession = nil
@@ -325,7 +325,7 @@ public actor AttachShellModel {
         do {
             var screen = snapshot.terminalScreen ?? TerminalScreen(columns: size.columns, rows: size.rows)
             screen.resize(columns: size.columns, rows: size.rows)
-            apply(try await attachSession.resize(to: size), terminalScreen: screen)
+            await apply(try await attachSession.resize(to: size), terminalScreen: screen)
         } catch {
             try? await attachSession.closeTransport()
             self.attachSession = nil
@@ -342,7 +342,7 @@ public actor AttachShellModel {
         }
         do {
             if let frame = try await attachSession.receiveNext(timeout: timeout) {
-                apply(frame)
+                await apply(frame)
             }
         } catch {
             try? await attachSession.closeTransport()
@@ -408,7 +408,7 @@ public actor AttachShellModel {
             return snapshot
         }
         do {
-            apply(try await attachSession.tick(nowMs: nowMs))
+            await apply(try await attachSession.tick(nowMs: nowMs))
         } catch {
             try? await attachSession.closeTransport()
             self.attachSession = nil
@@ -423,7 +423,7 @@ public actor AttachShellModel {
             return snapshot
         }
         do {
-            apply(try await attachSession.shutdown())
+            await apply(try await attachSession.shutdown(), closeOnCleanShutdown: false)
             self.attachSession = nil
             update(phase: .browsing)
         } catch {
@@ -434,7 +434,11 @@ public actor AttachShellModel {
         return snapshot
     }
 
-    private func apply(_ frame: MoshAttachFrame, terminalScreen existingScreen: TerminalScreen? = nil) {
+    private func apply(
+        _ frame: MoshAttachFrame,
+        terminalScreen existingScreen: TerminalScreen? = nil,
+        closeOnCleanShutdown: Bool = true
+    ) async {
         var terminalScreen = existingScreen ?? snapshot.terminalScreen
         if frame.terminalOutput.isEmpty == false {
             if terminalScreen == nil {
@@ -456,6 +460,24 @@ public actor AttachShellModel {
             error: nil,
             recoveryAction: nil
         )
+        if frame.cleanShutdown, closeOnCleanShutdown {
+            try? await attachSession?.closeTransport()
+            attachSession = nil
+            snapshot = AttachShellSnapshot(
+                phase: .browsing,
+                devices: snapshot.devices,
+                selectedDeviceId: snapshot.selectedDeviceId,
+                selectedSessionName: snapshot.selectedSessionName,
+                manifest: snapshot.manifest,
+                scrollback: snapshot.scrollback,
+                terminalScreen: snapshot.terminalScreen,
+                terminalOutput: snapshot.terminalOutput,
+                nextTickAfterMs: nil,
+                cleanShutdown: true,
+                error: nil,
+                recoveryAction: nil
+            )
+        }
     }
 
     private func closeCurrentAttachTransportBestEffort() async {
