@@ -277,23 +277,9 @@ public struct TerminalScreen: Equatable, Sendable {
                 applySgr(values)
             case .scrollRegion(let top, let bottom):
                 setScrollRegion(top: top, bottom: bottom)
-            case .originMode(let enabled):
-                originMode = enabled
-                cursorRow = cursorHomeRow
-                cursorColumn = 0
-            case .bracketedPasteMode(let enabled):
-                isBracketedPasteModeEnabled = enabled
-            case .cursorVisibility(let visible):
-                isCursorVisible = visible
-            case .applicationCursorKeysMode(let enabled):
-                isApplicationCursorKeysModeEnabled = enabled
-            case .autoWrapMode(let enabled):
-                isAutoWrapModeEnabled = enabled
-            case .alternateScreen(let enabled):
-                if enabled {
-                    enterAlternateScreen()
-                } else {
-                    exitAlternateScreen()
+            case .privateModes(let modes, let enabled):
+                for mode in modes {
+                    applyPrivateMode(mode, enabled: enabled)
                 }
             }
         }
@@ -690,6 +676,31 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorColumn = 0
     }
 
+    private mutating func applyPrivateMode(_ mode: Int, enabled: Bool) {
+        switch mode {
+        case 47, 1047, 1049:
+            if enabled {
+                enterAlternateScreen()
+            } else {
+                exitAlternateScreen()
+            }
+        case 6:
+            originMode = enabled
+            cursorRow = cursorHomeRow
+            cursorColumn = 0
+        case 1:
+            isApplicationCursorKeysModeEnabled = enabled
+        case 7:
+            isAutoWrapModeEnabled = enabled
+        case 25:
+            isCursorVisible = enabled
+        case 2004:
+            isBracketedPasteModeEnabled = enabled
+        default:
+            break
+        }
+    }
+
     private mutating func enterAlternateScreen() {
         if primarySnapshotBeforeAlternate == nil {
             primarySnapshotBeforeAlternate = TerminalScreenSnapshot(
@@ -843,12 +854,7 @@ private enum TerminalToken {
     case clearTabStops(TerminalTabClearMode)
     case sgr([Int])
     case scrollRegion(top: Int?, bottom: Int?)
-    case originMode(Bool)
-    case bracketedPasteMode(Bool)
-    case cursorVisibility(Bool)
-    case applicationCursorKeysMode(Bool)
-    case autoWrapMode(Bool)
-    case alternateScreen(Bool)
+    case privateModes([Int], enabled: Bool)
 }
 
 private struct TerminalEscapeParser {
@@ -1091,7 +1097,7 @@ private struct TerminalEscapeParser {
         case "r":
             return scrollRegionToken(parameters: parameters)
         case "h", "l":
-            return privateModeToken(parameters: parameters, enabled: final == "h")
+            return privateModesToken(parameters: parameters, enabled: final == "h")
         default:
             return nil
         }
@@ -1107,31 +1113,14 @@ private struct TerminalEscapeParser {
         return .scrollRegion(top: top, bottom: bottom)
     }
 
-    private func privateModeToken(parameters: String, enabled: Bool) -> TerminalToken? {
+    private func privateModesToken(parameters: String, enabled: Bool) -> TerminalToken? {
         guard parameters.hasPrefix("?") else { return nil }
         let modes = parameters
             .dropFirst()
             .split(separator: ";")
             .compactMap { Int($0) }
-        if modes.contains(47) || modes.contains(1047) || modes.contains(1049) {
-            return .alternateScreen(enabled)
-        }
-        if modes.contains(6) {
-            return .originMode(enabled)
-        }
-        if modes.contains(1) {
-            return .applicationCursorKeysMode(enabled)
-        }
-        if modes.contains(7) {
-            return .autoWrapMode(enabled)
-        }
-        if modes.contains(25) {
-            return .cursorVisibility(enabled)
-        }
-        if modes.contains(2004) {
-            return .bracketedPasteMode(enabled)
-        }
-        return nil
+        guard modes.isEmpty == false else { return nil }
+        return .privateModes(modes, enabled: enabled)
     }
 
     private func tabClearToken(values: [Int]) -> TerminalToken? {

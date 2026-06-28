@@ -49,6 +49,7 @@ The initial model supports:
 - Saved cursor character-set restoration was added in ADR 0155.
 - C1 CSI/OSC/ST control handling was added in ADR 0156.
 - IND/NEL/HTS/RI control handling was added in ADR 0157.
+- Combined DEC private-mode handling was added in ADR 0158.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. ADR 0055 keeps live terminal output out of the scrollback

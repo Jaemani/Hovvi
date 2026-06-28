@@ -426,6 +426,10 @@ Current status:
   (`IND`/`NEL`), C1 horizontal tab stop, and C1 reverse index by routing them
   through the existing scroll-region, carriage-return, tab-stop, and
   reverse-index screen behavior.
+- Swift mobile terminal parsing now applies every supported mode in combined
+  DEC private-mode CSI sequences, keeping cursor visibility, bracketed paste,
+  application cursor keys, autowrap, origin mode, and alternate-screen state
+  aligned when terminal applications group modes in one sequence.
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.
