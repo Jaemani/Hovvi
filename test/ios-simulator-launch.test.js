@@ -82,7 +82,7 @@ test("iOS simulator launch check can reuse an already installed app", () => {
   );
 });
 
-test("iOS simulator launch check falls back to install when reuse launch fails", () => {
+test("iOS simulator launch check falls back to install when reuse launch finds no installed app", () => {
   const launches = [];
   let installCalled = false;
   const result = iosSimulatorLaunchCheck({
@@ -101,7 +101,9 @@ test("iOS simulator launch check falls back to install when reuse launch fails",
     runTextFn(command, args) {
       if (args[1] === "launch") {
         launches.push(args);
-        return launches.length === 1 ? failed("not installed") : ok(`${HOVVI_IOS_BUNDLE_ID}: 1234`);
+        return launches.length === 1
+          ? failed(`The application "${HOVVI_IOS_BUNDLE_ID}" is not installed.`)
+          : ok(`${HOVVI_IOS_BUNDLE_ID}: 1234`);
       }
       return ok("");
     },
@@ -111,6 +113,42 @@ test("iOS simulator launch check falls back to install when reuse launch fails",
   assert.equal(result.reusedInstalledApp, undefined);
   assert.equal(installCalled, true);
   assert.equal(launches.length, 2);
+});
+
+test("iOS simulator launch check does not reinstall after reuse launch timeouts", () => {
+  let installCalled = false;
+  const result = iosSimulatorLaunchCheck({
+    reuseInstalledApp: true,
+    preflightFn: () => ({
+      status: "ready",
+      simulators: [{ name: "iPhone 17", udid: "SIM-1", state: "Booted" }],
+    }),
+    installCheckFn: () => {
+      installCalled = true;
+      return {
+        status: "installed",
+        simulator: { name: "iPhone 17", udid: "SIM-1" },
+      };
+    },
+    runTextFn(command, args) {
+      if (args[1] === "launch") {
+        return {
+          ok: false,
+          status: null,
+          stdout: "",
+          stderr: "",
+          text: "",
+          error: { code: "ETIMEDOUT", timeout: 60000 },
+        };
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.reusedInstalledApp, true);
+  assert.equal(installCalled, false);
+  assert.match(result.simctl, /timed out after 60000ms/);
 });
 
 test("iOS simulator launch check accepts an explicit fixture", () => {

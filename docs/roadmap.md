@@ -331,6 +331,10 @@ Current status:
   screenshot capture commands use internal `simctl` timeouts and explicit
   timeout diagnostics, so matrix failures identify the stalled operation before
   the CI step timeout is reached.
+- The simulator launch gate now falls back from installed-app reuse to
+  install-then-launch only when simctl reports that the app is missing; timeout
+  and other direct launch failures remain launch failures, preserving the
+  actual failing simulator operation in CI diagnostics.
 - `npm run ios:simulator-screenshot-check` now launches the deterministic
   attached coding-agent fixture, captures a CoreSimulator PNG screenshot, and
   validates that the image is well-formed and nonblank before later golden

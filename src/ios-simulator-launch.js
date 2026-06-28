@@ -34,6 +34,12 @@ export function iosSimulatorLaunchCheck({
             reusedInstalledApp: true,
           };
         }
+        if (shouldFallbackToInstallAfterLaunchFailure(installedLaunch) === false) {
+          return {
+            ...installedLaunch,
+            reusedInstalledApp: true,
+          };
+        }
       }
     }
   }
@@ -103,4 +109,10 @@ function launchInstalledSimulatorApp({
     bundleId: HOVVI_IOS_BUNDLE_ID,
     fixture,
   };
+}
+
+function shouldFallbackToInstallAfterLaunchFailure(result) {
+  return /not installed|application .*not found|failed to find|no such file/i.test(
+    `${result?.reason ?? ""}\n${result?.simctl ?? ""}`
+  );
 }
