@@ -54,6 +54,63 @@ test("iOS simulator install check tolerates an already booted simulator", () => 
   assert.equal(result.status, "installed");
 });
 
+test("iOS simulator install check retries bootstatus after simulator boot stall", () => {
+  const calls = [];
+  let bootstatusCalls = 0;
+  const result = iosSimulatorInstallCheck({
+    bundleCheckFn: () => ({
+      status: "bundled",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+      appBundle: "/tmp/HovviMobileApp.app",
+    }),
+    runTextFn(command, args, options) {
+      calls.push({ command, args, options });
+      if (args[1] === "bootstatus") {
+        bootstatusCalls += 1;
+        if (bootstatusCalls === 1) {
+          return failed("CoreSimulator boot stalled");
+        }
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "installed");
+  assert.deepEqual(
+    calls.map((call) => call.args),
+    [
+      ["simctl", "boot", "SIM-1"],
+      ["simctl", "bootstatus", "SIM-1", "-b"],
+      ["simctl", "shutdown", "SIM-1"],
+      ["simctl", "boot", "SIM-1"],
+      ["simctl", "bootstatus", "SIM-1", "-b"],
+      ["simctl", "install", "SIM-1", "/tmp/HovviMobileApp.app"],
+    ]
+  );
+});
+
+test("iOS simulator install check reports bootstatus failures after bounded retry", () => {
+  const result = iosSimulatorInstallCheck({
+    bootAttempts: 2,
+    bundleCheckFn: () => ({
+      status: "bundled",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+      appBundle: "/tmp/HovviMobileApp.app",
+    }),
+    runTextFn(command, args) {
+      if (args[1] === "bootstatus") {
+        return failed("CoreSimulator boot stalled");
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.reason, "Selected iOS simulator did not reach booted state.");
+  assert.equal(result.bootAttempts, 2);
+  assert.match(result.simctl, /CoreSimulator boot stalled/);
+});
+
 test("iOS simulator install check reports install failures", () => {
   const result = iosSimulatorInstallCheck({
     bundleCheckFn: () => ({

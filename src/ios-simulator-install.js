@@ -5,6 +5,7 @@ import { runText } from "./shell.js";
 export function iosSimulatorInstallCheck({
   bundleCheckFn = (options) => iosSimulatorAppBundleCheck(options),
   runTextFn = runText,
+  bootAttempts = 2,
 } = {}) {
   const bundle = bundleCheckFn({ keepBundle: true });
   if (bundle.status !== "bundled") {
@@ -31,25 +32,15 @@ export function iosSimulatorInstallCheck({
     };
   }
 
-  const boot = runTextFn("xcrun", ["simctl", "boot", udid], { timeout: 120000 });
-  if (!boot.ok && isAlreadyBooted(boot.text) === false) {
+  const boot = bootSimulator({ udid, runTextFn, attempts: bootAttempts });
+  if (!boot.ok) {
     cleanupBundle(bundle);
     return {
       status: "failed",
-      reason: "Could not boot the selected iOS simulator.",
+      reason: boot.reason,
       simulator: bundle.simulator,
       simctl: boot.text,
-    };
-  }
-
-  const bootstatus = runTextFn("xcrun", ["simctl", "bootstatus", udid, "-b"], { timeout: 120000 });
-  if (!bootstatus.ok) {
-    cleanupBundle(bundle);
-    return {
-      status: "failed",
-      reason: "Selected iOS simulator did not reach booted state.",
-      simulator: bundle.simulator,
-      simctl: bootstatus.text,
+      bootAttempts: boot.attempts,
     };
   }
 
@@ -72,6 +63,44 @@ export function iosSimulatorInstallCheck({
 
 function isAlreadyBooted(text) {
   return /already booted|current state.*booted/i.test(text ?? "");
+}
+
+function bootSimulator({ udid, runTextFn, attempts }) {
+  const maxAttempts = Math.max(1, Number.isFinite(attempts) ? Math.trunc(attempts) : 1);
+  let lastBoot;
+  let lastBootstatus;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    lastBoot = runTextFn("xcrun", ["simctl", "boot", udid], { timeout: 120000 });
+    if (!lastBoot.ok && isAlreadyBooted(lastBoot.text) === false) {
+      return {
+        ok: false,
+        attempts: attempt,
+        reason: "Could not boot the selected iOS simulator.",
+        text: lastBoot.text,
+      };
+    }
+
+    lastBootstatus = runTextFn("xcrun", ["simctl", "bootstatus", udid, "-b"], {
+      timeout: 120000,
+    });
+    if (lastBootstatus.ok) {
+      return {
+        ok: true,
+        attempts: attempt,
+      };
+    }
+
+    if (attempt < maxAttempts) {
+      runTextFn("xcrun", ["simctl", "shutdown", udid], { timeout: 30000 });
+    }
+  }
+
+  return {
+    ok: false,
+    attempts: maxAttempts,
+    reason: "Selected iOS simulator did not reach booted state.",
+    text: lastBootstatus?.text ?? lastBoot?.text ?? "",
+  };
 }
 
 function cleanupBundle(bundle) {

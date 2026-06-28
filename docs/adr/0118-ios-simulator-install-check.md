@@ -23,6 +23,9 @@ The check:
 - skips when simulator preflight or build prerequisites skip;
 - boots the selected simulator, tolerating an already-booted state;
 - waits for `simctl bootstatus -b`;
+- retries a stalled bootstatus once by shutting the simulator down and booting
+  it again, keeping the gate fail-closed while reducing GitHub-hosted
+  CoreSimulator startup flake;
 - installs `HovviMobileApp.app` with `simctl install`;
 - cleans temporary bundle and derived data when done.
 
@@ -32,6 +35,8 @@ a mobile app and does not change GPL-linked mobile packaging policy.
 ## Consequences
 
 - CI can now prove the generated app-bundle shape is accepted by CoreSimulator.
+- Transient CoreSimulator boot stalls are retried in the harness, but persistent
+  boot failure still fails CI before screenshot evidence can be claimed.
 - Screenshot automation can build on an installed app instead of a file-only
   bundle check.
 - Production iOS signing, App Store distribution, device install, and
@@ -40,6 +45,7 @@ a mobile app and does not change GPL-linked mobile packaging policy.
 ## Validation
 
 - `npm run check`
+- `node --test test/ios-simulator-install.test.js test/ios-simulator-launch.test.js test/ios-simulator-screenshot-matrix.test.js`
 - `npm test`
 - `node scripts/ios-simulator-install-check.js --json`
 - `npm run package:boundary-check`
