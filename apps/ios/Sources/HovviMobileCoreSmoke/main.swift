@@ -281,6 +281,38 @@ do {
 try await moshSession.close()
 try require(await fakeRelay.closedChannelId == nil, "mosh session close should no-op after relay datagram close")
 
+let inboundOversizeRelay = FakeDatagramRelay(expectedMaxDatagramBytes: 2)
+let inboundOversizeTransport = AttachTransport(
+    kind: moshTransport.kind,
+    label: moshTransport.label,
+    remoteHost: moshTransport.remoteHost,
+    remotePort: moshTransport.remotePort,
+    key: moshTransport.key,
+    maxDatagramBytes: 2
+)
+let inboundOversizeSession = try MoshRelayDatagramSession(
+    relay: inboundOversizeRelay,
+    deviceId: "dev_1",
+    transport: inboundOversizeTransport
+)
+_ = try await inboundOversizeSession.connect()
+await inboundOversizeRelay.enqueue(frame: .data(Data([0x01, 0x02, 0x03]), sequence: 13))
+do {
+    _ = try await inboundOversizeSession.receivePacket(timeout: .seconds(1))
+    throw SmokeError("mosh session should reject oversized inbound relay datagrams")
+} catch MoshRelayDatagramSessionError.packetTooLarge(let size, let max) {
+    try require(size == 3, "oversized inbound datagram should report actual byte count")
+    try require(max == 2, "oversized inbound datagram should report configured max")
+}
+try require(
+    await inboundOversizeSession.connectedChannelId() == nil,
+    "oversized inbound datagram should clear connected channel"
+)
+try require(
+    await inboundOversizeRelay.closedChannelId == "dg_fake",
+    "oversized inbound datagram should close the relay channel"
+)
+
 let datagramErrorRelay = FakeDatagramRelay()
 let datagramErrorSession = try MoshRelayDatagramSession(
     relay: datagramErrorRelay,
@@ -1689,9 +1721,14 @@ enum FakeDatagramRelayReadResult: Sendable {
 }
 
 actor FakeDatagramRelay: RelayDatagramTransporting {
+    private let expectedMaxDatagramBytes: Int
     private(set) var closedChannelId: String?
     private(set) var sentDatagrams: [SentDatagram] = []
     private var readResults: [FakeDatagramRelayReadResult] = []
+
+    init(expectedMaxDatagramBytes: Int = 1200) {
+        self.expectedMaxDatagramBytes = expectedMaxDatagramBytes
+    }
 
     func openDatagram(
         deviceId: String,
@@ -1705,7 +1742,7 @@ actor FakeDatagramRelay: RelayDatagramTransporting {
         try require(label == "mosh", "fake relay should receive mosh label")
         try require(remoteHost == "127.0.0.1", "fake relay should receive local mosh host")
         try require(remotePort == 60001, "fake relay should receive mosh server port")
-        try require(maxDatagramBytes == 1200, "fake relay should receive max datagram size")
+        try require(maxDatagramBytes == expectedMaxDatagramBytes, "fake relay should receive max datagram size")
         return "dg_fake"
     }
 

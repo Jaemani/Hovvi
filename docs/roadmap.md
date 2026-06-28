@@ -197,6 +197,9 @@ Current status:
 - The relay server now enforces each channel's `maxDatagramBytes` against
   inbound `datagram.data` from either peer, returning structured errors and
   releasing channel state instead of forwarding oversized payloads.
+- Swift mobile relay datagram sessions now also enforce `maxDatagramBytes` on
+  inbound `datagram.data` before packets reach the mosh engine, clearing and
+  best-effort closing the channel on oversized payloads.
 - The Mac agent now treats relay `datagram.error` the same as `datagram.close`
   for local bridge cleanup, and the UDP bridge closes itself after local
   oversize rejection so relay-side channel teardown cannot leave an agent-local

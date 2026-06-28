@@ -222,6 +222,11 @@ public actor MoshRelayDatagramSession {
         do {
             switch try await relay.readDatagramFrame(channelId: channelId, timeout: timeout) {
             case .data(let bytes, let sequence):
+                guard bytes.count <= maxDatagramBytes else {
+                    self.channelId = nil
+                    try? await relay.closeDatagram(channelId: channelId)
+                    throw MoshRelayDatagramSessionError.packetTooLarge(size: bytes.count, max: maxDatagramBytes)
+                }
                 return MoshRelayDatagramPacket(bytes: bytes, relaySequence: sequence)
             case .close:
                 self.channelId = nil
