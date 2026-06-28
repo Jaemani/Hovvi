@@ -15,6 +15,7 @@ npm run ios:simulator-preflight
 npm run ios:simulator-build-check
 npm run ios:simulator-app-bundle-check
 npm run ios:simulator-install-check
+npm run ios:simulator-launch-check
 ```
 
 The package currently covers flattened relay envelopes, outgoing client message
@@ -178,6 +179,11 @@ automation. It is not a signed distribution target.
 `npm run ios:simulator-install-check` boots the selected simulator on full-Xcode
 hosts and installs that temporary app bundle with `simctl install`, proving the
 bundle is accepted by CoreSimulator before screenshot automation is added.
+`npm run ios:simulator-launch-check` installs the same temporary simulator
+bundle, launches `app.hovvi.mobile.alpha` with the deterministic attached
+coding-agent fixture, and terminates it after `simctl launch` succeeds. This
+proves the generated app is executable by CoreSimulator before screenshot
+automation asserts rendered pixels.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the

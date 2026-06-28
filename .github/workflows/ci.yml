@@ -35,6 +35,7 @@ jobs:
       - run: npm run ios:simulator-build-check
       - run: npm run ios:simulator-app-bundle-check
       - run: npm run ios:simulator-install-check
+      - run: npm run ios:simulator-launch-check
       - run: swift build
         working-directory: apps/ios
       - run: swift build --product HovviMobileApp
