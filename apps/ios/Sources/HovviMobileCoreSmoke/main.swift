@@ -1349,6 +1349,52 @@ try require(
 )
 _ = await cleanupShell.shutdown()
 
+let selectionCleanupRelay = FakeAttachShellRelay(
+    devices: [
+        Device(
+            id: "dev_1",
+            name: "Mac",
+            platform: "darwin",
+            user: "jaeman",
+            capabilities: ["tmux.sessions"],
+            sessions: [
+                Session(id: "$0", name: "main", kind: "tmux"),
+                Session(id: "$1", name: "build", kind: "tmux")
+            ]
+        )
+    ],
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let selectionCleanupShell = AttachShellModel(relay: selectionCleanupRelay) {
+    FakeMoshCoreEngine()
+}
+var selectionCleanupSnapshot = await selectionCleanupShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+selectionCleanupSnapshot = await selectionCleanupShell.selectDevice("dev_1")
+selectionCleanupSnapshot = await selectionCleanupShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(selectionCleanupSnapshot.phase == AttachShellPhase.attached, "selection cleanup shell should attach before session selection")
+let sameSessionCloseCount = await selectionCleanupRelay.closedChannelIds.count
+selectionCleanupSnapshot = await selectionCleanupShell.selectSession("main")
+try require(selectionCleanupSnapshot.phase == AttachShellPhase.attached, "selecting the attached session should keep the terminal attached")
+try require(
+    await selectionCleanupRelay.closedChannelIds.count == sameSessionCloseCount,
+    "selecting the attached session should not close the relay datagram"
+)
+selectionCleanupSnapshot = await selectionCleanupShell.selectSession("build")
+try require(selectionCleanupSnapshot.phase == AttachShellPhase.browsing, "selecting another session should leave attached mode")
+try require(selectionCleanupSnapshot.selectedSessionName == "build", "selecting another session should update selection")
+try require(
+    await selectionCleanupRelay.closedChannelIds == ["dg_shell"],
+    "selecting another session should close the stale relay datagram"
+)
+selectionCleanupSnapshot = await selectionCleanupShell.sendInput(Data("stale".utf8))
+try require(selectionCleanupSnapshot.phase == AttachShellPhase.failed, "selection cleanup should detach stale mosh session")
+try require(selectionCleanupSnapshot.error?.title == "No active terminal", "selection cleanup should prevent stale input")
+
 let interruptedRelay = FakeAttachShellRelay(
     devices: snapshot.devices,
     manifest: manifestEnvelope.payload.manifest,

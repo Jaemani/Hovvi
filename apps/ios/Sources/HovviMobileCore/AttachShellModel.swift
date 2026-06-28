@@ -189,12 +189,19 @@ public actor AttachShellModel {
     }
 
     @discardableResult
-    public func selectDevice(_ deviceId: String) -> AttachShellSnapshot {
+    public func selectDevice(_ deviceId: String) async -> AttachShellSnapshot {
         guard let device = snapshot.devices.first(where: { $0.id == deviceId }) else {
+            await closeCurrentAttachTransportBestEffort()
             fail(title: "Mac not found", message: "Refresh the device list before attaching.", recoveryAction: .connectRelay)
             return snapshot
         }
         let selectedSession = device.sessions.first?.name
+        if snapshot.phase == .attached,
+           snapshot.selectedDeviceId == deviceId,
+           snapshot.selectedSessionName == selectedSession {
+            return snapshot
+        }
+        await closeCurrentAttachTransportBestEffort()
         snapshot = AttachShellSnapshot(
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,
@@ -205,11 +212,16 @@ public actor AttachShellModel {
     }
 
     @discardableResult
-    public func selectSession(_ sessionName: String) -> AttachShellSnapshot {
+    public func selectSession(_ sessionName: String) async -> AttachShellSnapshot {
         guard selectedDeviceSessions().contains(where: { $0.name == sessionName }) else {
+            await closeCurrentAttachTransportBestEffort()
             fail(title: "Session not found", message: "Refresh sessions on the selected Mac before attaching.", recoveryAction: .connectRelay)
             return snapshot
         }
+        if snapshot.phase == .attached, snapshot.selectedSessionName == sessionName {
+            return snapshot
+        }
+        await closeCurrentAttachTransportBestEffort()
         snapshot = AttachShellSnapshot(
             phase: snapshot.phase == .disconnected ? .disconnected : .browsing,
             devices: snapshot.devices,

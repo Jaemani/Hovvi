@@ -357,6 +357,9 @@ Current status:
 - Swift mobile reconnect and explicit reattach now close any stale relay datagram
   transport and clear the stale mosh session before starting a new browsing or
   attach lifecycle.
+- Swift mobile device/session selection now closes stale relay datagram
+  transports when changing the attached target, while re-selecting the current
+  attached session remains a no-op.
 - Swift mobile resize handling now deduplicates unchanged terminal sizes in the
   core attach model, preventing duplicate mosh resize packets from repeated UI
   geometry callbacks.
