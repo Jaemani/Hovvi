@@ -1110,6 +1110,7 @@ try require(previewViewport.anchorId == previewViewport.lines.last?.id, "preview
 try require(previewViewport.isTruncatedAbove, "preview fixture viewport should report hidden older rows")
 let cappedPreview = AttachShellPreviewFixtures.cappedViewport
 try require(cappedPreview.terminalViewportLineLimit == 8, "capped preview fixture should carry a render cap")
+try require(cappedPreview.selectedSessionName == "mobile-cap", "capped preview fixture should carry visible session metadata")
 let cappedPreviewViewport = TerminalSurfaceProjection.viewport(for: cappedPreview)
 try require(cappedPreviewViewport.lines.count == 8, "capped preview fixture should apply its render cap through default projection")
 try require(cappedPreviewViewport.lines.allSatisfy { $0.source == .live }, "capped preview fixture should render live rows after cap")

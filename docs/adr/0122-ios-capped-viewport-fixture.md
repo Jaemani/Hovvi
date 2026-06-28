@@ -19,10 +19,11 @@ That made the capped viewport state unrenderable through simulator screenshots.
 Add an optional `terminalViewportLineLimit` to `AttachShellSnapshot`.
 
 The default is `nil`, preserving existing production behavior. The
-`capped-viewport` preview fixture sets the cap to 8 rows and uses cap-specific
-live terminal rows so simulator screenshot artifacts visibly differ from the
-uncapped attached fixture. `TerminalSurfaceProjection.viewport(for:)` uses this
-snapshot cap when callers do not provide an explicit limit.
+`capped-viewport` preview fixture sets the cap to 8 rows, uses cap-specific live
+terminal rows, and selects a visible `mobile-cap` session so simulator screenshot
+artifacts differ from the uncapped attached fixture even before exact golden
+baselines exist. `TerminalSurfaceProjection.viewport(for:)` uses this snapshot
+cap when callers do not provide an explicit limit.
 
 Add `capped-viewport` to the deterministic iOS simulator screenshot matrix.
 

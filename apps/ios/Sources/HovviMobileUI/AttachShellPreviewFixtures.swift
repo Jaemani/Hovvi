@@ -94,9 +94,9 @@ public enum AttachShellPreviewFixtures {
         }
         return AttachShellSnapshot(
             phase: attached.phase,
-            devices: attached.devices,
+            devices: cappedDevices,
             selectedDeviceId: attached.selectedDeviceId,
-            selectedSessionName: attached.selectedSessionName,
+            selectedSessionName: "mobile-cap",
             manifest: attached.manifest,
             scrollback: cappedScrollback,
             terminalScreen: screen,
@@ -144,6 +144,30 @@ public enum AttachShellPreviewFixtures {
                 .map { "capped history \($0): hidden above mobile viewport" }
                 .joined(separator: "\n")
         )
+    }
+
+    private static var cappedDevices: [Device] {
+        [
+            Device(
+                id: devices[0].id,
+                name: devices[0].name,
+                platform: devices[0].platform,
+                user: devices[0].user,
+                capabilities: devices[0].capabilities,
+                sessions: [
+                    Session(
+                        id: "tmux-mobile-cap",
+                        name: "mobile-cap",
+                        kind: "ai-dev",
+                        attached: true,
+                        windows: 1,
+                        aiPanes: [
+                            Pane(paneId: "%20", command: "codex", cwd: "~/Codes/Hovvi", title: "Codex")
+                        ]
+                    ),
+                ] + devices[0].sessions
+            )
+        ]
     }
 
     private static var attachManifest: AttachManifest {

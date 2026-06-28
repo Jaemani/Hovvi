@@ -306,8 +306,9 @@ Current status:
   are caught before exact golden baselines exist.
 - Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
   render cap, and the deterministic `capped-viewport` fixture applies it with
-  cap-specific live rows so simulator screenshots can exercise mobile-sized
-  terminal windows without mutating tmux scrollback or live screen state.
+  cap-specific live rows and visible session metadata so simulator screenshots
+  can exercise mobile-sized terminal windows without mutating tmux scrollback or
+  live screen state.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,

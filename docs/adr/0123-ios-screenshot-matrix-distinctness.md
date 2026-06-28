@@ -27,7 +27,8 @@ selector produced different rendered states without freezing exact pixels.
   render the same screen.
 - The duplicate-image gate also caught the first capped viewport fixture being
   visually identical to `attached-coding-agent`; the fixture now carries
-  cap-specific live rows instead of only changing metadata.
+  cap-specific live rows and visible session metadata instead of only changing
+  hidden terminal state.
 - Artifact metadata becomes more useful for auditing and future visual baseline
   work.
 - Exact golden comparisons remain intentionally out of scope until the UI is
