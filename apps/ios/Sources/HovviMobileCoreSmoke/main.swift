@@ -819,6 +819,30 @@ try require(
     encodedC1DataCsiScreen.visibleLines[0].text == "Zbc",
     "terminal screen should preserve UTF-8 encoded C1 CSI bytes from relay data frames"
 )
+var splitEscapeCsiScreen = TerminalScreen(columns: 8, rows: 1)
+splitEscapeCsiScreen.apply("abc\u{001B}")
+splitEscapeCsiScreen.apply("[1;1HZ")
+try require(
+    splitEscapeCsiScreen.visibleLines[0].text == "Zbc",
+    "terminal screen should buffer an ESC prefix split from a CSI sequence"
+)
+var splitCsiScreen = TerminalScreen(columns: 8, rows: 1)
+splitCsiScreen.apply("abc\u{001B}[1;")
+splitCsiScreen.apply("1HZ")
+try require(
+    splitCsiScreen.visibleLines[0].text == "Zbc",
+    "terminal screen should buffer incomplete CSI parameters across apply calls"
+)
+var splitRawC1DataCsiScreen = TerminalScreen(columns: 8, rows: 1)
+splitRawC1DataCsiScreen.apply(Data("abc".utf8))
+var splitRawC1CsiPrefix = Data([0x9B])
+splitRawC1CsiPrefix.append(contentsOf: "1;".utf8)
+splitRawC1DataCsiScreen.apply(splitRawC1CsiPrefix)
+splitRawC1DataCsiScreen.apply(Data("1HZ".utf8))
+try require(
+    splitRawC1DataCsiScreen.visibleLines[0].text == "Zbc",
+    "terminal screen should buffer incomplete raw C1 CSI data frames"
+)
 var rawC1DataOscScreen = TerminalScreen(columns: 8, rows: 1)
 var rawC1OscBytes = Data("a".utf8)
 rawC1OscBytes.append(0x9D)
@@ -835,6 +859,13 @@ asciiCharsetScreen.apply("a\u{001B}(Bb")
 try require(
     asciiCharsetScreen.visibleLines[0].text == "ab",
     "terminal screen should consume ASCII charset designation without printing control bytes"
+)
+var splitCharsetScreen = TerminalScreen(columns: 16, rows: 1)
+splitCharsetScreen.apply("\u{001B}(")
+splitCharsetScreen.apply("0q")
+try require(
+    splitCharsetScreen.visibleLines[0].text == "─",
+    "terminal screen should buffer split G0 character set designation"
 )
 var decLineDrawingScreen = TerminalScreen(columns: 16, rows: 1)
 decLineDrawingScreen.apply("\u{001B}(0lqkxmj\u{001B}(B!")

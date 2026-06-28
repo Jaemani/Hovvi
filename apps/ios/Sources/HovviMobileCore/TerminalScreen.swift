@@ -129,6 +129,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
     private var tabStops: Set<Int>
     private var stringControlSkipState = TerminalStringControlSkipState.none
+    private var pendingControlPrefix = ""
     private var pendingUtf8Bytes = Data()
     private var characterSet = TerminalCharacterSet.ascii
 
@@ -195,6 +196,11 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     public mutating func apply(_ text: String) {
+        var text = text
+        if pendingControlPrefix.isEmpty == false {
+            text = pendingControlPrefix + text
+            pendingControlPrefix.removeAll(keepingCapacity: true)
+        }
         guard let parseableText = consumePendingStringControlPrefix(from: text) else { return }
         var parser = TerminalEscapeParser(parseableText)
         while let token = parser.nextToken() {
@@ -286,6 +292,7 @@ public struct TerminalScreen: Equatable, Sendable {
             }
         }
         stringControlSkipState = parser.stringControlSkipState
+        pendingControlPrefix = parser.incompleteControlPrefix
     }
 
     private mutating func reset() {
@@ -303,6 +310,7 @@ public struct TerminalScreen: Equatable, Sendable {
         primarySnapshotBeforeAlternate = nil
         tabStops = Self.defaultTabStops(columns: columns)
         stringControlSkipState = .none
+        pendingControlPrefix.removeAll(keepingCapacity: true)
         pendingUtf8Bytes.removeAll(keepingCapacity: true)
         characterSet = .ascii
     }
@@ -937,6 +945,7 @@ private struct TerminalEscapeParser {
     private var index: String.Index
     private var pendingTokens: [TerminalToken] = []
     private(set) var stringControlSkipState = TerminalStringControlSkipState.none
+    private(set) var incompleteControlPrefix = ""
 
     init(_ text: String) {
         self.text = text
@@ -948,6 +957,7 @@ private struct TerminalEscapeParser {
             return pendingTokens.removeFirst()
         }
         guard index < text.endIndex else { return nil }
+        let tokenStart = index
         let character = text[index]
         let scalarValues = character.unicodeScalars.map(\.value)
         if scalarValues == [0x0D, 0x0A] {
@@ -988,22 +998,25 @@ private struct TerminalEscapeParser {
             return .ignored
         case 0x9B:
             advanceOneScalar()
-            return parseControlSequenceIntroducer()
+            return parseControlSequenceIntroducer(sequenceStart: tokenStart)
         case 0x9D:
             advanceOneScalar()
             stringControlSkipState = consumeOperatingSystemCommand()
             return .ignored
         case 0x1B:
             advanceOneScalar()
-            return parseEscape()
+            return parseEscape(sequenceStart: tokenStart)
         default:
             index = text.index(after: index)
             return .character(character)
         }
     }
 
-    private mutating func parseEscape() -> TerminalToken? {
-        guard index < text.endIndex else { return nil }
+    private mutating func parseEscape(sequenceStart: String.Index) -> TerminalToken? {
+        guard index < text.endIndex else {
+            markIncompleteControl(from: sequenceStart)
+            return nil
+        }
         if text[index] == "M" {
             index = text.index(after: index)
             return .reverseIndex
@@ -1035,7 +1048,7 @@ private struct TerminalEscapeParser {
         }
         if text[index] == "(" {
             index = text.index(after: index)
-            return parseG0CharacterSet()
+            return parseG0CharacterSet(sequenceStart: sequenceStart)
         }
         if text[index] == "]" {
             index = text.index(after: index)
@@ -1049,10 +1062,10 @@ private struct TerminalEscapeParser {
         }
         guard text[index] == "[" else { return nil }
         index = text.index(after: index)
-        return parseControlSequenceIntroducer()
+        return parseControlSequenceIntroducer(sequenceStart: sequenceStart)
     }
 
-    private mutating func parseControlSequenceIntroducer() -> TerminalToken? {
+    private mutating func parseControlSequenceIntroducer(sequenceStart: String.Index) -> TerminalToken? {
         var parameters = ""
         while index < text.endIndex {
             let character = text[index]
@@ -1063,6 +1076,7 @@ private struct TerminalEscapeParser {
             }
             parameters.append(character)
         }
+        markIncompleteControl(from: sequenceStart)
         return nil
     }
 
@@ -1127,8 +1141,11 @@ private struct TerminalEscapeParser {
         return .stInside
     }
 
-    private mutating func parseG0CharacterSet() -> TerminalToken? {
-        guard index < text.endIndex else { return .ignored }
+    private mutating func parseG0CharacterSet(sequenceStart: String.Index) -> TerminalToken? {
+        guard index < text.endIndex else {
+            markIncompleteControl(from: sequenceStart)
+            return nil
+        }
         let designator = text[index]
         index = text.index(after: index)
         switch designator {
@@ -1139,6 +1156,11 @@ private struct TerminalEscapeParser {
         default:
             return .ignored
         }
+    }
+
+    private mutating func markIncompleteControl(from sequenceStart: String.Index) {
+        incompleteControlPrefix = String(text[sequenceStart...])
+        index = text.endIndex
     }
 
     private func csiToken(final: UnicodeScalar, parameters: String) -> TerminalToken? {

@@ -243,6 +243,9 @@ Current status:
 - Swift mobile terminal byte decoding now buffers split UTF-8 across relay data
   frames and accepts raw C1 control bytes before they reach the live-screen
   parser.
+- Swift mobile terminal parsing now buffers split ESC/CSI/C1 CSI and G0
+  character-set controls across receive-frame boundaries instead of rendering
+  incomplete control fragments as terminal text.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
