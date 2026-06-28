@@ -308,6 +308,9 @@ Current status:
   summary with expected fixture coverage, per-fixture PNG hashes, nonblank
   status, minimum image quality bounds, and distinct-image invariants so CI
   artifacts can be audited without re-running CoreSimulator.
+- CI runs the screenshot matrix with `--require-captured`, so a missing
+  CoreSimulator screenshot artifact fails CI instead of silently passing as a
+  skipped local smoke.
 - Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
   render cap, and the deterministic `capped-viewport` fixture applies it with
   cap-specific live rows and visible session metadata so simulator screenshots

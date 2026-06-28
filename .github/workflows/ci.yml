@@ -36,7 +36,7 @@ jobs:
       - run: npm run ios:simulator-app-bundle-check
       - run: npm run ios:simulator-install-check
       - run: npm run ios:simulator-launch-check
-      - run: node scripts/ios-simulator-screenshot-matrix-check.js --output-dir=.artifacts/ios/screenshots --metadata=.artifacts/ios/hovvi-ios-screenshot-matrix.json
+      - run: node scripts/ios-simulator-screenshot-matrix-check.js --output-dir=.artifacts/ios/screenshots --metadata=.artifacts/ios/hovvi-ios-screenshot-matrix.json --require-captured
       - uses: actions/upload-artifact@v4
         if: always()
         with:

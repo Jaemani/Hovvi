@@ -31,7 +31,9 @@ The matrix check:
 - writes stable screenshot paths under `--output-dir=<path>`;
 - writes one JSON metadata artifact with fixture names, simulator identity,
   per-fixture screenshot paths, and PNG statistics;
-- uploads the PNG set and metadata JSON from CI.
+- uploads the PNG set and metadata JSON from CI;
+- runs with `--require-captured` in CI so skipped screenshot evidence fails the
+  workflow instead of silently passing without CoreSimulator artifacts.
 
 This remains a simulator smoke gate. It does not decide golden-image thresholds,
 does not create a signed app target, and does not distribute a mobile app linked
@@ -47,6 +49,8 @@ against upstream mosh.
   names instead of adding ad hoc screenshot scripts.
 - Exact golden image baselines remain deferred, but duplicate fixture images now
   fail the matrix check.
+- Local developer runs can still skip when full Xcode or a simulator is missing,
+  while CI must produce the artifact evidence.
 
 ## Validation
 

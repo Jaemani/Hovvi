@@ -229,7 +229,9 @@ failed attach, and capped viewport shell fixtures. It records PNG metadata and
 rejects duplicate fixture images before exact golden baselines exist. Matrix
 metadata also includes a versioned artifact summary with expected fixtures,
 per-fixture PNG hashes, nonblank status, minimum image quality bounds, and
-distinct-image invariants for CI audit.
+distinct-image invariants for CI audit. CI runs the matrix with
+`--require-captured` so missing simulator artifacts fail the workflow instead of
+passing as a local skip.
 
 ## Product Direction
 
