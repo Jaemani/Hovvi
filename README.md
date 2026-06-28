@@ -206,6 +206,24 @@ Native ABI smoke checks run with:
 npm run native:check
 ```
 
+## iOS Simulator Smoke Checks
+
+On hosts with full Xcode and an available iOS simulator, the temporary SwiftPM
+app bundle can be built, installed, launched, and screenshotted without a signed
+distribution target:
+
+```bash
+npm run ios:simulator-preflight
+npm run ios:simulator-build-check
+npm run ios:simulator-app-bundle-check
+npm run ios:simulator-install-check
+npm run ios:simulator-launch-check
+node scripts/ios-simulator-screenshot-check.js --output=.artifacts/ios/hovvi-ios-screenshot.png --metadata=.artifacts/ios/hovvi-ios-screenshot.json
+```
+
+The screenshot check validates a nonblank PNG and can preserve JSON metadata
+with fixture, bundle id, simulator, screenshot path, and parsed image stats.
+
 ## Product Direction
 
 - Name: Hovvi

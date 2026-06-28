@@ -296,8 +296,8 @@ Current status:
 - `npm run ios:simulator-screenshot-check` now launches the deterministic
   attached coding-agent fixture, captures a CoreSimulator PNG screenshot, and
   validates that the image is well-formed and nonblank before later golden
-  visual assertions. CI preserves the captured PNG as an artifact when the
-  simulator gate runs on full Xcode.
+  visual assertions. CI preserves the captured PNG and machine-readable
+  screenshot metadata as artifacts when the simulator gate runs on full Xcode.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
@@ -397,8 +397,9 @@ Current status:
   mapping, cursor visibility state and UI projection, RIS reset, saved cursor state, line/character
   insert-delete, explicit cursor movement aliases, tab-stop, cursor tabulation, and erase-character behavior in
   `HovviMobileCoreSmoke`.
-- A signed Xcode/iOS bundle target, hosted login bootstrap, and
-  simulator/device screenshot execution are still pending.
+- A signed Xcode/iOS bundle target, hosted login bootstrap, device screenshot
+  execution, and stricter visual assertions are still pending. Simulator
+  screenshot smoke execution is covered through the temporary SwiftPM bundle.
 
 ### 6. Mac Agent and CLI Hardening
 

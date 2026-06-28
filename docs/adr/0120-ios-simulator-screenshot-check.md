@@ -27,9 +27,11 @@ The check:
   in Node without adding an npm dependency;
 - fails if the PNG is malformed, empty, unsupported, or single-color blank;
 - terminates the app and removes temporary screenshots unless
-  `--keep-screenshot` or `--output=<path>` is used.
-- uploads the CI screenshot artifact when the GitHub Actions simulator gate
-  produces one.
+  `--keep-screenshot` or `--output=<path>` is used;
+- writes machine-readable run metadata with `--metadata=<path>` so CI artifacts
+  include fixture, bundle id, simulator, screenshot path, and PNG statistics;
+- uploads the CI screenshot and metadata artifacts when the GitHub Actions
+  simulator gate produces them.
 
 This is a simulator smoke gate, not a signed app distribution step and not a
 golden visual approval process.
@@ -38,6 +40,8 @@ golden visual approval process.
 
 - CI can now prove the app renders enough pixels to produce a nonblank
   screenshot on CoreSimulator.
+- CI now preserves both the screenshot and the parsed image metadata needed to
+  audit simulator render gates without re-running them.
 - Future work can add golden image thresholds or targeted UI element checks on
   top of the same launched fixture.
 - Simulator-only screenshot validation still does not close the iOS device,
@@ -47,8 +51,10 @@ golden visual approval process.
 
 - `npm run check`
 - `node --test test/png-image-stats.test.js test/ios-simulator-screenshot.test.js`
+- `node --test test/png-image-stats.test.js test/ios-simulator-screenshot.test.js test/ios-simulator-screenshot-cli.test.js`
 - `npm test`
 - `node scripts/ios-simulator-screenshot-check.js --json`
+- `node scripts/ios-simulator-screenshot-check.js --json --metadata=/tmp/hovvi-ios-screenshot.json`
 - `npm run package:boundary-check`
 
 ## References
@@ -56,6 +62,8 @@ golden visual approval process.
 - `src/ios-simulator-screenshot.js`
 - `src/png-image-stats.js`
 - `scripts/ios-simulator-screenshot-check.js`
+- `src/ios-simulator-screenshot-cli.js`
+- `test/ios-simulator-screenshot-cli.test.js`
 - `test/ios-simulator-screenshot.test.js`
 - `test/png-image-stats.test.js`
 - ADR 0119: iOS Simulator Launch Check.

@@ -1,33 +1,31 @@
 #!/usr/bin/env node
 import { iosSimulatorScreenshotCheck } from "../src/ios-simulator-screenshot.js";
+import {
+  formatScreenshotResult,
+  parseIosSimulatorScreenshotArgs,
+  writeScreenshotMetadata,
+} from "../src/ios-simulator-screenshot-cli.js";
 
-const args = new Set(process.argv.slice(2));
-const fixtureArg = process.argv.find((arg) => arg.startsWith("--fixture="));
-const fixture = fixtureArg ? fixtureArg.slice("--fixture=".length) : undefined;
-const outputArg = process.argv.find((arg) => arg.startsWith("--output="));
-const outputPath = outputArg ? outputArg.slice("--output=".length) : undefined;
-const keepScreenshot = args.has("--keep-screenshot");
-const result = iosSimulatorScreenshotCheck({ fixture, keepScreenshot, outputPath });
+const options = parseIosSimulatorScreenshotArgs(process.argv.slice(2));
+const result = iosSimulatorScreenshotCheck({
+  fixture: options.fixture,
+  keepScreenshot: options.keepScreenshot,
+  outputPath: options.outputPath,
+});
+writeScreenshotMetadata(options.metadataPath, result);
 
-if (args.has("--json")) {
+if (options.json) {
   console.log(JSON.stringify(result, null, 2));
-} else if (result.status === "captured") {
-  console.log(
-    `iOS simulator screenshot ready: ${result.image.width}x${result.image.height} ${result.bundleId}`
-  );
-  if (result.screenshot) {
-    console.log(result.screenshot);
-  }
-} else if (result.status === "failed") {
-  console.error(`iOS simulator screenshot failed: ${result.reason}`);
-  if (result.simctl) {
-    console.error(result.simctl);
-  }
 } else {
-  console.log(`Skipping iOS simulator screenshot: ${result.reason}`);
+  const formatted = formatScreenshotResult(result);
+  if (formatted.stream === "stderr") {
+    console.error(formatted.text);
+  } else {
+    console.log(formatted.text);
+  }
 }
 
-if (args.has("--require-captured") && result.status !== "captured") {
+if (options.requireCaptured && result.status !== "captured") {
   process.exit(1);
 }
 
