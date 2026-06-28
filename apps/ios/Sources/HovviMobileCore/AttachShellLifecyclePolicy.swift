@@ -24,4 +24,8 @@ public enum AttachShellLifecyclePolicy {
     public static func shouldStartTickLoop(afterApplying phase: AttachShellPhase) -> Bool {
         shouldRunAttachLoops(phase: phase)
     }
+
+    public static func shouldCancelTickLoop(afterApplying phase: AttachShellPhase) -> Bool {
+        shouldRunAttachLoops(phase: phase) == false
+    }
 }

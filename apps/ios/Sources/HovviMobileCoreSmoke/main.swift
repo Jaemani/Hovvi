@@ -406,6 +406,18 @@ try require(
     "attach lifecycle should not start ticks after browsing snapshots"
 )
 try require(
+    AttachShellLifecyclePolicy.shouldCancelTickLoop(afterApplying: .attached) == false,
+    "attach lifecycle should keep ticks after attached snapshots"
+)
+try require(
+    AttachShellLifecyclePolicy.shouldCancelTickLoop(afterApplying: .failed),
+    "attach lifecycle should cancel ticks after failed snapshots"
+)
+try require(
+    AttachShellLifecyclePolicy.shouldCancelTickLoop(afterApplying: .browsing),
+    "attach lifecycle should cancel ticks after browsing snapshots"
+)
+try require(
     AttachShellRecoveryPolicy.retryTitle(for: .reattachSession) == "Reattach",
     "attach recovery policy should label session recovery as reattach"
 )

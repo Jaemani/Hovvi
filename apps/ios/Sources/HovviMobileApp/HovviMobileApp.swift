@@ -228,6 +228,9 @@ final class HovviAppController: ObservableObject {
                     snapshot = next
                     if AttachShellLifecyclePolicy.shouldStartTickLoop(afterApplying: next.phase) {
                         startTickLoop()
+                    } else if AttachShellLifecyclePolicy.shouldCancelTickLoop(afterApplying: next.phase) {
+                        tickTask?.cancel()
+                        tickTask = nil
                     }
                 }
                 if next.phase != .attached {
