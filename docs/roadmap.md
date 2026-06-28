@@ -498,6 +498,11 @@ Current status:
 - `hovvi service start` and `hovvi service restart` now also require the active
   private config to contain the relay URL and agent token that the LaunchAgent
   will read at runtime.
+- Mac-side relay credentials now share a fail-closed validation boundary:
+  relay URLs must be absolute `ws://` or `wss://` URLs with a host, and the
+  development `dev` token is accepted only for loopback relays. `hovvi doctor`
+  reports invalid relay config with credentials redacted before service start or
+  client attach commands can use it.
 - `hovvi service logs` now reports missing and empty LaunchAgent logs with file
   paths, supports `--stream both`, and keeps relay tokens, URL credentials,
   bearer tokens, and printable mosh keys redacted.

@@ -473,6 +473,34 @@ test("login can issue scoped client relay token into registry and private config
   }
 });
 
+test("login rejects invalid relay URL before GitHub device login", async () => {
+  let called = false;
+
+  await assert.rejects(
+    () =>
+      captureStdout(() =>
+        main(
+          [
+            "login",
+            "--client-id",
+            "oauth-client-1",
+            "--relay",
+            "https://relay.example.test/hovvi",
+          ],
+          {
+            githubDeviceLogin: async () => {
+              called = true;
+              throw new Error("should not be called");
+            },
+          },
+        ),
+      ),
+    /login --relay is invalid/,
+  );
+
+  assert.equal(called, false);
+});
+
 test("login can issue device-scoped agent relay token into registry and private config", async () => {
   const previousConfig = process.env.HOVVI_CONFIG;
   const dir = mkdtempSync(join(tmpdir(), "hovvi-cli-login-agent-token-"));

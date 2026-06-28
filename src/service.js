@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { dirname, join, resolve } from "node:path";
 import { homedir, platform, userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
+import { validateRelayCredentials } from "./relay-credentials.js";
 import { redactSecrets } from "./redaction.js";
 import { runText } from "./shell.js";
 
@@ -187,10 +188,12 @@ export function validateServiceRuntimeConfig({ relayUrl, token } = {}) {
   const missing = [];
   if (!relayUrl) missing.push("relay URL");
   if (!token) missing.push("relay token");
-  if (missing.length === 0) return;
-  throw new Error(
-    `Service config is missing ${missing.join(" and ")}. Run \`hovvi login --relay <url> --issue-token agent\` or \`hovvi service install --relay <url> --token <agent-token>\` before starting the LaunchAgent.`,
-  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Service config is missing ${missing.join(" and ")}. Run \`hovvi login --relay <url> --issue-token agent\` or \`hovvi service install --relay <url> --token <agent-token>\` before starting the LaunchAgent.`,
+    );
+  }
+  validateRelayCredentials({ relayUrl, token, label: "Service config" });
 }
 
 export function readServiceLogs({ stream = "err", lines = 80 } = {}) {

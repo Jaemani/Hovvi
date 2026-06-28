@@ -41,6 +41,7 @@ import {
   upsertRegistryDevice,
 } from "./registry.js";
 import { localMoshHarnessPreflight, runLocalMoshServerHarness } from "./mosh-harness.js";
+import { validateRelayCredentials, validateRelayUrl } from "./relay-credentials.js";
 import { redactUrlCredentials } from "./redaction.js";
 
 const HELP = `Hovvi
@@ -191,6 +192,9 @@ async function loginCommand(args, { githubDeviceLogin = runGithubDeviceLogin } =
   if (issueToken && !registryPath) {
     throw new Error("login --issue-token requires --registry <path>.");
   }
+  if (relayUrl) {
+    validateRelayUrl(relayUrl, { label: "login --relay" });
+  }
   const login = await githubDeviceLogin({
     clientId,
     onUserCode: ({ verificationUri, userCode }) => {
@@ -316,6 +320,7 @@ async function upCommand(args) {
   const name = readOption(args, "--name") || process.env.HOVVI_DEVICE_NAME || config.device?.name;
   const heartbeatIntervalMs = Number(readOption(args, "--heartbeat-ms") || process.env.HOVVI_HEARTBEAT_MS || 10000);
   const publishIntervalMs = Number(readOption(args, "--publish-ms") || process.env.HOVVI_PUBLISH_MS || 5000);
+  validateRelayCredentials({ relayUrl, token, label: "Agent relay config" });
   await runAgent({ relayUrl, token, name, heartbeatIntervalMs, publishIntervalMs });
 }
 
@@ -385,6 +390,7 @@ async function devicesCommand(args) {
     config.relay?.url ||
     "ws://127.0.0.1:8787";
   const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
+  validateRelayCredentials({ relayUrl, token, label: "Device list relay config" });
   const client = await createClient({ relayUrl, token });
   const devices = await client.listDevices();
   client.close();
@@ -416,6 +422,7 @@ async function prepareAttachCommand(args) {
     "ws://127.0.0.1:8787";
   const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
   const [sessionName = "main"] = args;
+  validateRelayCredentials({ relayUrl, token, label: "Attach relay config" });
   const client = await createClient({ relayUrl, token });
   let manifest;
   try {
@@ -478,6 +485,7 @@ async function fetchScrollbackCommand(args) {
     "ws://127.0.0.1:8787";
   const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || config.relay?.token || "dev";
   const [sessionName = "main"] = args;
+  validateRelayCredentials({ relayUrl, token, label: "Scrollback relay config" });
   const client = await createClient({ relayUrl, token });
   let result;
   try {
@@ -515,6 +523,7 @@ async function serviceCommand(args) {
       if (!token) {
         throw new Error("service install requires --token <agent-token> or a configured relay token from `hovvi login --issue-token agent`.");
       }
+      validateServiceRuntimeConfig({ relayUrl, token });
       if (!print) {
         config.relay = { ...(config.relay || {}), url: relayUrl, token };
         config.service = { ...(config.service || {}), label };
@@ -899,6 +908,7 @@ async function forwardCommand(args) {
   const remotePort = Number(readOption(args, "--remote-port") || 22);
   const relayUrl = readOption(args, "--relay") || process.env.HOVVI_RELAY_URL || "ws://127.0.0.1:8787";
   const token = readOption(args, "--token") || process.env.HOVVI_RELAY_TOKEN || "dev";
+  validateRelayCredentials({ relayUrl, token, label: "Forward relay config" });
 
   const client = await createClient({ relayUrl, token });
   const server = createServer((socket) => {

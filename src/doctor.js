@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import WebSocket from "ws";
 import { configPath, getConfig } from "./config.js";
+import { relayCredentialIssue } from "./relay-credentials.js";
 import { redactUrlCredentials } from "./redaction.js";
 import { serviceStatus } from "./service.js";
 import { commandExists, runText } from "./shell.js";
@@ -189,6 +190,15 @@ function checkRelayConfig({ config, error }) {
   if (!relayToken) missing.push("relay token");
 
   if (missing.length === 0) {
+    const issue = relayCredentialIssue({ relayUrl, token: relayToken });
+    if (issue) {
+      return {
+        name: "relay config",
+        status: "warn",
+        message: "invalid",
+        detail: issue,
+      };
+    }
     return {
       name: "relay config",
       status: "pass",

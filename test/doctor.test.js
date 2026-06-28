@@ -150,6 +150,42 @@ test("runDoctor redacts relay URL credentials in relay config diagnostics", asyn
   assert.doesNotMatch(serialized, /super-secret-token|user:pass/);
 });
 
+test("runDoctor warns when relay config uses remote development token", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "wss://user:pass@relay.example.test/hovvi", token: "dev" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  const item = findItem(report, "relay config");
+  assert.equal(item.status, "warn");
+  assert.equal(item.message, "invalid");
+  assert.match(item.detail, /development token "dev"/);
+  assert.match(item.detail, /%5Bredacted%5D/);
+  assert.doesNotMatch(JSON.stringify(report), /user:pass/);
+});
+
+test("runDoctor warns when relay config URL is malformed", async () => {
+  const report = await runDoctor({
+    network: false,
+    commandExistsFn: () => true,
+    runTextFn: fakeGitIdentity,
+    getConfigFn: () => ({ relay: { url: "https://relay.example.test/hovvi", token: "agent-token" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+  });
+
+  assert.deepEqual(findItem(report, "relay config"), {
+    name: "relay config",
+    status: "warn",
+    message: "invalid",
+    detail: "Relay URL is invalid. Relay URL must use ws:// or wss://.",
+  });
+});
+
 test("runDoctor reports unreadable private relay config without network checks", async () => {
   const report = await runDoctor({
     network: false,

@@ -251,11 +251,34 @@ test("service runtime config preflight rejects missing relay token", () => {
   );
 });
 
+test("service runtime config preflight rejects invalid relay URL", () => {
+  assert.throws(
+    () => validateServiceRuntimeConfig({ relayUrl: "https://relay.example.test", token: "agent-token" }),
+    /Relay URL must use ws:\/\/ or wss:\/\//,
+  );
+});
+
+test("service runtime config preflight rejects remote development token", () => {
+  assert.throws(
+    () => validateServiceRuntimeConfig({ relayUrl: "wss://relay.example.test", token: "dev" }),
+    /cannot use development token "dev" with non-local relay/,
+  );
+});
+
 test("service runtime config preflight accepts relay URL and token", () => {
   assert.doesNotThrow(() =>
     validateServiceRuntimeConfig({
       relayUrl: "wss://relay.example.test",
       token: "agent-token",
+    }),
+  );
+});
+
+test("service runtime config preflight accepts local development token", () => {
+  assert.doesNotThrow(() =>
+    validateServiceRuntimeConfig({
+      relayUrl: "ws://127.0.0.1:8787",
+      token: "dev",
     }),
   );
 });
