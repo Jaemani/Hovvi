@@ -4,6 +4,9 @@ export function iosSimulatorPreflight({
   platform = process.platform,
   commandExistsFn = commandExists,
   runTextFn = runText,
+  xcodebuildAttempts = 3,
+  xcodebuildRetryDelayMs = 1000,
+  xcodebuildTimeoutMs = 30000,
   simctlAttempts = 3,
   simctlRetryDelayMs = 1000,
   waitFn = sleepSync,
@@ -28,10 +31,17 @@ export function iosSimulatorPreflight({
     });
   }
 
-  const xcodebuild = runTextFn("xcodebuild", ["-version"]);
+  const xcodebuild = readXcodebuildVersion({
+    runTextFn,
+    attempts: xcodebuildAttempts,
+    retryDelayMs: xcodebuildRetryDelayMs,
+    timeoutMs: xcodebuildTimeoutMs,
+    waitFn,
+  });
   if (!xcodebuild.ok) {
-    return skipped(`xcodebuild is not usable: ${xcodebuild.text || xcodebuild.stderr}`, {
+    return skipped(`xcodebuild is not usable: ${resultText(xcodebuild)}`, {
       activeDeveloperDirectory,
+      xcodebuildAttempts: xcodebuild.attempts,
     });
   }
 
@@ -81,6 +91,41 @@ export function iosSimulatorPreflight({
     xcodebuild: xcodebuild.text,
     simulatorCount: devices.length,
     simulators: devices,
+  };
+}
+
+function readXcodebuildVersion({
+  runTextFn,
+  attempts,
+  retryDelayMs,
+  timeoutMs,
+  waitFn,
+}) {
+  const maxAttempts = Math.max(1, Number.isFinite(attempts) ? Math.trunc(attempts) : 1);
+  let lastResult;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = runTextFn("xcodebuild", ["-version"], {
+      timeout: Math.max(1, Number.isFinite(timeoutMs) ? Math.trunc(timeoutMs) : 30000),
+    });
+    lastResult = result;
+    if (result.ok) {
+      return {
+        ok: true,
+        text: result.text,
+        attempts: attempt,
+      };
+    }
+    if (attempt < maxAttempts) {
+      waitFn(Math.max(0, Number.isFinite(retryDelayMs) ? Math.trunc(retryDelayMs) : 0));
+    }
+  }
+  return {
+    ok: false,
+    attempts: maxAttempts,
+    stdout: lastResult?.stdout ?? "",
+    stderr: lastResult?.stderr ?? "",
+    text: lastResult?.text ?? "",
+    error: lastResult?.error,
   };
 }
 
@@ -152,6 +197,10 @@ function sleepSync(ms) {
     return;
   }
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function resultText(result) {
+  return result?.text || result?.stderr || result?.stdout || result?.error?.message || "";
 }
 
 function skipped(reason, details = {}) {

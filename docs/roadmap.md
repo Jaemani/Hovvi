@@ -366,6 +366,10 @@ Current status:
   preflight skips once before honoring `--require-captured`, because preceding
   simulator build/install/launch gates can prove Xcode availability in the same
   CI job.
+- iOS simulator preflight now probes `xcodebuild -version` with a bounded
+  30-second timeout and retry attempts so screenshot matrix preflight cannot
+  contradict a successful build/install/launch sequence because of a transient
+  developer-tools probe.
 - Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
   render cap, and the deterministic `capped-viewport` fixture applies it with
   cap-specific live rows and visible session metadata so simulator screenshots

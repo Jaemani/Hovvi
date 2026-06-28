@@ -106,6 +106,66 @@ test("iOS simulator preflight retries transient simctl failures", () => {
   assert.deepEqual(waits, [0]);
 });
 
+test("iOS simulator preflight retries transient xcodebuild failures with a bounded timeout", () => {
+  let xcodebuildCalls = 0;
+  const waits = [];
+  const timeouts = [];
+  const result = iosSimulatorPreflight({
+    platform: "darwin",
+    commandExistsFn: () => true,
+    xcodebuildAttempts: 3,
+    xcodebuildRetryDelayMs: 25,
+    xcodebuildTimeoutMs: 30000,
+    simctlRetryDelayMs: 0,
+    waitFn: (ms) => waits.push(ms),
+    runTextFn(command, args, options = {}) {
+      if (command === "xcode-select" && args[0] === "-p") {
+        return ok("/Applications/Xcode.app/Contents/Developer");
+      }
+      if (command === "xcodebuild" && args[0] === "-version") {
+        xcodebuildCalls += 1;
+        timeouts.push(options.timeout);
+        if (xcodebuildCalls < 3) {
+          return fail("");
+        }
+        return ok("Xcode 17.0\nBuild version 17A000");
+      }
+      if (command === "xcrun" && args.join(" ") === "simctl list devices available --json") {
+        return ok(iosDeviceJson());
+      }
+      throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
+    },
+  });
+
+  assert.equal(result.status, "ready");
+  assert.equal(xcodebuildCalls, 3);
+  assert.deepEqual(timeouts, [30000, 30000, 30000]);
+  assert.deepEqual(waits, [25, 25]);
+});
+
+test("iOS simulator preflight reports xcodebuild attempt count after retries fail", () => {
+  const result = iosSimulatorPreflight({
+    platform: "darwin",
+    commandExistsFn: () => true,
+    xcodebuildAttempts: 2,
+    xcodebuildRetryDelayMs: 0,
+    waitFn: () => {},
+    runTextFn(command, args) {
+      if (command === "xcode-select" && args[0] === "-p") {
+        return ok("/Applications/Xcode.app/Contents/Developer");
+      }
+      if (command === "xcodebuild" && args[0] === "-version") {
+        return fail("developer tools are busy");
+      }
+      throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
+    },
+  });
+
+  assert.equal(result.status, "skipped");
+  assert.equal(result.xcodebuildAttempts, 2);
+  assert.match(result.reason, /developer tools are busy/);
+});
+
 test("iOS simulator preflight retries transient simctl JSON parse failures", () => {
   let simctlCalls = 0;
   const result = iosSimulatorPreflight({
