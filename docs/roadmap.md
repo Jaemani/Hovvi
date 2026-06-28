@@ -316,6 +316,9 @@ Current status:
 - The simulator screenshot matrix now records PNG byte length and SHA-256
   metadata and rejects duplicate fixture images, so fixture selector regressions
   are caught before exact golden baselines exist.
+- The simulator screenshot matrix now records pixel variation counts and ratios,
+  rejecting low-variation images that are technically nonblank but too flat to
+  prove meaningful UI rendering.
 - The simulator screenshot matrix metadata now carries a versioned artifact
   summary with expected fixture coverage, per-fixture PNG hashes, nonblank
   status, minimum image quality bounds, and distinct-image invariants so CI

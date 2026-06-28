@@ -44,6 +44,7 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
         width: 1179,
         height: 2556,
         pixels: 3013524,
+        differentPixels: 4096,
         uniqueColors: 64,
         nonBlank: true,
       };
@@ -91,6 +92,11 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
   assert.equal(result.artifact.allImagesDistinct, true);
   assert.equal(result.artifact.allImagesNonBlank, true);
   assert.equal(result.artifact.allImagesMeetMinimums, true);
+  assert.equal(result.artifact.screenshots[0].differentPixels, 4096);
+  assert.equal(
+    result.artifact.screenshots[0].differentPixelRatio,
+    4096 / 3013524
+  );
   assert.deepEqual(result.artifact.imageSha256ByFixture, {
     browsing: "hash-browsing",
     "attached-coding-agent": "hash-attached-coding-agent",
@@ -120,6 +126,7 @@ test("iOS simulator screenshot matrix reports fixture failures", () => {
         width: 1,
         height: 1,
         pixels: 1,
+        differentPixels: filePath.includes("browsing") ? 512 : 0,
         uniqueColors: 1,
         nonBlank: filePath.includes("browsing"),
       };
@@ -148,6 +155,7 @@ test("iOS simulator screenshot matrix rejects duplicate fixture images", () => {
       width: 1179,
       height: 2556,
       pixels: 3013524,
+      differentPixels: 4096,
       uniqueColors: 64,
       nonBlank: true,
     }),
@@ -181,6 +189,7 @@ test("iOS simulator screenshot matrix artifact verifier rejects missing or weak 
           width: 1179,
           height: 2556,
           pixels: 3013524,
+          differentPixels: 4096,
           uniqueColors: 64,
           nonBlank: true,
         },
@@ -195,6 +204,7 @@ test("iOS simulator screenshot matrix artifact verifier rejects missing or weak 
           width: 1179,
           height: 2556,
           pixels: 3013524,
+          differentPixels: 0,
           uniqueColors: 1,
           nonBlank: false,
         },
@@ -211,6 +221,8 @@ test("iOS simulator screenshot matrix artifact verifier rejects missing or weak 
     findScreenshotMatrixArtifactFailures(artifact).map((entry) => entry.reason),
     [
       "Captured screenshot artifact was not marked nonblank.",
+      "Captured screenshot artifact did not meet a minimum image quality bound.",
+      "Captured screenshot artifact did not meet a minimum image quality bound.",
       "Captured screenshot artifact did not meet a minimum image quality bound.",
       "Captured screenshot matrix artifact did not contain distinct image hashes.",
       "Captured screenshot matrix artifact included a blank image.",
@@ -233,6 +245,7 @@ test("iOS simulator screenshot matrix artifact verifier rejects undersized image
           width: 200,
           height: 400,
           pixels: 80000,
+          differentPixels: 40,
           uniqueColors: 4,
           nonBlank: true,
         },
@@ -278,6 +291,20 @@ test("iOS simulator screenshot matrix artifact verifier rejects undersized image
         field: "uniqueColors",
         expectedMinimum: 8,
         actual: 4,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      },
+      {
+        fixture: "browsing",
+        field: "differentPixels",
+        expectedMinimum: 512,
+        actual: 40,
+        reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
+      },
+      {
+        fixture: "browsing",
+        field: "differentPixelRatio",
+        expectedMinimum: 0.001,
+        actual: 40 / 80000,
         reason: "Captured screenshot artifact did not meet a minimum image quality bound.",
       },
       {

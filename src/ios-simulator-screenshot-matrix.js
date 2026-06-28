@@ -18,6 +18,8 @@ export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS = {
   height: 500,
   byteLength: 1024,
   uniqueColors: 8,
+  differentPixels: 512,
+  differentPixelRatio: 0.001,
 };
 
 export function iosSimulatorScreenshotMatrixCheck({
@@ -105,6 +107,8 @@ export function buildScreenshotMatrixArtifact({
     width: result.image?.width,
     height: result.image?.height,
     pixels: result.image?.pixels,
+    differentPixels: result.image?.differentPixels,
+    differentPixelRatio: pixelRatio(result.image?.differentPixels, result.image?.pixels),
     uniqueColors: result.image?.uniqueColors,
     nonBlank: result.image?.nonBlank,
   }));
@@ -237,6 +241,13 @@ function findScreenshotMinimumFailures(entry, minimums) {
 
 function screenshotMeetsMinimums(entry, minimums) {
   return findScreenshotMinimumFailures(entry, minimums).length === 0;
+}
+
+function pixelRatio(count, total) {
+  if (typeof count !== "number" || typeof total !== "number" || total <= 0) {
+    return undefined;
+  }
+  return count / total;
 }
 
 function findDuplicateImageFailures(results) {
