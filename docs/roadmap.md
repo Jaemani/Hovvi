@@ -293,6 +293,10 @@ Current status:
 - `npm run ios:simulator-launch-check` now installs and launches the temporary
   simulator bundle with the deterministic attached coding-agent fixture, proving
   CoreSimulator can execute the app before screenshot execution.
+- `npm run ios:simulator-screenshot-check` now launches the deterministic
+  attached coding-agent fixture, captures a CoreSimulator PNG screenshot, and
+  validates that the image is well-formed and nonblank before later golden
+  visual assertions.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,

@@ -48,6 +48,7 @@
     "ios:simulator-app-bundle-check": "node scripts/ios-simulator-app-bundle-check.js",
     "ios:simulator-install-check": "node scripts/ios-simulator-install-check.js",
     "ios:simulator-launch-check": "node scripts/ios-simulator-launch-check.js",
+    "ios:simulator-screenshot-check": "node scripts/ios-simulator-screenshot-check.js",
     "ios:upstream-cabi-link-check": "node scripts/ios-upstream-cabi-link-check.js",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
     "package:boundary-check": "node scripts/package-boundary-check.js",

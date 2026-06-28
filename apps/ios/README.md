@@ -16,6 +16,7 @@ npm run ios:simulator-build-check
 npm run ios:simulator-app-bundle-check
 npm run ios:simulator-install-check
 npm run ios:simulator-launch-check
+npm run ios:simulator-screenshot-check
 ```
 
 The package currently covers flattened relay envelopes, outgoing client message
@@ -184,6 +185,10 @@ bundle, launches `app.hovvi.mobile.alpha` with the deterministic attached
 coding-agent fixture, and terminates it after `simctl launch` succeeds. This
 proves the generated app is executable by CoreSimulator before screenshot
 automation asserts rendered pixels.
+`npm run ios:simulator-screenshot-check` launches the deterministic fixture,
+captures a CoreSimulator PNG screenshot, parses the PNG image data, and fails
+if the captured screen is blank or malformed. This is a simulator smoke gate,
+not a golden visual review.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the
