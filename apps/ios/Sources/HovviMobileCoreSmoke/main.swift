@@ -845,6 +845,29 @@ try require(extendedColorRuns.map(\.text) == ["indexed", "truecolor", "plain"], 
 try require(extendedColorRuns[0].attributes.foreground == .indexed(202), "terminal screen should preserve 256-color foreground SGR")
 try require(extendedColorRuns[1].attributes.foreground == .rgb(red: 12, green: 34, blue: 56), "terminal screen should preserve truecolor foreground SGR")
 try require(extendedColorRuns[2].attributes.foreground == nil, "terminal screen should reset extended foreground SGR")
+var colonColorScreen = TerminalScreen(columns: 40, rows: 2)
+colonColorScreen.apply("\u{001B}[38:5:45midx\u{001B}[38:2::7:8:9mtrue\u{001B}[48:2:1:2:3mbg\u{001B}[0mplain")
+let colonColorRuns = colonColorScreen.visibleLines[0].runs
+try require(
+    colonColorRuns.map(\.text) == ["idx", "true", "bg", "plain"],
+    "terminal screen should split colon-form extended color SGR runs"
+)
+try require(
+    colonColorRuns[0].attributes.foreground == .indexed(45),
+    "terminal screen should preserve colon-form 256-color foreground SGR"
+)
+try require(
+    colonColorRuns[1].attributes.foreground == .rgb(red: 7, green: 8, blue: 9),
+    "terminal screen should preserve colon-form truecolor foreground SGR"
+)
+try require(
+    colonColorRuns[2].attributes.background == .rgb(red: 1, green: 2, blue: 3),
+    "terminal screen should preserve colon-form truecolor background SGR"
+)
+try require(
+    colonColorRuns[3].attributes == TerminalTextAttributes(),
+    "terminal screen should reset colon-form SGR attributes"
+)
 var backgroundColorScreen = TerminalScreen(columns: 40, rows: 2)
 backgroundColorScreen.apply("\u{001B}[44mblue-bg\u{001B}[48;5;22mindexed-bg\u{001B}[48;2;1;2;3mtrue-bg\u{001B}[49mplain")
 let backgroundColorRuns = backgroundColorScreen.visibleLines[0].runs

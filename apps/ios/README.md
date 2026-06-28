@@ -108,6 +108,8 @@ after a newer lifecycle has started.
 It currently supports printable text, CR/LF/backspace, basic CSI cursor
 movement, erase display/line modes, resize, basic SGR text attributes,
 256-color/truecolor foreground/background colors, and alternate-screen restore.
+Extended SGR colors support both semicolon and xterm-style colon parameter
+forms.
 Printable parsing preserves Swift grapheme clusters and advances common CJK and
 emoji output as wide terminal cells.
 Inverse SGR runs render with swapped effective foreground/background colors.

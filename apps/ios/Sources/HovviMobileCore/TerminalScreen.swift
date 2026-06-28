@@ -1125,7 +1125,7 @@ private struct TerminalEscapeParser {
         case "u":
             return .restoreCursor
         case "m":
-            return .sgr(values)
+            return .sgr(sgrValues(parameters: parameters))
         case "r":
             return scrollRegionToken(parameters: parameters)
         case "h", "l":
@@ -1143,6 +1143,23 @@ private struct TerminalEscapeParser {
         let top = parts.first.flatMap { Int($0) }.map { max(1, $0) - 1 }
         let bottom = parts.dropFirst().first.flatMap { Int($0) }.map { max(1, $0) - 1 }
         return .scrollRegion(top: top, bottom: bottom)
+    }
+
+    private func sgrValues(parameters: String) -> [Int] {
+        guard parameters.isEmpty == false else { return [] }
+        var values: [Int] = []
+        for part in parameters.split(separator: ";", omittingEmptySubsequences: false) {
+            if let first = part.split(separator: ":", omittingEmptySubsequences: false).first,
+               first == "38" || first == "48" {
+                let colorValues = part
+                    .split(separator: ":", omittingEmptySubsequences: false)
+                    .compactMap { Int($0) }
+                values.append(contentsOf: colorValues)
+            } else {
+                values.append(Int(part) ?? 0)
+            }
+        }
+        return values
     }
 
     private func privateModesToken(parameters: String, enabled: Bool) -> TerminalToken? {

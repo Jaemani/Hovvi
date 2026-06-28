@@ -433,6 +433,9 @@ Current status:
 - Swift mobile terminal parsing now skips DCS, PM, APC, and SOS string-control
   payloads, including C1 forms and payloads split across receive frames, so
   tmux passthrough or terminal-integration metadata cannot corrupt live text.
+- Swift mobile terminal parsing now supports xterm-style colon-form extended
+  SGR colors (`38:5`, `48:5`, `38:2`, and `48:2`) without changing non-SGR CSI
+  parameter parsing.
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.
