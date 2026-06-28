@@ -269,6 +269,32 @@ try require(receivedMoshPacket?.relaySequence == 12, "mosh session should preser
 try await moshSession.close()
 try require(await fakeRelay.closedChannelId == "dg_fake", "mosh session should close relay datagram channel")
 
+let datagramErrorRelay = FakeDatagramRelay()
+let datagramErrorSession = try MoshRelayDatagramSession(
+    relay: datagramErrorRelay,
+    deviceId: "dev_1",
+    transport: moshTransport
+)
+_ = try await datagramErrorSession.connect()
+await datagramErrorRelay.enqueue(
+    error: RelayClientError.datagramFailed(DatagramErrorPayload(channelId: "dg_fake", message: "relay closed channel"))
+)
+do {
+    _ = try await datagramErrorSession.receivePacket(timeout: .seconds(1))
+    throw SmokeError("mosh session should surface relay datagram errors")
+} catch RelayClientError.datagramFailed(let payload) {
+    try require(payload.channelId == "dg_fake", "mosh session should preserve relay datagram error channel")
+}
+try require(
+    await datagramErrorSession.connectedChannelId() == nil,
+    "mosh session should clear channel after relay datagram error"
+)
+do {
+    _ = try await datagramErrorSession.sendPacket(Data([0x06]))
+    throw SmokeError("mosh session should reject stale sends after relay datagram error")
+} catch MoshRelayDatagramSessionError.notConnected {
+}
+
 let attachRelay = FakeDatagramRelay()
 let attachDatagramSession = try MoshRelayDatagramSession(
     relay: attachRelay,
@@ -1528,10 +1554,15 @@ struct SentDatagram: Equatable, Sendable {
     let sequence: Int?
 }
 
+enum FakeDatagramRelayReadResult: Sendable {
+    case frame(RelayDatagramFrame)
+    case error(RelayClientError)
+}
+
 actor FakeDatagramRelay: RelayDatagramTransporting {
     private(set) var closedChannelId: String?
     private(set) var sentDatagrams: [SentDatagram] = []
-    private var frames: [RelayDatagramFrame] = []
+    private var readResults: [FakeDatagramRelayReadResult] = []
 
     func openDatagram(
         deviceId: String,
@@ -1556,10 +1587,15 @@ actor FakeDatagramRelay: RelayDatagramTransporting {
 
     func readDatagramFrame(channelId: String, timeout: Duration) async throws -> RelayDatagramFrame {
         try require(channelId == "dg_fake", "fake relay should read from mosh channel")
-        guard frames.isEmpty == false else {
+        guard readResults.isEmpty == false else {
             throw SmokeError("fake relay has no datagram frame")
         }
-        return frames.removeFirst()
+        switch readResults.removeFirst() {
+        case .frame(let frame):
+            return frame
+        case .error(let error):
+            throw error
+        }
     }
 
     func closeDatagram(channelId: String) async throws {
@@ -1567,7 +1603,11 @@ actor FakeDatagramRelay: RelayDatagramTransporting {
     }
 
     func enqueue(frame: RelayDatagramFrame) {
-        frames.append(frame)
+        readResults.append(.frame(frame))
+    }
+
+    func enqueue(error: RelayClientError) {
+        readResults.append(.error(error))
     }
 }
 

@@ -219,12 +219,19 @@ public actor MoshRelayDatagramSession {
             throw MoshRelayDatagramSessionError.notConnected
         }
 
-        switch try await relay.readDatagramFrame(channelId: channelId, timeout: timeout) {
-        case .data(let bytes, let sequence):
-            return MoshRelayDatagramPacket(bytes: bytes, relaySequence: sequence)
-        case .close:
-            self.channelId = nil
-            return nil
+        do {
+            switch try await relay.readDatagramFrame(channelId: channelId, timeout: timeout) {
+            case .data(let bytes, let sequence):
+                return MoshRelayDatagramPacket(bytes: bytes, relaySequence: sequence)
+            case .close:
+                self.channelId = nil
+                return nil
+            }
+        } catch let error as RelayClientError {
+            if case .datagramFailed = error {
+                self.channelId = nil
+            }
+            throw error
         }
     }
 

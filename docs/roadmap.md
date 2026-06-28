@@ -377,6 +377,9 @@ Current status:
 - Swift mobile attach startup failures now close relay datagram transports that
   were opened before native mosh engine startup or initial packet flush failed,
   preventing failed attach attempts from leaking relay channel state.
+- Swift mobile mosh relay datagram sessions now treat relay `datagram.error` as
+  terminal for the active channel, clear the connected channel id, preserve the
+  relay error for UI recovery, and reject later stale sends immediately.
 - Swift mobile resize handling now deduplicates unchanged terminal sizes in the
   core attach model, preventing duplicate mosh resize packets from repeated UI
   geometry callbacks.
