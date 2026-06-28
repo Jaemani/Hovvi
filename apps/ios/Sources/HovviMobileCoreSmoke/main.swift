@@ -1110,9 +1110,12 @@ try require(previewViewport.anchorId == previewViewport.lines.last?.id, "preview
 try require(previewViewport.isTruncatedAbove, "preview fixture viewport should report hidden older rows")
 let cappedPreview = AttachShellPreviewFixtures.cappedViewport
 try require(cappedPreview.terminalViewportLineLimit == 8, "capped preview fixture should carry a render cap")
+let cappedPreviewViewport = TerminalSurfaceProjection.viewport(for: cappedPreview)
+try require(cappedPreviewViewport.lines.count == 8, "capped preview fixture should apply its render cap through default projection")
+try require(cappedPreviewViewport.lines.allSatisfy { $0.source == .live }, "capped preview fixture should render live rows after cap")
 try require(
-    TerminalSurfaceProjection.viewport(for: cappedPreview).lines.count == 8,
-    "capped preview fixture should apply its render cap through default projection"
+    cappedPreviewViewport.lines.contains { $0.runs.contains { $0.text.contains("cap row 8") } },
+    "capped preview fixture should expose cap-specific live content for simulator screenshots"
 )
 try require(AttachShellPreviewFixtures.failedAttach.recoveryAction == .reattachSession, "preview fixture should cover reattach recovery UI")
 try require(

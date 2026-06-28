@@ -25,6 +25,9 @@ selector produced different rendered states without freezing exact pixels.
 
 - Simulator CI can now catch fixture selector regressions where all fixtures
   render the same screen.
+- The duplicate-image gate also caught the first capped viewport fixture being
+  visually identical to `attached-coding-agent`; the fixture now carries
+  cap-specific live rows instead of only changing metadata.
 - Artifact metadata becomes more useful for auditing and future visual baseline
   work.
 - Exact golden comparisons remain intentionally out of scope until the UI is

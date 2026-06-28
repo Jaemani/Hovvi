@@ -85,15 +85,22 @@ public enum AttachShellPreviewFixtures {
 
     public static var cappedViewport: AttachShellSnapshot {
         let attached = attachedCodingAgent
+        var screen = TerminalScreen(columns: 80, rows: 8)
+        for row in 1...8 {
+            screen.apply("cap row \(row): mobile viewport validation")
+            if row < 8 {
+                screen.apply("\r\n")
+            }
+        }
         return AttachShellSnapshot(
             phase: attached.phase,
             devices: attached.devices,
             selectedDeviceId: attached.selectedDeviceId,
             selectedSessionName: attached.selectedSessionName,
             manifest: attached.manifest,
-            scrollback: attached.scrollback,
-            terminalScreen: attached.terminalScreen,
-            terminalOutput: attached.terminalOutput,
+            scrollback: cappedScrollback,
+            terminalScreen: screen,
+            terminalOutput: Data("cap row 8: mobile viewport validation".utf8),
             terminalViewportLineLimit: 8,
             nextTickAfterMs: attached.nextTickAfterMs,
             cleanShutdown: attached.cleanShutdown,
@@ -126,6 +133,15 @@ public enum AttachShellPreviewFixtures {
             sessionName: "main",
             text: (1...20)
                 .map { "history \($0): tmux pane output before relay attach" }
+                .joined(separator: "\n")
+        )
+    }
+
+    private static var cappedScrollback: ScrollbackBuffer {
+        ScrollbackBuffer(
+            sessionName: "main",
+            text: (1...20)
+                .map { "capped history \($0): hidden above mobile viewport" }
                 .joined(separator: "\n")
         )
     }
