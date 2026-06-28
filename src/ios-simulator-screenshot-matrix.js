@@ -8,6 +8,7 @@ export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES = [
   "browsing",
   "attached-coding-agent",
   "failed-attach",
+  "capped-viewport",
 ];
 
 export function iosSimulatorScreenshotMatrixCheck({

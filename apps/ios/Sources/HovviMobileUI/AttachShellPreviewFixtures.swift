@@ -83,6 +83,25 @@ public enum AttachShellPreviewFixtures {
         )
     }
 
+    public static var cappedViewport: AttachShellSnapshot {
+        let attached = attachedCodingAgent
+        return AttachShellSnapshot(
+            phase: attached.phase,
+            devices: attached.devices,
+            selectedDeviceId: attached.selectedDeviceId,
+            selectedSessionName: attached.selectedSessionName,
+            manifest: attached.manifest,
+            scrollback: attached.scrollback,
+            terminalScreen: attached.terminalScreen,
+            terminalOutput: attached.terminalOutput,
+            terminalViewportLineLimit: 8,
+            nextTickAfterMs: attached.nextTickAfterMs,
+            cleanShutdown: attached.cleanShutdown,
+            error: attached.error,
+            recoveryAction: attached.recoveryAction
+        )
+    }
+
     public static func snapshot(named name: String?) -> AttachShellSnapshot? {
         switch name?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "browsing":
@@ -91,6 +110,8 @@ public enum AttachShellPreviewFixtures {
             return attachedCodingAgent
         case "failed-attach":
             return failedAttach
+        case "capped-viewport":
+            return cappedViewport
         default:
             return nil
         }

@@ -255,7 +255,7 @@ Current status:
   Claude Code/Codex/Gemini/aider/Cursor Agent panes render through stable UI
   metadata instead of ad hoc row strings.
 - Swift mobile attach shell fixtures now provide deterministic browsing,
-  attached coding-agent, failed reattach, and capped viewport states for future
+  attached coding-agent, failed reattach, and capped viewport states for
   simulator/device rendering validation without depending on a live relay.
 - Swift mobile bootstrap config now lives in `HovviMobileCore`, records relay
   token source, keeps the local alpha development default explicit, and exposes
@@ -301,6 +301,10 @@ Current status:
 - `npm run ios:simulator-screenshot-matrix-check` now reuses one simulator
   install to capture deterministic browsing, attached coding-agent, and failed
   attach fixture PNGs, preserving the PNG set and metadata artifact in CI.
+- Swift mobile `AttachShellSnapshot` now carries an optional terminal viewport
+  render cap, and the deterministic `capped-viewport` fixture applies it so
+  simulator screenshots can exercise mobile-sized terminal windows without
+  mutating tmux scrollback or live screen state.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
@@ -403,7 +407,7 @@ Current status:
 - A signed Xcode/iOS bundle target, hosted login bootstrap, device screenshot
   execution, and stricter visual assertions are still pending. Simulator
   screenshot smoke execution now covers the browsing, attached coding-agent, and
-  failed attach SwiftPM bundle fixtures.
+  failed attach, and capped viewport SwiftPM bundle fixtures.
 
 ### 6. Mac Agent and CLI Hardening
 

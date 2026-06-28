@@ -92,6 +92,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
     public let scrollback: ScrollbackBuffer?
     public let terminalScreen: TerminalScreen?
     public let terminalOutput: Data
+    public let terminalViewportLineLimit: Int?
     public let nextTickAfterMs: UInt32?
     public let cleanShutdown: Bool
     public let error: AttachShellError?
@@ -106,6 +107,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
         scrollback: ScrollbackBuffer? = nil,
         terminalScreen: TerminalScreen? = nil,
         terminalOutput: Data = Data(),
+        terminalViewportLineLimit: Int? = nil,
         nextTickAfterMs: UInt32? = nil,
         cleanShutdown: Bool = false,
         error: AttachShellError? = nil,
@@ -119,6 +121,7 @@ public struct AttachShellSnapshot: Equatable, Sendable {
         self.scrollback = scrollback
         self.terminalScreen = terminalScreen
         self.terminalOutput = terminalOutput
+        self.terminalViewportLineLimit = terminalViewportLineLimit
         self.nextTickAfterMs = nextTickAfterMs
         self.cleanShutdown = cleanShutdown
         self.error = error

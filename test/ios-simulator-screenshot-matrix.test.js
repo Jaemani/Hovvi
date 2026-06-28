@@ -20,7 +20,7 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
   const calls = [];
   let installCount = 0;
   const result = iosSimulatorScreenshotMatrixCheck({
-    fixtures: ["browsing", "attached-coding-agent", "failed-attach"],
+    fixtures: ["browsing", "attached-coding-agent", "failed-attach", "capped-viewport"],
     outputDir: "/tmp/hovvi-ios-shot-matrix",
     waitMs: 0,
     waitFn: () => {},
@@ -49,20 +49,26 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
 
   assert.equal(result.status, "captured");
   assert.equal(installCount, 1);
-  assert.deepEqual(result.fixtures, ["browsing", "attached-coding-agent", "failed-attach"]);
+  assert.deepEqual(result.fixtures, [
+    "browsing",
+    "attached-coding-agent",
+    "failed-attach",
+    "capped-viewport",
+  ]);
   assert.deepEqual(
     result.results.map((entry) => entry.screenshot),
     [
       "/tmp/hovvi-ios-shot-matrix/browsing.png",
       "/tmp/hovvi-ios-shot-matrix/attached-coding-agent.png",
       "/tmp/hovvi-ios-shot-matrix/failed-attach.png",
+      "/tmp/hovvi-ios-shot-matrix/capped-viewport.png",
     ]
   );
   assert.deepEqual(
     calls
       .filter((call) => call.args[1] === "launch")
       .map((call) => call.options.env.SIMCTL_CHILD_HOVVI_IOS_SNAPSHOT_FIXTURE),
-    ["browsing", "attached-coding-agent", "failed-attach"]
+    ["browsing", "attached-coding-agent", "failed-attach", "capped-viewport"]
   );
 });
 
@@ -98,6 +104,7 @@ test("iOS simulator screenshot matrix fixture names are stable", () => {
     "browsing",
     "attached-coding-agent",
     "failed-attach",
+    "capped-viewport",
   ]);
   assert.equal(safeFixtureName(" Failed Attach "), "failed-attach");
   assert.equal(safeFixtureName("A/B:C"), "a-b-c");

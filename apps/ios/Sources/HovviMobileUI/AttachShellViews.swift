@@ -194,9 +194,12 @@ public enum TerminalSurfaceProjection {
 
     public static func viewport(
         for snapshot: AttachShellSnapshot,
-        maxRows: Int = defaultViewportLineLimit
+        maxRows: Int? = nil
     ) -> TerminalSurfaceViewport {
-        viewport(lines: lines(for: snapshot), maxRows: maxRows)
+        viewport(
+            lines: lines(for: snapshot),
+            maxRows: maxRows ?? snapshot.terminalViewportLineLimit ?? defaultViewportLineLimit
+        )
     }
 
     public static func viewport(lines: [TerminalSurfaceLine], maxRows: Int) -> TerminalSurfaceViewport {

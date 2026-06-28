@@ -21,8 +21,9 @@ Add `npm run ios:simulator-screenshot-matrix-check`.
 The matrix check:
 
 - installs the temporary SwiftPM simulator app bundle once;
-- launches the app separately for `browsing`, `attached-coding-agent`, and
-  `failed-attach` fixtures using `HOVVI_IOS_SNAPSHOT_FIXTURE`;
+- launches the app separately for `browsing`, `attached-coding-agent`,
+  `failed-attach`, and `capped-viewport` fixtures using
+  `HOVVI_IOS_SNAPSHOT_FIXTURE`;
 - captures and validates a nonblank PNG for each fixture;
 - writes stable screenshot paths under `--output-dir=<path>`;
 - writes one JSON metadata artifact with fixture names, simulator identity,
@@ -35,8 +36,8 @@ against upstream mosh.
 
 ## Consequences
 
-- CI now exercises the shell's browsing, attached coding-agent, and failed
-  recovery surfaces on CoreSimulator.
+- CI now exercises the shell's browsing, attached coding-agent, failed recovery,
+  and capped terminal viewport surfaces on CoreSimulator.
 - Simulator install/build cost is paid once for the matrix instead of once per
   fixture.
 - Future visual assertions can compare against matrix metadata and fixture

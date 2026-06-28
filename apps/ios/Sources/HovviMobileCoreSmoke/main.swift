@@ -1108,6 +1108,12 @@ try require(previewViewport.lines.count == 8, "preview fixture viewport should h
 try require(previewViewport.lines.allSatisfy { $0.source == .live }, "preview fixture capped viewport should show newest live rows")
 try require(previewViewport.anchorId == previewViewport.lines.last?.id, "preview fixture viewport should expose a bottom anchor")
 try require(previewViewport.isTruncatedAbove, "preview fixture viewport should report hidden older rows")
+let cappedPreview = AttachShellPreviewFixtures.cappedViewport
+try require(cappedPreview.terminalViewportLineLimit == 8, "capped preview fixture should carry a render cap")
+try require(
+    TerminalSurfaceProjection.viewport(for: cappedPreview).lines.count == 8,
+    "capped preview fixture should apply its render cap through default projection"
+)
 try require(AttachShellPreviewFixtures.failedAttach.recoveryAction == .reattachSession, "preview fixture should cover reattach recovery UI")
 try require(
     AttachShellPreviewFixtures.snapshot(named: "attached-coding-agent") == previewSnapshot,
@@ -1120,6 +1126,10 @@ try require(
 try require(
     AttachShellPreviewFixtures.snapshot(named: "failed-attach")?.recoveryAction == .reattachSession,
     "preview fixture selector should expose failed reattach state"
+)
+try require(
+    AttachShellPreviewFixtures.snapshot(named: "capped-viewport")?.terminalViewportLineLimit == 8,
+    "preview fixture selector should expose capped viewport state"
 )
 try require(
     AttachShellPreviewFixtures.snapshot(named: "unknown") == nil,
