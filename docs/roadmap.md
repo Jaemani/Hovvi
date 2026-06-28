@@ -545,6 +545,10 @@ Current status:
   Application Firewall state, and opt-in relay WebSocket reachability.
 - `hovvi doctor --network` warns when GitHub CLI and GitHub SSH authenticate as
   different accounts, making account mismatch visible during setup.
+- `hovvi doctor --network` also explains the relationship between local Git
+  author identity and the GitHub account used by gh/SSH, warning only when the
+  Git author name looks like a different GitHub-style login instead of treating
+  real-name commit authors as account mismatches.
 - `hovvi service logs` prints redacted LaunchAgent stdout/stderr tails so common
   setup failures can be debugged without exposing relay credentials or mosh
   keys.

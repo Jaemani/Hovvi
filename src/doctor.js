@@ -45,6 +45,7 @@ export async function runDoctor({
     items.push(githubCli);
     items.push(githubSsh);
     items.push(checkGithubAccountConsistency({ githubCli, githubSsh }));
+    items.push(checkGitGithubIdentityContext({ items, githubCli, githubSsh }));
     items.push(checkFirewallState({ platformFn, runTextFn }));
     items.push(await relayReachabilityFn(relayUrl));
   } else {
@@ -399,6 +400,51 @@ function checkGithubAccountConsistency({ githubCli, githubSsh }) {
     message: "could not compare accounts",
     detail: "Run `hovvi doctor --network` after both `gh auth status` and `ssh -T git@github.com` can confirm accounts.",
   };
+}
+
+function checkGitGithubIdentityContext({ items, githubCli, githubSsh }) {
+  const gitName = items.find((item) => item.name === "git user.name");
+  const gitEmail = items.find((item) => item.name === "git user.email");
+  const githubAccount = githubCli.account || githubSsh.account;
+  if (!gitName?.message || gitName.message === "not set") {
+    return {
+      name: "git/github identity context",
+      status: "warn",
+      message: "git author name not set",
+      detail:
+        "Git commit author identity is separate from GitHub login. Set git user.name before relying on Hovvi setup diagnostics.",
+    };
+  }
+
+  if (!githubAccount) {
+    return {
+      name: "git/github identity context",
+      status: "warn",
+      message: "github account unknown",
+      detail:
+        "Git commit author identity is separate from GitHub login. Run `hovvi doctor --network` after gh or SSH auth can confirm the GitHub account.",
+    };
+  }
+
+  const gitEmailText =
+    gitEmail?.message && gitEmail.message !== "not set" ? ` <${gitEmail.message}>` : "";
+  const gitNameLooksLikeDifferentGithubLogin =
+    looksLikeGithubLogin(gitName.message) &&
+    gitName.message.toLowerCase() !== githubAccount.toLowerCase();
+  return {
+    name: "git/github identity context",
+    status: gitNameLooksLikeDifferentGithubLogin ? "warn" : "pass",
+    message: gitNameLooksLikeDifferentGithubLogin
+      ? "git author name differs from GitHub login"
+      : "identity roles clear",
+    detail: gitNameLooksLikeDifferentGithubLogin
+      ? `Git commits are authored as ${gitName.message}${gitEmailText}, while GitHub auth is ${githubAccount}. This may be intentional; git user.name is not required to match the GitHub login.`
+      : `Git commits are authored as ${gitName.message}${gitEmailText}; GitHub operations authenticate as ${githubAccount}. These identities are separate and do not need to match.`,
+  };
+}
+
+function looksLikeGithubLogin(value = "") {
+  return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(value);
 }
 
 function parseGithubCliAccount(text = "") {

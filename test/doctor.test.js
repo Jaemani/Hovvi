@@ -248,6 +248,13 @@ test("runDoctor checks configured relay only in network mode", async () => {
     message: "matched as Jaemani",
     detail: undefined,
   });
+  assert.deepEqual(findItem(report, "git/github identity context"), {
+    name: "git/github identity context",
+    status: "pass",
+    message: "identity roles clear",
+    detail:
+      "Git commits are authored as Jaemani <jaemani@example.com>; GitHub operations authenticate as Jaemani. These identities are separate and do not need to match.",
+  });
 });
 
 test("runDoctor warns when GitHub CLI and SSH accounts differ", async () => {
@@ -277,6 +284,78 @@ test("runDoctor warns when GitHub CLI and SSH accounts differ", async () => {
     status: "warn",
     message: "gh and SSH accounts differ",
     detail: "gh=Jaemani ssh=other-user",
+  });
+});
+
+test("runDoctor explains when git author name differs from GitHub login", async () => {
+  const report = await runDoctor({
+    network: true,
+    commandExistsFn: () => true,
+    runTextFn(command, args) {
+      if (command === "gh") return ok("Logged in to github.com account Jaemani");
+      if (command === "ssh") return ok("Hi Jaemani! You've successfully authenticated.");
+      if (command === "git" && args.join(" ") === "config --get user.name") return ok("other-user");
+      if (command === "git" && args.join(" ") === "config --get user.email") return ok("jaemani@example.com");
+      if (command === "git" && args.join(" ") === "var GIT_AUTHOR_IDENT") {
+        return ok("other-user <jaemani@example.com> 1710000000 +0900");
+      }
+      if (command.endsWith("socketfilterfw")) return ok("Firewall is disabled. (State = 0)");
+      return ok("");
+    },
+    getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+    relayReachabilityFn: async (relayUrl) => ({
+      name: "relay reachability",
+      status: "pass",
+      message: "reachable",
+      detail: relayUrl,
+    }),
+  });
+
+  assert.equal(report.ok, true);
+  assert.deepEqual(findItem(report, "git/github identity context"), {
+    name: "git/github identity context",
+    status: "warn",
+    message: "git author name differs from GitHub login",
+    detail:
+      "Git commits are authored as other-user <jaemani@example.com>, while GitHub auth is Jaemani. This may be intentional; git user.name is not required to match the GitHub login.",
+  });
+});
+
+test("runDoctor does not warn when git author is a real name", async () => {
+  const report = await runDoctor({
+    network: true,
+    commandExistsFn: () => true,
+    runTextFn(command, args) {
+      if (command === "gh") return ok("Logged in to github.com account Jaemani");
+      if (command === "ssh") return ok("Hi Jaemani! You've successfully authenticated.");
+      if (command === "git" && args.join(" ") === "config --get user.name") return ok("Jae Man Lee");
+      if (command === "git" && args.join(" ") === "config --get user.email") return ok("jaemani@example.com");
+      if (command === "git" && args.join(" ") === "var GIT_AUTHOR_IDENT") {
+        return ok("Jae Man Lee <jaemani@example.com> 1710000000 +0900");
+      }
+      if (command.endsWith("socketfilterfw")) return ok("Firewall is disabled. (State = 0)");
+      return ok("");
+    },
+    getConfigFn: () => ({ relay: { url: "ws://relay.example.test:8787" } }),
+    platformFn: () => "darwin",
+    serviceStatusFn: () => ({ label: "dev.hovvi.agent", loaded: true, detail: "loaded" }),
+    relayReachabilityFn: async (relayUrl) => ({
+      name: "relay reachability",
+      status: "pass",
+      message: "reachable",
+      detail: relayUrl,
+    }),
+  });
+
+  assert.equal(report.ok, true);
+  assert.deepEqual(findItem(report, "git/github identity context"), {
+    name: "git/github identity context",
+    status: "pass",
+    message: "identity roles clear",
+    detail:
+      "Git commits are authored as Jae Man Lee <jaemani@example.com>; GitHub operations authenticate as Jaemani. These identities are separate and do not need to match.",
   });
 });
 
