@@ -287,6 +287,9 @@ Current status:
   artifact in a temporary `HovviMobileApp.app` bundle with a minimal simulator
   `Info.plist`, giving screenshot automation an installable-bundle shape without
   crossing the signed mobile distribution gate.
+- `npm run ios:simulator-install-check` now boots the selected simulator on
+  full-Xcode hosts and installs the temporary simulator bundle with `simctl`,
+  proving the bundle is accepted by CoreSimulator before screenshot execution.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,

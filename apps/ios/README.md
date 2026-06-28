@@ -14,6 +14,7 @@ swift run --package-path apps/ios HovviMobileCoreSmoke
 npm run ios:simulator-preflight
 npm run ios:simulator-build-check
 npm run ios:simulator-app-bundle-check
+npm run ios:simulator-install-check
 ```
 
 The package currently covers flattened relay envelopes, outgoing client message
@@ -174,6 +175,9 @@ skips without failing the default local workflow.
 wraps it in a temporary `HovviMobileApp.app` simulator bundle with a minimal
 `Info.plist`, creating the bundle shape needed before simulator screenshot
 automation. It is not a signed distribution target.
+`npm run ios:simulator-install-check` boots the selected simulator on full-Xcode
+hosts and installs that temporary app bundle with `simctl install`, proving the
+bundle is accepted by CoreSimulator before screenshot automation is added.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the
