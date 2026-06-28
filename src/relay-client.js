@@ -252,7 +252,7 @@ export async function createClient({ relayUrl, token }) {
         return Promise.reject(error);
       }
       const channelId = `dg_${randomId()}`;
-      const channel = createDatagramChannel({ ws, channelId, datagrams });
+      const channel = createDatagramChannel({ ws, channelId, datagrams, maxDatagramBytes });
       datagrams.set(channelId, channel);
       const promise = new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -386,20 +386,25 @@ function selectMoshRelayDatagramMethod(manifest) {
   return method;
 }
 
-function createDatagramChannel({ ws, channelId, datagrams }) {
+function createDatagramChannel({ ws, channelId, datagrams, maxDatagramBytes }) {
   const queue = [];
   const waiters = [];
+  const datagramLimit = Number(maxDatagramBytes || 1200);
   let closed = false;
 
   return {
     channelId,
     send(bytes) {
       if (closed) throw new Error("datagram channel is closed");
+      const payload = Buffer.from(bytes);
+      if (payload.length > datagramLimit) {
+        throw new Error(`datagram exceeds maxDatagramBytes (${payload.length} > ${datagramLimit})`);
+      }
       ws.send(
         serialize(
           envelope("datagram.data", {
             channelId,
-            data: Buffer.from(bytes).toString("base64"),
+            data: payload.toString("base64"),
           }),
         ),
       );

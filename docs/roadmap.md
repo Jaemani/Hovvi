@@ -191,6 +191,9 @@ Current status:
   `mosh-server` bootstrap, and client datagram channel open/close.
 - JavaScript clients expose `prepareMoshDatagramAttach` so manifest selection,
   key validation, and channel opening are one reusable attach contract.
+- JavaScript relay datagram clients now enforce `maxDatagramBytes` before
+  serializing or sending `datagram.data`, matching the Swift mobile fail-fast
+  packet-size contract.
 - JavaScript and Swift attach paths reject unsupported attach manifest
   `kind`/`version` values before selecting a mosh relay datagram transport.
 - `npm run native:relay-attach-check` runs the repository-only native mosh probe

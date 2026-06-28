@@ -202,9 +202,10 @@ The `key` value is the printable mosh server AES key returned by `MOSH CONNECT`:
 The JavaScript relay client exposes this boundary as
 `openDatagram({ deviceId, remoteHost, remotePort, label, maxDatagramBytes })`.
 The returned channel supports `send(bytes)`, `nextMessage({ timeoutMs })`, and
-`close()`. `datagram.error` rejects pending opens or pending reads and
-`datagram.close` marks the channel closed. The relay and client must release
-channel state after either peer closes.
+`close()`. `send(bytes)` rejects payloads larger than `maxDatagramBytes` before
+serializing or sending a `datagram.data` envelope. `datagram.error` rejects
+pending opens or pending reads and `datagram.close` marks the channel closed.
+The relay and client must release channel state after either peer closes.
 
 For attach flows, the JavaScript relay client also exposes
 `prepareMoshDatagramAttach(...)`. It requests an attach manifest, selects the

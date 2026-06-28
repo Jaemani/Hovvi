@@ -88,6 +88,53 @@ test("client datagram channel reaches an agent-owned UDP target through the rela
   }
 });
 
+test("client datagram channel rejects oversize payloads before relay send", async () => {
+  const udp = await openUdpEchoServer();
+  const relay = createRelayServer({ token: "dev", datagramTimeoutMs: 5000 });
+  await relay.listen();
+  const device = {
+    id: "mac-1",
+    name: "Mac",
+    platform: "darwin",
+    user: "jaeman",
+    capabilities: ["mosh.relay-datagram"],
+  };
+  const agentDone = connectAgent({
+    relayUrl: relay.url,
+    token: "dev",
+    device,
+    publishIntervalMs: 60000,
+    heartbeatIntervalMs: 60000,
+  });
+  const client = await createClient({ relayUrl: relay.url, token: "dev" });
+
+  try {
+    await waitFor(async () => relay.state.agents.has(device.id));
+
+    const channel = await client.openDatagram({
+      deviceId: device.id,
+      remoteHost: "127.0.0.1",
+      remotePort: udp.port,
+      maxDatagramBytes: 4,
+    });
+
+    assert.throws(() => channel.send(Buffer.from("hello")), /datagram exceeds maxDatagramBytes \(5 > 4\)/);
+    assert.equal(relay.state.datagrams.size, 1);
+
+    channel.send(Buffer.from("pong"));
+    const reply = await channel.nextMessage();
+    assert.equal(reply.toString(), "echo:pong");
+
+    channel.close();
+    await waitFor(async () => relay.state.datagrams.size === 0);
+  } finally {
+    client.close();
+    await relay.close();
+    await closeUdp(udp.socket);
+    await agentDone.catch(() => {});
+  }
+});
+
 test("client rejects pending requests when relay disconnects unexpectedly", async () => {
   const relay = await openClosingRelay("devices.list");
   const client = await createClient({ relayUrl: relay.url, token: "dev" });
