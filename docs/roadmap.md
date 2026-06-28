@@ -360,6 +360,9 @@ Current status:
 - Swift mobile device/session selection now closes stale relay datagram
   transports when changing the attached target, while re-selecting the current
   attached session remains a no-op.
+- Swift mobile attach startup failures now close relay datagram transports that
+  were opened before native mosh engine startup or initial packet flush failed,
+  preventing failed attach attempts from leaking relay channel state.
 - Swift mobile resize handling now deduplicates unchanged terminal sizes in the
   core attach model, preventing duplicate mosh resize packets from repeated UI
   geometry callbacks.

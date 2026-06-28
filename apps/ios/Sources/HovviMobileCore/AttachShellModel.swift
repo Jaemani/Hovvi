@@ -303,6 +303,7 @@ public actor AttachShellModel {
                 cleanShutdown: frame.cleanShutdown
             )
         } catch {
+            try? await attachSession?.closeTransport()
             attachSession = nil
             fail(title: "Could not attach session", error: error, recoveryAction: .reattachSession)
         }

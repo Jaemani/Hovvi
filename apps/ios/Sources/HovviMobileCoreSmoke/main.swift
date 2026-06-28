@@ -1361,6 +1361,36 @@ try require(
 )
 _ = await cleanupShell.shutdown()
 
+let attachStartFailureRelay = FakeAttachShellRelay(
+    devices: snapshot.devices,
+    manifest: manifestEnvelope.payload.manifest,
+    scrollback: ScrollbackResult(sessionName: "main", lines: 1, text: "history\n")
+)
+let attachStartFailureShell = AttachShellModel(relay: attachStartFailureRelay) {
+    StartFailureMoshCoreEngine()
+}
+var attachStartFailureSnapshot = await attachStartFailureShell.connectAndLoadDevices(timeout: Duration.seconds(1))
+attachStartFailureSnapshot = await attachStartFailureShell.selectDevice("dev_1")
+attachStartFailureSnapshot = await attachStartFailureShell.attach(
+    lines: 20,
+    initialSize: MoshCoreTerminalSize(columns: 80, rows: 24),
+    timeout: Duration.seconds(1)
+)
+try require(attachStartFailureSnapshot.phase == AttachShellPhase.failed, "attach start failure should surface failed state")
+try require(
+    attachStartFailureSnapshot.error?.title == "Could not attach session",
+    "attach start failure should keep attach recovery error title"
+)
+try require(
+    await attachStartFailureRelay.closedChannelIds == ["dg_shell"],
+    "attach start failure after datagram open should close the relay datagram"
+)
+attachStartFailureSnapshot = await attachStartFailureShell.sendInput(Data("stale".utf8))
+try require(
+    attachStartFailureSnapshot.error?.title == "No active terminal",
+    "attach start failure should not leave an active mosh session"
+)
+
 let selectionCleanupRelay = FakeAttachShellRelay(
     devices: [
         Device(
@@ -1604,6 +1634,32 @@ actor CleanShutdownReceiveMoshCoreEngine: MoshCoreEngine {
 
     func shutdown() async throws -> MoshCoreFrame {
         MoshCoreFrame(cleanShutdown: true)
+    }
+}
+
+actor StartFailureMoshCoreEngine: MoshCoreEngine {
+    func start(configuration: MoshCoreConfiguration) async throws -> MoshCoreFrame {
+        throw SmokeError("native mosh start failed")
+    }
+
+    func receivePacket(_ packet: MoshRelayDatagramPacket) async throws -> MoshCoreFrame {
+        throw SmokeError("start failure fake core should not receive packets")
+    }
+
+    func sendUserInput(_ bytes: Data) async throws -> MoshCoreFrame {
+        throw SmokeError("start failure fake core should not receive input")
+    }
+
+    func resize(to size: MoshCoreTerminalSize) async throws -> MoshCoreFrame {
+        throw SmokeError("start failure fake core should not resize")
+    }
+
+    func tick(nowMs: UInt64) async throws -> MoshCoreFrame {
+        throw SmokeError("start failure fake core should not tick")
+    }
+
+    func shutdown() async throws -> MoshCoreFrame {
+        throw SmokeError("start failure fake core should not shutdown")
     }
 }
 
