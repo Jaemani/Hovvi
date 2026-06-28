@@ -1092,6 +1092,22 @@ try require(
     csiSavedCharacterSetScreen.visibleLines[0].text == "q─",
     "terminal screen should restore CSI saved cursor character set"
 )
+var decPrivateSavedCursorScreen = TerminalScreen(columns: 12, rows: 3)
+decPrivateSavedCursorScreen.apply("\u{001B}[2;3H\u{001B}[1m\u{001B}[?1048h\u{001B}[1;1Htop\u{001B}[0m\u{001B}[?1048lB")
+try require(
+    decPrivateSavedCursorScreen.cursorRow == 1 && decPrivateSavedCursorScreen.cursorColumn == 3,
+    "terminal screen should restore DEC private 1048 saved cursor position"
+)
+try require(
+    decPrivateSavedCursorScreen.visibleLines[1].runs.last?.attributes.bold == true,
+    "terminal screen should restore DEC private 1048 saved cursor attributes"
+)
+var decPrivateSavedCharacterSetScreen = TerminalScreen(columns: 12, rows: 1)
+decPrivateSavedCharacterSetScreen.apply("\u{001B}(0 \u{001B}[?1048h\u{001B}(B\rq\u{001B}[?1048lq")
+try require(
+    decPrivateSavedCharacterSetScreen.visibleLines[0].text == "q─",
+    "terminal screen should restore DEC private 1048 saved cursor character set"
+)
 var lineEditScreen = TerminalScreen(columns: 10, rows: 6)
 lineEditScreen.apply("\u{001B}[1;1Htop")
 lineEditScreen.apply("\u{001B}[2;1Hone")

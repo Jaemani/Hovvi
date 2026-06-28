@@ -793,6 +793,12 @@ public struct TerminalScreen: Equatable, Sendable {
             } else {
                 exitAlternateScreen()
             }
+        case 1048:
+            if enabled {
+                saveCursor()
+            } else {
+                restoreCursor()
+            }
         case 6:
             originMode = enabled
             cursorRow = cursorHomeRow

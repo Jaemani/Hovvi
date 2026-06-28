@@ -463,6 +463,10 @@ Current status:
 - Swift mobile saved cursor handling now preserves and restores the active
   ASCII/DEC special graphics character set across both DEC and CSI save/restore
   sequences, keeping tmux/ncurses line drawing stable after cursor restore.
+- Swift mobile terminal parsing now supports DEC private cursor save/restore
+  mode (`CSI ? 1048 h/l`), preserving cursor position, SGR attributes, and
+  active ASCII/DEC special graphics character set across xterm-style mode
+  toggles.
 - Swift mobile terminal state now tracks DEC cursor visibility mode
   (`CSI ? 25 h/l`) separately from terminal text so future cursor rendering does
   not corrupt scrollback or line content.
