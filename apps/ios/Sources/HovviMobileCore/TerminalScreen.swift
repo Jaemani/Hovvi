@@ -138,6 +138,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var pendingControlPrefix = ""
     private var pendingUtf8Bytes = Data()
     private var characterSet = TerminalCharacterSet.ascii
+    private var lastGraphicCharacter: Character?
 
     public init(columns: Int = 80, rows: Int = 24) {
         self.columns = max(1, columns)
@@ -283,6 +284,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 insertCharacters(count)
             case .deleteCharacters(let count):
                 deleteCharacters(count)
+            case .repeatPrecedingCharacter(let count):
+                repeatPrecedingCharacter(count)
             case .setHorizontalTabStop:
                 tabStops.insert(cursorColumn)
             case .clearTabStops(let mode):
@@ -319,6 +322,7 @@ public struct TerminalScreen: Equatable, Sendable {
         pendingControlPrefix.removeAll(keepingCapacity: true)
         pendingUtf8Bytes.removeAll(keepingCapacity: true)
         characterSet = .ascii
+        lastGraphicCharacter = nil
     }
 
     private mutating func decodedTerminalText(from data: Data) -> String {
@@ -413,6 +417,7 @@ public struct TerminalScreen: Equatable, Sendable {
                 isContinuation: true
             )
         }
+        lastGraphicCharacter = character
         advanceCursor(by: width)
     }
 
@@ -643,6 +648,13 @@ public struct TerminalScreen: Equatable, Sendable {
         }
     }
 
+    private mutating func repeatPrecedingCharacter(_ count: Int) {
+        guard let lastGraphicCharacter else { return }
+        for _ in 0..<max(1, count) {
+            put(lastGraphicCharacter)
+        }
+    }
+
     private mutating func clearTabStops(_ mode: TerminalTabClearMode) {
         switch mode {
         case .current:
@@ -809,7 +821,8 @@ public struct TerminalScreen: Equatable, Sendable {
                 originMode: originMode,
                 savedCursor: savedCursor,
                 tabStops: tabStops,
-                characterSet: characterSet
+                characterSet: characterSet,
+                lastGraphicCharacter: lastGraphicCharacter
             )
         }
         cells = Self.blankCells(columns: columns, rows: rows)
@@ -821,6 +834,7 @@ public struct TerminalScreen: Equatable, Sendable {
         savedCursor = nil
         tabStops = Self.defaultTabStops(columns: columns)
         characterSet = .ascii
+        lastGraphicCharacter = nil
     }
 
     private mutating func exitAlternateScreen() {
@@ -834,6 +848,7 @@ public struct TerminalScreen: Equatable, Sendable {
         savedCursor = snapshot.savedCursor?.resized(columns: columns, rows: rows)
         tabStops = Set(snapshot.tabStops.filter { $0 < columns })
         characterSet = snapshot.characterSet
+        lastGraphicCharacter = snapshot.lastGraphicCharacter
         primarySnapshotBeforeAlternate = nil
     }
 
@@ -946,6 +961,7 @@ private enum TerminalToken {
     case scrollDown(Int)
     case insertCharacters(Int)
     case deleteCharacters(Int)
+    case repeatPrecedingCharacter(Int)
     case setHorizontalTabStop
     case clearTabStops(TerminalTabClearMode)
     case sgr([Int])
@@ -1193,6 +1209,8 @@ private struct TerminalEscapeParser {
             return .cursorForward(first)
         case "a":
             return .cursorForward(first)
+        case "b":
+            return .repeatPrecedingCharacter(first)
         case "D":
             return .cursorBackward(first)
         case "E":
@@ -1428,6 +1446,7 @@ private struct TerminalScreenSnapshot: Equatable {
     var savedCursor: TerminalSavedCursor?
     var tabStops: Set<Int>
     var characterSet: TerminalCharacterSet
+    var lastGraphicCharacter: Character?
 }
 
 private struct TerminalSavedCursor: Equatable {

@@ -453,6 +453,10 @@ Current status:
 - Swift mobile terminal SGR rendering now preserves faint/dim text and
   strikethrough runs, including `SGR 22` and `SGR 29` resets used by modern CLI
   status output.
+- Swift mobile terminal parsing now supports REP (`CSI b`) repeat-preceding
+  character sequences, preserving repeated tmux/ncurses line drawing, padding,
+  and progress glyphs through the same autowrap/rendering path as printable
+  terminal text.
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.

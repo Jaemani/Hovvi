@@ -873,6 +873,34 @@ try require(
     decLineDrawingScreen.visibleLines[0].text == "┌─┐│└┘!",
     "terminal screen should map DEC special graphics line drawing characters"
 )
+var repeatPrecedingCharacterScreen = TerminalScreen(columns: 8, rows: 2)
+repeatPrecedingCharacterScreen.apply("A\u{001B}[3b")
+try require(
+    repeatPrecedingCharacterScreen.visibleLines.map(\.text) == ["AAAA", ""],
+    "terminal screen should repeat the preceding graphic character with CSI b"
+)
+repeatPrecedingCharacterScreen.apply("B\u{001B}[b")
+try require(
+    repeatPrecedingCharacterScreen.visibleLines.map(\.text) == ["AAAABB", ""],
+    "terminal screen should default CSI b to one repeat"
+)
+repeatPrecedingCharacterScreen.apply("C\u{001B}[4b")
+try require(
+    repeatPrecedingCharacterScreen.visibleLines.map(\.text) == ["AAAABBCC", "CCC"],
+    "terminal screen should autowrap repeated preceding characters"
+)
+var repeatWithoutPrecedingCharacterScreen = TerminalScreen(columns: 8, rows: 1)
+repeatWithoutPrecedingCharacterScreen.apply("\u{001B}[4bX")
+try require(
+    repeatWithoutPrecedingCharacterScreen.visibleLines[0].text == "X",
+    "terminal screen should ignore CSI b before any graphic character is written"
+)
+var decRepeatScreen = TerminalScreen(columns: 8, rows: 1)
+decRepeatScreen.apply("\u{001B}(0q\u{001B}[5b\u{001B}(B!")
+try require(
+    decRepeatScreen.visibleLines[0].text == "──────!",
+    "terminal screen should repeat mapped DEC special graphics characters"
+)
 var cursorRenderScreen = TerminalScreen(columns: 8, rows: 1)
 try require(cursorRenderScreen.isCursorVisible, "terminal cursor should be visible by default")
 cursorRenderScreen.apply("ab")
