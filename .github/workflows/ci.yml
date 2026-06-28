@@ -33,6 +33,7 @@ jobs:
       - run: npm run native:relay-process-attach-check
       - run: npm run ios:simulator-preflight
       - run: npm run ios:simulator-build-check
+      - run: npm run ios:simulator-app-bundle-check
       - run: swift build
         working-directory: apps/ios
       - run: swift build --product HovviMobileApp

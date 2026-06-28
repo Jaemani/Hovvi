@@ -45,6 +45,7 @@
     "native:relay-process-attach-check": "node scripts/native-relay-process-attach-check.js",
     "ios:simulator-preflight": "node scripts/ios-simulator-preflight.js",
     "ios:simulator-build-check": "node scripts/ios-simulator-build-check.js",
+    "ios:simulator-app-bundle-check": "node scripts/ios-simulator-app-bundle-check.js",
     "ios:upstream-cabi-link-check": "node scripts/ios-upstream-cabi-link-check.js",
     "mosh:vendor:verify": "node scripts/mosh-vendor-verify.js",
     "package:boundary-check": "node scripts/package-boundary-check.js",

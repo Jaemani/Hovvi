@@ -283,6 +283,10 @@ Current status:
   full-Xcode hosts, verifies that the SwiftPM `HovviMobileApp` scheme compiles
   for an iOS simulator and produces a build artifact before screenshot
   execution is attempted.
+- `npm run ios:simulator-app-bundle-check` now wraps the simulator executable
+  artifact in a temporary `HovviMobileApp.app` bundle with a minimal simulator
+  `Info.plist`, giving screenshot automation an installable-bundle shape without
+  crossing the signed mobile distribution gate.
 - Swift mobile failed states now carry recovery actions that distinguish relay
   reconnect from selected-session reattach. Interrupted attach operations close
   the relay datagram transport best-effort while preserving selected session,
