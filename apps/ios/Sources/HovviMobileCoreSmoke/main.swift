@@ -386,6 +386,14 @@ try require(
     "attach lifecycle should reject stale receive or tick loop snapshots"
 )
 try require(
+    AttachShellLifecyclePolicy.shouldApplyUserActionSnapshot(actionGeneration: 4, currentGeneration: 4),
+    "attach lifecycle should apply snapshots from the active user action generation"
+)
+try require(
+    AttachShellLifecyclePolicy.shouldApplyUserActionSnapshot(actionGeneration: 3, currentGeneration: 4) == false,
+    "attach lifecycle should reject stale user action snapshots"
+)
+try require(
     AttachShellLifecyclePolicy.shouldStartTickLoop(afterApplying: .attached),
     "attach lifecycle should continue ticking after attached snapshots"
 )

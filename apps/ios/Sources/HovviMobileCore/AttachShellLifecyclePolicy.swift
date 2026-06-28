@@ -14,6 +14,13 @@ public enum AttachShellLifecyclePolicy {
         loopGeneration == currentGeneration
     }
 
+    public static func shouldApplyUserActionSnapshot(
+        actionGeneration: Int,
+        currentGeneration: Int
+    ) -> Bool {
+        actionGeneration == currentGeneration
+    }
+
     public static func shouldStartTickLoop(afterApplying phase: AttachShellPhase) -> Bool {
         shouldRunAttachLoops(phase: phase)
     }

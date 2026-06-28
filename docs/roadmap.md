@@ -400,6 +400,9 @@ Current status:
   `HovviAttachShellView` to `AttachShellModel`, local relay bootstrap config,
   attach actions, byte-level terminal input/resize, and conservative receive
   and mosh tick loops.
+- `HovviMobileApp` now guards async user actions with a generation check so
+  stale connect, selection, attach, input, resize, or scrollback refresh results
+  cannot overwrite newer UI state after a later exclusive action starts.
 - `AppBootstrapConfig` parses the local alpha relay URL, token, token source,
   and client id in `HovviMobileCore` with smoke coverage for redaction and
   fallback behavior.

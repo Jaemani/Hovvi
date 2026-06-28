@@ -44,6 +44,7 @@ final class HovviAppController: ObservableObject {
     private var receiveTask: Task<Void, Never>?
     private var tickTask: Task<Void, Never>?
     private var attachLoopGeneration = 0
+    private var userActionGeneration = 0
     private var lastResize: MoshCoreTerminalSize?
 
     init(environment: [String: String] = ProcessInfo.processInfo.environment) {
@@ -64,31 +65,45 @@ final class HovviAppController: ObservableObject {
             return
         }
         cancelAttachLoops()
+        let generation = beginExclusiveUserAction()
         Task {
-            snapshot = await model.connectAndLoadDevices()
+            let next = await model.connectAndLoadDevices()
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
         }
     }
 
     func selectDevice(_ deviceId: String) {
         guard fixtureSnapshot == nil else { return }
+        cancelAttachLoops()
+        let generation = beginExclusiveUserAction()
         Task {
-            snapshot = await model.selectDevice(deviceId)
+            let next = await model.selectDevice(deviceId)
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
         }
     }
 
     func selectSession(_ sessionName: String) {
         guard fixtureSnapshot == nil else { return }
+        cancelAttachLoops()
+        let generation = beginExclusiveUserAction()
         Task {
-            snapshot = await model.selectSession(sessionName)
+            let next = await model.selectSession(sessionName)
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
         }
     }
 
     func attach() {
         guard fixtureSnapshot == nil else { return }
         cancelAttachLoops()
+        let generation = beginExclusiveUserAction()
         Task {
-            snapshot = await model.attach(initialSize: lastResize ?? MoshCoreTerminalSize(columns: 80, rows: 24))
-            if snapshot.phase == .attached {
+            let next = await model.attach(initialSize: lastResize ?? MoshCoreTerminalSize(columns: 80, rows: 24))
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
+            if next.phase == .attached {
                 startReceiveLoop()
                 startTickLoop()
             }
@@ -107,9 +122,12 @@ final class HovviAppController: ObservableObject {
 
     func sendInput(_ bytes: Data) {
         guard fixtureSnapshot == nil else { return }
+        let generation = currentUserActionGeneration()
         Task {
-            snapshot = await model.sendInput(bytes)
-            if snapshot.phase == .attached {
+            let next = await model.sendInput(bytes)
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
+            if next.phase == .attached {
                 startTickLoop()
             }
         }
@@ -120,9 +138,12 @@ final class HovviAppController: ObservableObject {
         lastResize = size
         guard fixtureSnapshot == nil else { return }
         guard snapshot.phase == .attached else { return }
+        let generation = currentUserActionGeneration()
         Task {
-            snapshot = await model.resize(to: size)
-            if snapshot.phase == .attached {
+            let next = await model.resize(to: size)
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
+            if next.phase == .attached {
                 startTickLoop()
             }
         }
@@ -130,8 +151,11 @@ final class HovviAppController: ObservableObject {
 
     func refreshScrollback() {
         guard fixtureSnapshot == nil else { return }
+        let generation = beginExclusiveUserAction()
         Task {
-            snapshot = await model.refreshScrollback()
+            let next = await model.refreshScrollback()
+            guard shouldApplyUserAction(generation) else { return }
+            snapshot = next
         }
     }
 
@@ -152,6 +176,22 @@ final class HovviAppController: ObservableObject {
         receiveTask = nil
         tickTask?.cancel()
         tickTask = nil
+    }
+
+    private func beginExclusiveUserAction() -> Int {
+        userActionGeneration += 1
+        return userActionGeneration
+    }
+
+    private func currentUserActionGeneration() -> Int {
+        userActionGeneration
+    }
+
+    private func shouldApplyUserAction(_ generation: Int) -> Bool {
+        AttachShellLifecyclePolicy.shouldApplyUserActionSnapshot(
+            actionGeneration: generation,
+            currentGeneration: userActionGeneration
+        )
     }
 
     private func startReceiveLoop() {
