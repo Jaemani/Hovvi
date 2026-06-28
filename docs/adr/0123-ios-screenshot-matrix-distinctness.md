@@ -21,6 +21,11 @@ Require matrix fixture captures to have distinct PNG SHA-256 hashes by default.
 The check remains fixture-level, not a golden screenshot assertion: it proves the
 selector produced different rendered states without freezing exact pixels.
 
+Write a versioned matrix artifact summary beside the raw per-fixture results.
+The artifact records expected fixtures, captured fixture count, per-fixture PNG
+hashes, nonblank status, and distinct-image invariants. This keeps CI evidence
+machine-auditable without requiring CoreSimulator reruns.
+
 ## Consequences
 
 - Simulator CI can now catch fixture selector regressions where all fixtures
@@ -31,6 +36,8 @@ selector produced different rendered states without freezing exact pixels.
   hidden terminal state.
 - Artifact metadata becomes more useful for auditing and future visual baseline
   work.
+- The artifact schema version gives future visual baselines a compatibility
+  boundary instead of relying on ad hoc JSON result shape.
 - Exact golden comparisons remain intentionally out of scope until the UI is
   stable enough to version pixel baselines.
 

@@ -226,7 +226,10 @@ The screenshot check validates a nonblank PNG and can preserve JSON metadata
 with fixture, bundle id, simulator, screenshot path, and parsed image stats. The
 matrix check reuses one install to capture browsing, attached coding-agent,
 failed attach, and capped viewport shell fixtures. It records PNG metadata and
-rejects duplicate fixture images before exact golden baselines exist.
+rejects duplicate fixture images before exact golden baselines exist. Matrix
+metadata also includes a versioned artifact summary with expected fixtures,
+per-fixture PNG hashes, nonblank status, and distinct-image invariants for CI
+audit.
 
 ## Product Direction
 

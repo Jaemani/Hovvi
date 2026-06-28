@@ -11,6 +11,8 @@ export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES = [
   "capped-viewport",
 ];
 
+export const IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION = 1;
+
 export function iosSimulatorScreenshotMatrixCheck({
   fixtures = DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
   outputDir,
@@ -43,19 +45,27 @@ export function iosSimulatorScreenshotMatrixCheck({
   const failures = results.filter((result) => result.status !== "captured");
   const duplicateImageFailures =
     failures.length === 0 && requireDistinctImages ? findDuplicateImageFailures(results) : [];
+  const artifact = buildScreenshotMatrixArtifact({ fixtures, results, requireDistinctImages });
+  const artifactFailures =
+    failures.length === 0 && duplicateImageFailures.length === 0
+      ? findScreenshotMatrixArtifactFailures(artifact)
+      : [];
   const failureCount = failures.length + duplicateImageFailures.length;
+  const totalFailureCount = failureCount + artifactFailures.length;
 
   return {
-    status: failureCount === 0 ? "captured" : "failed",
+    status: totalFailureCount === 0 ? "captured" : "failed",
     simulator: install.simulator,
     fixtures,
     results,
+    artifact,
     duplicateImageFailures,
-    failureCount,
+    artifactFailures,
+    failureCount: totalFailureCount,
     reason:
-      failureCount === 0
+      totalFailureCount === 0
         ? undefined
-        : `${failureCount} iOS simulator screenshot fixture assertion(s) failed.`,
+        : `${totalFailureCount} iOS simulator screenshot fixture assertion(s) failed.`,
   };
 }
 
@@ -65,6 +75,112 @@ export function safeFixtureName(fixture) {
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+export function buildScreenshotMatrixArtifact({ fixtures, results, requireDistinctImages = true }) {
+  const screenshots = results.map((result) => ({
+    fixture: result.fixture,
+    status: result.status,
+    screenshot: result.screenshot,
+    sha256: result.image?.sha256,
+    byteLength: result.image?.byteLength,
+    width: result.image?.width,
+    height: result.image?.height,
+    pixels: result.image?.pixels,
+    uniqueColors: result.image?.uniqueColors,
+    nonBlank: result.image?.nonBlank,
+  }));
+  const capturedScreenshots = screenshots.filter((entry) => entry.status === "captured");
+  const hashes = capturedScreenshots
+    .map((entry) => entry.sha256)
+    .filter((hash) => typeof hash === "string" && hash.length > 0);
+  const uniqueHashes = new Set(hashes);
+
+  return {
+    schemaVersion: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
+    requireDistinctImages,
+    expectedFixtures: [...fixtures],
+    fixtureCount: fixtures.length,
+    capturedFixtureCount: capturedScreenshots.length,
+    screenshots,
+    imageSha256ByFixture: Object.fromEntries(
+      capturedScreenshots.map((entry) => [entry.fixture, entry.sha256])
+    ),
+    allImagesHaveHashes: hashes.length === capturedScreenshots.length,
+    uniqueImageCount: uniqueHashes.size,
+    allImagesDistinct: uniqueHashes.size === capturedScreenshots.length,
+    allImagesNonBlank: capturedScreenshots.every((entry) => entry.nonBlank === true),
+  };
+}
+
+export function findScreenshotMatrixArtifactFailures(artifact) {
+  const failures = [];
+  if (artifact.schemaVersion !== IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION) {
+    failures.push({
+      reason: "iOS simulator screenshot matrix artifact schema version is unsupported.",
+      expected: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
+      actual: artifact.schemaVersion,
+    });
+  }
+  if (artifact.capturedFixtureCount !== artifact.fixtureCount) {
+    failures.push({
+      reason: "iOS simulator screenshot matrix did not capture every expected fixture.",
+      expected: artifact.fixtureCount,
+      actual: artifact.capturedFixtureCount,
+    });
+  }
+  const seenFixtures = new Set();
+  for (const entry of artifact.screenshots) {
+    if (!artifact.expectedFixtures.includes(entry.fixture)) {
+      failures.push({
+        fixture: entry.fixture,
+        reason: "iOS simulator screenshot matrix artifact included an unexpected fixture.",
+      });
+    }
+    if (seenFixtures.has(entry.fixture)) {
+      failures.push({
+        fixture: entry.fixture,
+        reason: "iOS simulator screenshot matrix artifact included a duplicate fixture.",
+      });
+    }
+    seenFixtures.add(entry.fixture);
+    if (entry.status === "captured" && !entry.sha256) {
+      failures.push({
+        fixture: entry.fixture,
+        reason: "Captured screenshot artifact did not include a PNG SHA-256 hash.",
+      });
+    }
+    if (entry.status === "captured" && entry.nonBlank !== true) {
+      failures.push({
+        fixture: entry.fixture,
+        reason: "Captured screenshot artifact was not marked nonblank.",
+      });
+    }
+  }
+  for (const fixture of artifact.expectedFixtures) {
+    if (!seenFixtures.has(fixture)) {
+      failures.push({
+        fixture,
+        reason: "iOS simulator screenshot matrix artifact omitted an expected fixture.",
+      });
+    }
+  }
+  if (!artifact.allImagesHaveHashes) {
+    failures.push({
+      reason: "Not every captured screenshot artifact included a PNG SHA-256 hash.",
+    });
+  }
+  if (artifact.requireDistinctImages && !artifact.allImagesDistinct) {
+    failures.push({
+      reason: "Captured screenshot matrix artifact did not contain distinct image hashes.",
+    });
+  }
+  if (!artifact.allImagesNonBlank) {
+    failures.push({
+      reason: "Captured screenshot matrix artifact included a blank image.",
+    });
+  }
+  return failures;
 }
 
 function findDuplicateImageFailures(results) {

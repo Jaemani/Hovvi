@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
+  IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
+  buildScreenshotMatrixArtifact,
+  findScreenshotMatrixArtifactFailures,
   iosSimulatorScreenshotMatrixCheck,
   safeFixtureName,
 } from "../src/ios-simulator-screenshot-matrix.js";
@@ -67,6 +70,27 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
       "/tmp/hovvi-ios-shot-matrix/capped-viewport.png",
     ]
   );
+  assert.equal(
+    result.artifact.schemaVersion,
+    IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION
+  );
+  assert.deepEqual(result.artifact.expectedFixtures, [
+    "browsing",
+    "attached-coding-agent",
+    "failed-attach",
+    "capped-viewport",
+  ]);
+  assert.equal(result.artifact.fixtureCount, 4);
+  assert.equal(result.artifact.capturedFixtureCount, 4);
+  assert.equal(result.artifact.allImagesHaveHashes, true);
+  assert.equal(result.artifact.allImagesDistinct, true);
+  assert.equal(result.artifact.allImagesNonBlank, true);
+  assert.deepEqual(result.artifact.imageSha256ByFixture, {
+    browsing: "hash-browsing",
+    "attached-coding-agent": "hash-attached-coding-agent",
+    "failed-attach": "hash-failed-attach",
+    "capped-viewport": "hash-capped-viewport",
+  });
   assert.deepEqual(
     calls
       .filter((call) => call.args[1] === "launch")
@@ -135,6 +159,96 @@ test("iOS simulator screenshot matrix rejects duplicate fixture images", () => {
     },
   ]);
   assert.match(result.reason, /fixture assertion/);
+});
+
+test("iOS simulator screenshot matrix artifact verifier rejects missing or weak metadata", () => {
+  const artifact = buildScreenshotMatrixArtifact({
+    fixtures: ["browsing", "failed-attach"],
+    results: [
+      {
+        status: "captured",
+        fixture: "browsing",
+        screenshot: "/tmp/browsing.png",
+        image: {
+          byteLength: 4096,
+          sha256: "same-image",
+          width: 1179,
+          height: 2556,
+          pixels: 3013524,
+          uniqueColors: 64,
+          nonBlank: true,
+        },
+      },
+      {
+        status: "captured",
+        fixture: "failed-attach",
+        screenshot: "/tmp/failed-attach.png",
+        image: {
+          byteLength: 4096,
+          sha256: "same-image",
+          width: 1179,
+          height: 2556,
+          pixels: 3013524,
+          uniqueColors: 1,
+          nonBlank: false,
+        },
+      },
+    ],
+  });
+
+  assert.equal(artifact.fixtureCount, 2);
+  assert.equal(artifact.capturedFixtureCount, 2);
+  assert.equal(artifact.uniqueImageCount, 1);
+  assert.equal(artifact.allImagesDistinct, false);
+  assert.equal(artifact.allImagesNonBlank, false);
+  assert.deepEqual(
+    findScreenshotMatrixArtifactFailures(artifact).map((entry) => entry.reason),
+    [
+      "Captured screenshot artifact was not marked nonblank.",
+      "Captured screenshot matrix artifact did not contain distinct image hashes.",
+      "Captured screenshot matrix artifact included a blank image.",
+    ]
+  );
+});
+
+test("iOS simulator screenshot matrix artifact verifier rejects fixture drift", () => {
+  const failures = findScreenshotMatrixArtifactFailures({
+    schemaVersion: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
+    requireDistinctImages: true,
+    expectedFixtures: ["browsing", "failed-attach"],
+    fixtureCount: 2,
+    capturedFixtureCount: 2,
+    screenshots: [
+      {
+        fixture: "browsing",
+        status: "captured",
+        sha256: "hash-browsing",
+        nonBlank: true,
+      },
+      {
+        fixture: "unexpected",
+        status: "captured",
+        sha256: "hash-unexpected",
+        nonBlank: true,
+      },
+    ],
+    imageSha256ByFixture: {
+      browsing: "hash-browsing",
+      unexpected: "hash-unexpected",
+    },
+    allImagesHaveHashes: true,
+    uniqueImageCount: 2,
+    allImagesDistinct: true,
+    allImagesNonBlank: true,
+  });
+
+  assert.deepEqual(
+    failures.map((entry) => entry.reason),
+    [
+      "iOS simulator screenshot matrix artifact included an unexpected fixture.",
+      "iOS simulator screenshot matrix artifact omitted an expected fixture.",
+    ]
+  );
 });
 
 test("iOS simulator screenshot matrix fixture names are stable", () => {
