@@ -6,8 +6,12 @@ export function iosSimulatorInstallCheck({
   bundleCheckFn = (options) => iosSimulatorAppBundleCheck(options),
   runTextFn = runText,
   bootAttempts = 2,
-  bootPolls = 24,
-  bootPollIntervalMs = 5000,
+  bootPolls = 18,
+  bootPollIntervalMs = 2000,
+  bootTimeoutMs = 45000,
+  listTimeoutMs = 10000,
+  shutdownTimeoutMs = 15000,
+  installTimeoutMs = 60000,
 } = {}) {
   const bundle = bundleCheckFn({ keepBundle: true });
   if (bundle.status !== "bundled") {
@@ -40,6 +44,9 @@ export function iosSimulatorInstallCheck({
     attempts: bootAttempts,
     polls: bootPolls,
     pollIntervalMs: bootPollIntervalMs,
+    bootTimeoutMs,
+    listTimeoutMs,
+    shutdownTimeoutMs,
   });
   if (!boot.ok) {
     cleanupBundle(bundle);
@@ -47,19 +54,21 @@ export function iosSimulatorInstallCheck({
       status: "failed",
       reason: boot.reason,
       simulator: bundle.simulator,
-      simctl: boot.text,
+      simctl: describeSimctlResult(boot.result ?? { text: boot.text }),
       bootAttempts: boot.attempts,
     };
   }
 
-  const install = runTextFn("xcrun", ["simctl", "install", udid, appBundle], { timeout: 120000 });
+  const install = runTextFn("xcrun", ["simctl", "install", udid, appBundle], {
+    timeout: installTimeoutMs,
+  });
   cleanupBundle(bundle);
   if (!install.ok) {
     return {
       status: "failed",
       reason: "Could not install HovviMobileApp.app on the selected iOS simulator.",
       simulator: bundle.simulator,
-      simctl: install.text,
+      simctl: describeSimctlResult(install),
     };
   }
 
@@ -73,22 +82,38 @@ function isAlreadyBooted(text) {
   return /already booted|current state.*booted/i.test(text ?? "");
 }
 
-function bootSimulator({ udid, runTextFn, attempts, polls, pollIntervalMs }) {
+function bootSimulator({
+  udid,
+  runTextFn,
+  attempts,
+  polls,
+  pollIntervalMs,
+  bootTimeoutMs,
+  listTimeoutMs,
+  shutdownTimeoutMs,
+}) {
   const maxAttempts = Math.max(1, Number.isFinite(attempts) ? Math.trunc(attempts) : 1);
   let lastBoot;
   let lastStatus;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    lastBoot = runTextFn("xcrun", ["simctl", "boot", udid], { timeout: 120000 });
+    lastBoot = runTextFn("xcrun", ["simctl", "boot", udid], { timeout: bootTimeoutMs });
     if (!lastBoot.ok && isAlreadyBooted(lastBoot.text) === false) {
       return {
         ok: false,
         attempts: attempt,
         reason: "Could not boot the selected iOS simulator.",
         text: lastBoot.text,
+        result: lastBoot,
       };
     }
 
-    lastStatus = waitForBootedSimulator({ udid, runTextFn, polls, pollIntervalMs });
+    lastStatus = waitForBootedSimulator({
+      udid,
+      runTextFn,
+      polls,
+      pollIntervalMs,
+      listTimeoutMs,
+    });
     if (lastStatus.ok) {
       return {
         ok: true,
@@ -98,7 +123,7 @@ function bootSimulator({ udid, runTextFn, attempts, polls, pollIntervalMs }) {
     }
 
     if (attempt < maxAttempts) {
-      runTextFn("xcrun", ["simctl", "shutdown", udid], { timeout: 30000 });
+      runTextFn("xcrun", ["simctl", "shutdown", udid], { timeout: shutdownTimeoutMs });
     }
   }
 
@@ -107,22 +132,27 @@ function bootSimulator({ udid, runTextFn, attempts, polls, pollIntervalMs }) {
     attempts: maxAttempts,
     reason: "Selected iOS simulator did not reach booted state.",
     text: lastStatus?.text ?? lastBoot?.text ?? "",
+    result: lastStatus?.result ?? lastBoot,
   };
 }
 
-function waitForBootedSimulator({ udid, runTextFn, polls, pollIntervalMs }) {
+function waitForBootedSimulator({ udid, runTextFn, polls, pollIntervalMs, listTimeoutMs }) {
   const maxPolls = Math.max(1, Number.isFinite(polls) ? Math.trunc(polls) : 1);
   const intervalMs = Math.max(0, Number.isFinite(pollIntervalMs) ? Math.trunc(pollIntervalMs) : 0);
   let lastText = "";
+  let lastResult;
   for (let poll = 1; poll <= maxPolls; poll += 1) {
-    const status = runTextFn("xcrun", ["simctl", "list", "devices", "--json"], { timeout: 30000 });
+    const status = runTextFn("xcrun", ["simctl", "list", "devices", "--json"], {
+      timeout: listTimeoutMs,
+    });
+    lastResult = status;
     lastText = status.text;
     if (status.ok && simulatorState(status.text, udid) === "Booted") {
       return { ok: true, polls: poll, text: status.text };
     }
     if (poll < maxPolls && intervalMs > 0) sleep(intervalMs);
   }
-  return { ok: false, polls: maxPolls, text: lastText };
+  return { ok: false, polls: maxPolls, text: lastText, result: lastResult };
 }
 
 function simulatorState(text, udid) {
@@ -147,4 +177,14 @@ function cleanupBundle(bundle) {
   if (bundle.bundleRoot) {
     rmSync(bundle.bundleRoot, { recursive: true, force: true });
   }
+}
+
+function describeSimctlResult(result) {
+  const text = result?.text || result?.stderr || result?.stdout || "";
+  if (text) return text;
+  if (result?.error?.code === "ETIMEDOUT") {
+    return `simctl command timed out after ${result.error.timeout ?? "configured"}ms`;
+  }
+  if (result?.error?.message) return result.error.message;
+  return "";
 }

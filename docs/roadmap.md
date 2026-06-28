@@ -299,6 +299,9 @@ Current status:
   It now uses bounded `simctl list devices --json` polling instead of blocking
   `bootstatus -b`, and retries one stalled boot by shutdown/reboot so
   hosted-runner CoreSimulator startup flake remains visible but recoverable.
+  Each `simctl` boot/list/shutdown/install operation also has an internal
+  timeout below the CI step timeout, so Hovvi returns structured diagnostics
+  before GitHub Actions kills a stalled install gate.
 - CI now places explicit timeouts around each simulator gate and the shared
   shell runner uses `SIGKILL` for timed-out child processes, so CoreSimulator
   hangs become bounded failures instead of job-level stalls.

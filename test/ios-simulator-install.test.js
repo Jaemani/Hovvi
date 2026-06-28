@@ -37,6 +37,10 @@ test("iOS simulator install check boots and installs the bundle", () => {
       ["simctl", "install", "SIM-1", "/tmp/HovviMobileApp.app"],
     ]
   );
+  assert.deepEqual(
+    calls.map((call) => call.options?.timeout),
+    [45000, 10000, 60000]
+  );
 });
 
 test("iOS simulator install check tolerates an already booted simulator", () => {
@@ -149,6 +153,35 @@ test("iOS simulator install check reports install failures", () => {
   assert.equal(result.status, "failed");
   assert.match(result.reason, /install/);
   assert.match(result.simctl, /invalid bundle/);
+});
+
+test("iOS simulator install check reports simctl command timeouts", () => {
+  const result = iosSimulatorInstallCheck({
+    bundleCheckFn: () => ({
+      status: "bundled",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+      appBundle: "/tmp/HovviMobileApp.app",
+    }),
+    runTextFn(command, args) {
+      if (args[1] === "list") {
+        return ok(simulatorList("Booted"));
+      }
+      if (args[1] === "install") {
+        return {
+          ok: false,
+          status: null,
+          stdout: "",
+          stderr: "",
+          text: "",
+          error: { code: "ETIMEDOUT", timeout: 60000 },
+        };
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "failed");
+  assert.match(result.simctl, /timed out after 60000ms/);
 });
 
 function ok(text) {
