@@ -48,6 +48,10 @@ test("iOS simulator screenshot check launches, captures, validates, and terminat
       ["simctl", "terminate", "SIM-1", HOVVI_IOS_BUNDLE_ID],
     ]
   );
+  assert.deepEqual(
+    calls.map((call) => call.options?.timeout),
+    [60000, 60000, 15000]
+  );
 });
 
 test("iOS simulator screenshot check reports blank screenshots", () => {
@@ -87,6 +91,34 @@ test("iOS simulator screenshot check reports screenshot command failures", () =>
   assert.equal(result.status, "failed");
   assert.match(result.reason, /screenshot/);
   assert.match(result.simctl, /screenshot failed/);
+});
+
+test("iOS simulator screenshot check reports simctl screenshot timeouts", () => {
+  const result = iosSimulatorScreenshotCheck({
+    waitMs: 0,
+    installCheckFn: () => ({
+      status: "installed",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+    }),
+    tempDirFn: () => "/tmp/hovvi-ios-shot-test",
+    waitFn: () => {},
+    runTextFn(command, args) {
+      if (args[1] === "io") {
+        return {
+          ok: false,
+          status: null,
+          stdout: "",
+          stderr: "",
+          text: "",
+          error: { code: "ETIMEDOUT", timeout: 60000 },
+        };
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "failed");
+  assert.match(result.simctl, /timed out after 60000ms/);
 });
 
 test("iOS simulator screenshot check preserves explicit output path", () => {

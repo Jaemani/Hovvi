@@ -38,6 +38,10 @@ test("iOS simulator launch check launches fixture and terminates app", () => {
       ["simctl", "terminate", "SIM-1", HOVVI_IOS_BUNDLE_ID],
     ]
   );
+  assert.deepEqual(
+    calls.map((call) => call.options?.timeout),
+    [60000, 15000]
+  );
   assert.equal(
     calls[0].options.env[`SIMCTL_CHILD_${HOVVI_IOS_SNAPSHOT_FIXTURE_KEY}`],
     "attached-coding-agent"
@@ -75,6 +79,31 @@ test("iOS simulator launch check reports launch failures", () => {
   assert.equal(result.status, "failed");
   assert.match(result.reason, /launch/);
   assert.match(result.simctl, /failed to launch app/);
+});
+
+test("iOS simulator launch check reports simctl launch timeouts", () => {
+  const result = iosSimulatorLaunchCheck({
+    installCheckFn: () => ({
+      status: "installed",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+    }),
+    runTextFn(command, args) {
+      if (args[1] === "launch") {
+        return {
+          ok: false,
+          status: null,
+          stdout: "",
+          stderr: "",
+          text: "",
+          error: { code: "ETIMEDOUT", timeout: 60000 },
+        };
+      }
+      return ok("");
+    },
+  });
+
+  assert.equal(result.status, "failed");
+  assert.match(result.simctl, /timed out after 60000ms/);
 });
 
 function ok(text) {

@@ -1,5 +1,6 @@
 import { rmSync } from "node:fs";
 import { iosSimulatorAppBundleCheck } from "./ios-simulator-app-bundle.js";
+import { describeSimctlResult } from "./simctl-diagnostics.js";
 import { runText } from "./shell.js";
 
 export function iosSimulatorInstallCheck({
@@ -177,14 +178,4 @@ function cleanupBundle(bundle) {
   if (bundle.bundleRoot) {
     rmSync(bundle.bundleRoot, { recursive: true, force: true });
   }
-}
-
-function describeSimctlResult(result) {
-  const text = result?.text || result?.stderr || result?.stdout || "";
-  if (text) return text;
-  if (result?.error?.code === "ETIMEDOUT") {
-    return `simctl command timed out after ${result.error.timeout ?? "configured"}ms`;
-  }
-  if (result?.error?.message) return result.error.message;
-  return "";
 }

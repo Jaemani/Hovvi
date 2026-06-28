@@ -1,4 +1,5 @@
 import { iosSimulatorInstallCheck } from "./ios-simulator-install.js";
+import { describeSimctlResult } from "./simctl-diagnostics.js";
 import { runText } from "./shell.js";
 
 export const HOVVI_IOS_BUNDLE_ID = "app.hovvi.mobile.alpha";
@@ -8,6 +9,8 @@ export function iosSimulatorLaunchCheck({
   fixture = "attached-coding-agent",
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
+  launchTimeoutMs = 60000,
+  terminateTimeoutMs = 15000,
 } = {}) {
   const install = installCheckFn();
   if (install.status !== "installed") {
@@ -27,7 +30,7 @@ export function iosSimulatorLaunchCheck({
     "xcrun",
     ["simctl", "launch", "--terminate-running-process", udid, HOVVI_IOS_BUNDLE_ID],
     {
-      timeout: 120000,
+      timeout: launchTimeoutMs,
       env: {
         ...process.env,
         [`SIMCTL_CHILD_${HOVVI_IOS_SNAPSHOT_FIXTURE_KEY}`]: fixture,
@@ -38,7 +41,7 @@ export function iosSimulatorLaunchCheck({
   const terminate = runTextFn(
     "xcrun",
     ["simctl", "terminate", udid, HOVVI_IOS_BUNDLE_ID],
-    { timeout: 30000 }
+    { timeout: terminateTimeoutMs }
   );
 
   if (!launch.ok) {
@@ -46,8 +49,8 @@ export function iosSimulatorLaunchCheck({
       status: "failed",
       reason: "Could not launch HovviMobileApp on the selected iOS simulator.",
       simulator: install.simulator,
-      simctl: launch.text,
-      terminate: terminate.text,
+      simctl: describeSimctlResult(launch),
+      terminate: describeSimctlResult(terminate),
     };
   }
 

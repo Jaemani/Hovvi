@@ -307,7 +307,10 @@ Current status:
   hangs become bounded failures instead of job-level stalls.
 - `npm run ios:simulator-launch-check` now installs and launches the temporary
   simulator bundle with the deterministic attached coding-agent fixture, proving
-  CoreSimulator can execute the app before screenshot execution.
+  CoreSimulator can execute the app before screenshot execution. Launch and
+  screenshot capture commands now use internal `simctl` timeouts and explicit
+  timeout diagnostics, so matrix failures identify the stalled operation before
+  the CI step timeout is reached.
 - `npm run ios:simulator-screenshot-check` now launches the deterministic
   attached coding-agent fixture, captures a CoreSimulator PNG screenshot, and
   validates that the image is well-formed and nonblank before later golden

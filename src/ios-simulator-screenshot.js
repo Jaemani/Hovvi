@@ -7,6 +7,7 @@ import {
   HOVVI_IOS_SNAPSHOT_FIXTURE_KEY,
 } from "./ios-simulator-launch.js";
 import { readPngStats } from "./png-image-stats.js";
+import { describeSimctlResult } from "./simctl-diagnostics.js";
 import { runText } from "./shell.js";
 
 export function iosSimulatorScreenshotCheck({
@@ -14,6 +15,9 @@ export function iosSimulatorScreenshotCheck({
   keepScreenshot = false,
   outputPath,
   waitMs = 1000,
+  launchTimeoutMs = 60000,
+  screenshotTimeoutMs = 60000,
+  terminateTimeoutMs = 15000,
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
   readPngStatsFn = readPngStats,
@@ -40,6 +44,9 @@ export function iosSimulatorScreenshotCheck({
     keepScreenshot,
     outputPath,
     waitMs,
+    launchTimeoutMs,
+    screenshotTimeoutMs,
+    terminateTimeoutMs,
     runTextFn,
     readPngStatsFn,
     tempDirFn,
@@ -53,6 +60,9 @@ export function captureInstalledIosSimulatorScreenshot({
   keepScreenshot = false,
   outputPath,
   waitMs = 1000,
+  launchTimeoutMs = 60000,
+  screenshotTimeoutMs = 60000,
+  terminateTimeoutMs = 15000,
   runTextFn = runText,
   readPngStatsFn = readPngStats,
   tempDirFn = () => mkdtempSync(path.join(tmpdir(), "hovvi-ios-shot-")),
@@ -71,7 +81,7 @@ export function captureInstalledIosSimulatorScreenshot({
     "xcrun",
     ["simctl", "launch", "--terminate-running-process", udid, HOVVI_IOS_BUNDLE_ID],
     {
-      timeout: 120000,
+      timeout: launchTimeoutMs,
       env: {
         ...process.env,
         [`SIMCTL_CHILD_${HOVVI_IOS_SNAPSHOT_FIXTURE_KEY}`]: fixture,
@@ -79,12 +89,12 @@ export function captureInstalledIosSimulatorScreenshot({
     }
   );
   if (!launch.ok) {
-    terminateApp(runTextFn, udid);
+    terminateApp(runTextFn, udid, terminateTimeoutMs);
     return {
       status: "failed",
       reason: "Could not launch HovviMobileApp before simulator screenshot.",
       simulator: install.simulator,
-      simctl: launch.text,
+      simctl: describeSimctlResult(launch),
     };
   }
 
@@ -99,14 +109,14 @@ export function captureInstalledIosSimulatorScreenshot({
     const screenshot = runTextFn(
       "xcrun",
       ["simctl", "io", udid, "screenshot", screenshotPath],
-      { timeout: 120000 }
+      { timeout: screenshotTimeoutMs }
     );
     if (!screenshot.ok) {
       return {
         status: "failed",
         reason: "Could not capture an iOS simulator screenshot.",
         simulator: install.simulator,
-        simctl: screenshot.text,
+        simctl: describeSimctlResult(screenshot),
       };
     }
 
@@ -137,15 +147,17 @@ export function captureInstalledIosSimulatorScreenshot({
       screenshot: preserveScreenshot ? screenshotPath : undefined,
     };
   } finally {
-    terminateApp(runTextFn, udid);
+    terminateApp(runTextFn, udid, terminateTimeoutMs);
     if (!preserveScreenshot) {
       rmSync(screenshotRoot, { recursive: true, force: true });
     }
   }
 }
 
-function terminateApp(runTextFn, udid) {
-  runTextFn("xcrun", ["simctl", "terminate", udid, HOVVI_IOS_BUNDLE_ID], { timeout: 30000 });
+function terminateApp(runTextFn, udid, terminateTimeoutMs) {
+  runTextFn("xcrun", ["simctl", "terminate", udid, HOVVI_IOS_BUNDLE_ID], {
+    timeout: terminateTimeoutMs,
+  });
 }
 
 function sleepSync(ms) {
