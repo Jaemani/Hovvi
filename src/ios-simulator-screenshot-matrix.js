@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -175,6 +176,11 @@ export function buildScreenshotMatrixArtifact({
     schemaVersion: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
     requireDistinctImages,
     minimums: { ...minimums },
+    fixtureContract: {
+      schemaVersion: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.schemaVersion,
+      sha256: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.sha256,
+      fixtureCount: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.length,
+    },
     expectedFixtures: [...fixtures],
     fixtureExpectations: expectedFixtureExpectations,
     fixtureCount: fixtures.length,
@@ -203,6 +209,27 @@ export function findScreenshotMatrixArtifactFailures(artifact) {
       reason: "iOS simulator screenshot matrix artifact schema version is unsupported.",
       expected: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
       actual: artifact.schemaVersion,
+    });
+  }
+  if (artifact.fixtureContract?.schemaVersion !== IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.schemaVersion) {
+    failures.push({
+      reason: "iOS simulator screenshot matrix artifact fixture contract schema version drifted.",
+      expected: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.schemaVersion,
+      actual: artifact.fixtureContract?.schemaVersion,
+    });
+  }
+  if (artifact.fixtureContract?.sha256 !== IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.sha256) {
+    failures.push({
+      reason: "iOS simulator screenshot matrix artifact fixture contract hash drifted.",
+      expected: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.sha256,
+      actual: artifact.fixtureContract?.sha256,
+    });
+  }
+  if (artifact.fixtureContract?.fixtureCount !== IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.length) {
+    failures.push({
+      reason: "iOS simulator screenshot matrix artifact fixture contract count drifted.",
+      expected: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.length,
+      actual: artifact.fixtureContract?.fixtureCount,
     });
   }
   if (artifact.capturedFixtureCount !== artifact.fixtureCount) {
@@ -405,12 +432,14 @@ function readFixtureContract() {
     path.dirname(fileURLToPath(import.meta.url)),
     "../docs/ios-screenshot-fixtures.json"
   );
-  const contract = JSON.parse(readFileSync(contractPath, "utf8"));
+  const text = readFileSync(contractPath, "utf8");
+  const contract = JSON.parse(text);
   if (!Array.isArray(contract.fixtures) || contract.fixtures.length === 0) {
     throw new Error("iOS screenshot fixture contract must define fixtures.");
   }
   return {
     schemaVersion: contract.schemaVersion,
+    sha256: createHash("sha256").update(text).digest("hex"),
     fixtures: contract.fixtures.map((fixture) => ({
       name: String(fixture.name),
       role: String(fixture.role),

@@ -147,6 +147,7 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
   });
   assert.equal(result.artifact.fixtureCount, 4);
   assert.equal(result.artifact.capturedFixtureCount, 4);
+  assert.deepEqual(result.artifact.fixtureContract, currentFixtureContractMetadata());
   assert.deepEqual(
     result.artifact.minimums,
     DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS
@@ -396,6 +397,7 @@ test("iOS simulator screenshot matrix artifact verifier rejects fixture drift", 
   const failures = findScreenshotMatrixArtifactFailures({
     schemaVersion: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
     requireDistinctImages: true,
+    fixtureContract: currentFixtureContractMetadata(),
     expectedFixtures: ["browsing", "failed-attach"],
     fixtureExpectations: {
       browsing: DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS.browsing,
@@ -479,6 +481,62 @@ test("iOS simulator screenshot matrix artifact verifier rejects missing semantic
   );
 });
 
+test("iOS simulator screenshot matrix artifact verifier rejects fixture contract drift", () => {
+  const artifact = buildScreenshotMatrixArtifact({
+    fixtures: ["browsing"],
+    results: [
+      {
+        status: "captured",
+        fixture: "browsing",
+        screenshot: "/tmp/browsing.png",
+        image: {
+          byteLength: 4096,
+          sha256: "hash-browsing",
+          width: 1179,
+          height: 2556,
+          pixels: 3013524,
+          differentPixels: 4096,
+          uniqueColors: 64,
+          nonBlank: true,
+        },
+      },
+    ],
+  });
+  artifact.fixtureContract = {
+    schemaVersion: 0,
+    sha256: "stale-contract",
+    fixtureCount: 99,
+  };
+
+  assert.deepEqual(
+    findScreenshotMatrixArtifactFailures(artifact)
+      .filter((entry) => entry.reason.includes("fixture contract"))
+      .map((entry) => ({
+        reason: entry.reason,
+        expected: entry.expected,
+        actual: entry.actual,
+      })),
+    [
+      {
+        reason:
+          "iOS simulator screenshot matrix artifact fixture contract schema version drifted.",
+        expected: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.schemaVersion,
+        actual: 0,
+      },
+      {
+        reason: "iOS simulator screenshot matrix artifact fixture contract hash drifted.",
+        expected: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.sha256,
+        actual: "stale-contract",
+      },
+      {
+        reason: "iOS simulator screenshot matrix artifact fixture contract count drifted.",
+        expected: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.length,
+        actual: 99,
+      },
+    ]
+  );
+});
+
 test("iOS simulator screenshot matrix artifact verifier rejects semantic expectation drift", () => {
   const artifact = buildScreenshotMatrixArtifact({
     fixtures: ["browsing"],
@@ -542,5 +600,13 @@ function ok(text) {
     stdout: text,
     stderr: "",
     text,
+  };
+}
+
+function currentFixtureContractMetadata() {
+  return {
+    schemaVersion: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.schemaVersion,
+    sha256: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.sha256,
+    fixtureCount: IOS_SIMULATOR_SCREENSHOT_FIXTURE_CONTRACT.fixtures.length,
   };
 }

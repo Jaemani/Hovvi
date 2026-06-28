@@ -352,6 +352,10 @@ Current status:
   to verify each deterministic preview snapshot exposes the required semantic
   signals before simulator screenshots can be treated as meaningful attach-shell
   evidence.
+- Simulator screenshot matrix artifacts now include the fixture contract schema
+  version, SHA-256, and fixture count, and the verifier rejects stale contract
+  metadata so CI screenshot evidence can be traced back to the exact semantic
+  fixture contract that produced it.
 - CI runs the screenshot matrix with `--require-captured`, so a missing
   CoreSimulator screenshot artifact fails CI instead of silently passing as a
   skipped local smoke.
