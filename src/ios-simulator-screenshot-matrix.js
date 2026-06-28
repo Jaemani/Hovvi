@@ -11,7 +11,30 @@ export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES = [
   "capped-viewport",
 ];
 
-export const IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION = 1;
+export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS = {
+  browsing: {
+    role: "device-session-browser",
+    state: "browsing",
+    requiredSignals: ["device-list", "session-list"],
+  },
+  "attached-coding-agent": {
+    role: "relay-backed-terminal",
+    state: "attached",
+    requiredSignals: ["coding-agent-session", "terminal-live-output"],
+  },
+  "failed-attach": {
+    role: "recoverable-error",
+    state: "failed",
+    requiredSignals: ["recovery-action", "redacted-error"],
+  },
+  "capped-viewport": {
+    role: "mobile-terminal-viewport",
+    state: "attached",
+    requiredSignals: ["terminal-live-output", "viewport-cap"],
+  },
+};
+
+export const IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION = 2;
 
 export const DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS = {
   width: 300,
@@ -27,6 +50,7 @@ export function iosSimulatorScreenshotMatrixCheck({
   outputDir,
   requireDistinctImages = true,
   artifactMinimums = DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
+  fixtureExpectations = DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS,
   waitMs = 1000,
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
@@ -60,6 +84,7 @@ export function iosSimulatorScreenshotMatrixCheck({
     results,
     requireDistinctImages,
     minimums: artifactMinimums,
+    fixtureExpectations,
   });
   const artifactFailures =
     failures.length === 0 && duplicateImageFailures.length === 0
@@ -97,10 +122,15 @@ export function buildScreenshotMatrixArtifact({
   results,
   requireDistinctImages = true,
   minimums = DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
+  fixtureExpectations = DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS,
 }) {
+  const expectedFixtureExpectations = Object.fromEntries(
+    fixtures.map((fixture) => [fixture, normalizeFixtureExpectation(fixtureExpectations[fixture])])
+  );
   const screenshots = results.map((result) => ({
     fixture: result.fixture,
     status: result.status,
+    expectation: normalizeFixtureExpectation(fixtureExpectations[result.fixture]),
     screenshot: result.screenshot,
     sha256: result.image?.sha256,
     byteLength: result.image?.byteLength,
@@ -123,6 +153,7 @@ export function buildScreenshotMatrixArtifact({
     requireDistinctImages,
     minimums: { ...minimums },
     expectedFixtures: [...fixtures],
+    fixtureExpectations: expectedFixtureExpectations,
     fixtureCount: fixtures.length,
     capturedFixtureCount: capturedScreenshots.length,
     screenshots,
@@ -135,6 +166,9 @@ export function buildScreenshotMatrixArtifact({
     allImagesNonBlank: capturedScreenshots.every((entry) => entry.nonBlank === true),
     allImagesMeetMinimums: capturedScreenshots.every((entry) =>
       screenshotMeetsMinimums(entry, minimums)
+    ),
+    allFixturesHaveExpectations: fixtures.every((fixture) =>
+      fixtureExpectationComplete(expectedFixtureExpectations[fixture])
     ),
   };
 }
@@ -156,6 +190,7 @@ export function findScreenshotMatrixArtifactFailures(artifact) {
     });
   }
   const seenFixtures = new Set();
+  const expectedFixtureExpectations = artifact.fixtureExpectations ?? {};
   for (const entry of artifact.screenshots) {
     if (!artifact.expectedFixtures.includes(entry.fixture)) {
       failures.push({
@@ -170,6 +205,20 @@ export function findScreenshotMatrixArtifactFailures(artifact) {
       });
     }
     seenFixtures.add(entry.fixture);
+    const expectedExpectation = expectedFixtureExpectations[entry.fixture];
+    if (!fixtureExpectationComplete(expectedExpectation)) {
+      failures.push({
+        fixture: entry.fixture,
+        reason: "iOS simulator screenshot matrix fixture did not define semantic expectations.",
+      });
+    } else if (!fixtureExpectationsEqual(entry.expectation, expectedExpectation)) {
+      failures.push({
+        fixture: entry.fixture,
+        expected: expectedExpectation,
+        actual: entry.expectation,
+        reason: "iOS simulator screenshot matrix fixture semantic expectation drifted.",
+      });
+    }
     if (entry.status === "captured" && !entry.sha256) {
       failures.push({
         fixture: entry.fixture,
@@ -195,6 +244,18 @@ export function findScreenshotMatrixArtifactFailures(artifact) {
         reason: "iOS simulator screenshot matrix artifact omitted an expected fixture.",
       });
     }
+    if (!fixtureExpectationComplete(expectedFixtureExpectations[fixture])) {
+      failures.push({
+        fixture,
+        reason: "iOS simulator screenshot matrix expected fixture omitted semantic expectations.",
+      });
+    }
+  }
+  if (!artifact.allFixturesHaveExpectations) {
+    failures.push({
+      reason:
+        "iOS simulator screenshot matrix artifact did not define semantic expectations for every fixture.",
+    });
   }
   if (!artifact.allImagesHaveHashes) {
     failures.push({
@@ -241,6 +302,45 @@ function findScreenshotMinimumFailures(entry, minimums) {
 
 function screenshotMeetsMinimums(entry, minimums) {
   return findScreenshotMinimumFailures(entry, minimums).length === 0;
+}
+
+function normalizeFixtureExpectation(expectation) {
+  if (!expectation || typeof expectation !== "object") {
+    return undefined;
+  }
+  const requiredSignals = Array.isArray(expectation.requiredSignals)
+    ? [...expectation.requiredSignals].map((signal) => String(signal)).sort()
+    : [];
+  return {
+    role: typeof expectation.role === "string" ? expectation.role : undefined,
+    state: typeof expectation.state === "string" ? expectation.state : undefined,
+    requiredSignals,
+  };
+}
+
+function fixtureExpectationComplete(expectation) {
+  return (
+    expectation &&
+    typeof expectation.role === "string" &&
+    expectation.role.length > 0 &&
+    typeof expectation.state === "string" &&
+    expectation.state.length > 0 &&
+    Array.isArray(expectation.requiredSignals) &&
+    expectation.requiredSignals.length > 0 &&
+    expectation.requiredSignals.every((signal) => typeof signal === "string" && signal.length > 0)
+  );
+}
+
+function fixtureExpectationsEqual(actual, expected) {
+  if (!fixtureExpectationComplete(actual) || !fixtureExpectationComplete(expected)) {
+    return false;
+  }
+  return (
+    actual.role === expected.role &&
+    actual.state === expected.state &&
+    actual.requiredSignals.length === expected.requiredSignals.length &&
+    actual.requiredSignals.every((signal, index) => signal === expected.requiredSignals[index])
+  );
 }
 
 function pixelRatio(count, total) {

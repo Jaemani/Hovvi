@@ -329,6 +329,10 @@ Current status:
   summary with expected fixture coverage, per-fixture PNG hashes, nonblank
   status, minimum image quality bounds, and distinct-image invariants so CI
   artifacts can be audited without re-running CoreSimulator.
+- The simulator screenshot matrix artifact is now schema version 2 and records
+  semantic fixture expectations (`role`, `state`, and `requiredSignals`) so CI
+  artifacts show which mobile attach state each deterministic screenshot is
+  intended to prove.
 - CI runs the screenshot matrix with `--require-captured`, so a missing
   CoreSimulator screenshot artifact fails CI instead of silently passing as a
   skipped local smoke.

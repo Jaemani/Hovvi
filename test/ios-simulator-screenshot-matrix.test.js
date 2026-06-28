@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_IOS_SIMULATOR_SCREENSHOT_ARTIFACT_MINIMUMS,
+  DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS,
   DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURES,
   IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
   buildScreenshotMatrixArtifact,
@@ -82,6 +83,28 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
     "failed-attach",
     "capped-viewport",
   ]);
+  assert.deepEqual(result.artifact.fixtureExpectations, {
+    browsing: {
+      role: "device-session-browser",
+      state: "browsing",
+      requiredSignals: ["device-list", "session-list"],
+    },
+    "attached-coding-agent": {
+      role: "relay-backed-terminal",
+      state: "attached",
+      requiredSignals: ["coding-agent-session", "terminal-live-output"],
+    },
+    "failed-attach": {
+      role: "recoverable-error",
+      state: "failed",
+      requiredSignals: ["recovery-action", "redacted-error"],
+    },
+    "capped-viewport": {
+      role: "mobile-terminal-viewport",
+      state: "attached",
+      requiredSignals: ["terminal-live-output", "viewport-cap"],
+    },
+  });
   assert.equal(result.artifact.fixtureCount, 4);
   assert.equal(result.artifact.capturedFixtureCount, 4);
   assert.deepEqual(
@@ -92,6 +115,16 @@ test("iOS simulator screenshot matrix reuses install and captures all fixtures",
   assert.equal(result.artifact.allImagesDistinct, true);
   assert.equal(result.artifact.allImagesNonBlank, true);
   assert.equal(result.artifact.allImagesMeetMinimums, true);
+  assert.equal(result.artifact.allFixturesHaveExpectations, true);
+  assert.deepEqual(
+    result.artifact.screenshots.map((entry) => [entry.fixture, entry.expectation.role]),
+    [
+      ["browsing", "device-session-browser"],
+      ["attached-coding-agent", "relay-backed-terminal"],
+      ["failed-attach", "recoverable-error"],
+      ["capped-viewport", "mobile-terminal-viewport"],
+    ]
+  );
   assert.equal(result.artifact.screenshots[0].differentPixels, 4096);
   assert.equal(
     result.artifact.screenshots[0].differentPixelRatio,
@@ -324,18 +357,28 @@ test("iOS simulator screenshot matrix artifact verifier rejects fixture drift", 
     schemaVersion: IOS_SIMULATOR_SCREENSHOT_MATRIX_ARTIFACT_SCHEMA_VERSION,
     requireDistinctImages: true,
     expectedFixtures: ["browsing", "failed-attach"],
+    fixtureExpectations: {
+      browsing: DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS.browsing,
+      "failed-attach": DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS["failed-attach"],
+    },
     fixtureCount: 2,
     capturedFixtureCount: 2,
     screenshots: [
       {
         fixture: "browsing",
         status: "captured",
+        expectation: DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS.browsing,
         sha256: "hash-browsing",
         nonBlank: true,
       },
       {
         fixture: "unexpected",
         status: "captured",
+        expectation: {
+          role: "unexpected",
+          state: "captured",
+          requiredSignals: ["unexpected"],
+        },
         sha256: "hash-unexpected",
         nonBlank: true,
       },
@@ -349,13 +392,93 @@ test("iOS simulator screenshot matrix artifact verifier rejects fixture drift", 
     allImagesDistinct: true,
     allImagesNonBlank: true,
     allImagesMeetMinimums: true,
+    allFixturesHaveExpectations: true,
   });
 
   assert.deepEqual(
     failures.map((entry) => entry.reason),
     [
       "iOS simulator screenshot matrix artifact included an unexpected fixture.",
+      "iOS simulator screenshot matrix fixture did not define semantic expectations.",
       "iOS simulator screenshot matrix artifact omitted an expected fixture.",
+    ]
+  );
+});
+
+test("iOS simulator screenshot matrix artifact verifier rejects missing semantic expectations", () => {
+  const artifact = buildScreenshotMatrixArtifact({
+    fixtures: ["browsing"],
+    fixtureExpectations: {},
+    results: [
+      {
+        status: "captured",
+        fixture: "browsing",
+        screenshot: "/tmp/browsing.png",
+        image: {
+          byteLength: 4096,
+          sha256: "hash-browsing",
+          width: 1179,
+          height: 2556,
+          pixels: 3013524,
+          differentPixels: 4096,
+          uniqueColors: 64,
+          nonBlank: true,
+        },
+      },
+    ],
+  });
+
+  assert.equal(artifact.allFixturesHaveExpectations, false);
+  assert.deepEqual(
+    findScreenshotMatrixArtifactFailures(artifact).map((entry) => entry.reason),
+    [
+      "iOS simulator screenshot matrix fixture did not define semantic expectations.",
+      "iOS simulator screenshot matrix expected fixture omitted semantic expectations.",
+      "iOS simulator screenshot matrix artifact did not define semantic expectations for every fixture.",
+    ]
+  );
+});
+
+test("iOS simulator screenshot matrix artifact verifier rejects semantic expectation drift", () => {
+  const artifact = buildScreenshotMatrixArtifact({
+    fixtures: ["browsing"],
+    fixtureExpectations: DEFAULT_IOS_SIMULATOR_SCREENSHOT_FIXTURE_EXPECTATIONS,
+    results: [
+      {
+        status: "captured",
+        fixture: "browsing",
+        screenshot: "/tmp/browsing.png",
+        image: {
+          byteLength: 4096,
+          sha256: "hash-browsing",
+          width: 1179,
+          height: 2556,
+          pixels: 3013524,
+          differentPixels: 4096,
+          uniqueColors: 64,
+          nonBlank: true,
+        },
+      },
+    ],
+  });
+  artifact.screenshots[0].expectation = {
+    role: "device-session-browser",
+    state: "attached",
+    requiredSignals: ["device-list", "session-list"],
+  };
+
+  assert.deepEqual(
+    findScreenshotMatrixArtifactFailures(artifact)
+      .filter((entry) => entry.reason.includes("semantic expectation"))
+      .map((entry) => ({
+        fixture: entry.fixture,
+        reason: entry.reason,
+      })),
+    [
+      {
+        fixture: "browsing",
+        reason: "iOS simulator screenshot matrix fixture semantic expectation drifted.",
+      },
     ]
   );
 });
