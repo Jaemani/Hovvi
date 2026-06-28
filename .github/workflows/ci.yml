@@ -36,7 +36,13 @@ jobs:
       - run: npm run ios:simulator-app-bundle-check
       - run: npm run ios:simulator-install-check
       - run: npm run ios:simulator-launch-check
-      - run: npm run ios:simulator-screenshot-check
+      - run: node scripts/ios-simulator-screenshot-check.js --output=.artifacts/ios/hovvi-ios-screenshot.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hovvi-ios-simulator-screenshot
+          path: .artifacts/ios/hovvi-ios-screenshot.png
+          if-no-files-found: ignore
       - run: swift build
         working-directory: apps/ios
       - run: swift build --product HovviMobileApp

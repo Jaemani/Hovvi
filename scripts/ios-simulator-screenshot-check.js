@@ -4,8 +4,10 @@ import { iosSimulatorScreenshotCheck } from "../src/ios-simulator-screenshot.js"
 const args = new Set(process.argv.slice(2));
 const fixtureArg = process.argv.find((arg) => arg.startsWith("--fixture="));
 const fixture = fixtureArg ? fixtureArg.slice("--fixture=".length) : undefined;
+const outputArg = process.argv.find((arg) => arg.startsWith("--output="));
+const outputPath = outputArg ? outputArg.slice("--output=".length) : undefined;
 const keepScreenshot = args.has("--keep-screenshot");
-const result = iosSimulatorScreenshotCheck({ fixture, keepScreenshot });
+const result = iosSimulatorScreenshotCheck({ fixture, keepScreenshot, outputPath });
 
 if (args.has("--json")) {
   console.log(JSON.stringify(result, null, 2));

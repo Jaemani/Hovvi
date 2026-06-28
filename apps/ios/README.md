@@ -188,7 +188,9 @@ automation asserts rendered pixels.
 `npm run ios:simulator-screenshot-check` launches the deterministic fixture,
 captures a CoreSimulator PNG screenshot, parses the PNG image data, and fails
 if the captured screen is blank or malformed. This is a simulator smoke gate,
-not a golden visual review.
+not a golden visual review. Use
+`node scripts/ios-simulator-screenshot-check.js --output=<path>` to keep the
+captured PNG for review.
 
 `CAbiMoshCoreEngine` imports `hovvi_mosh_core.h` through the `HovviMoshCoreC`
 SwiftPM target. The current package links only the unavailable MIT scaffold; the

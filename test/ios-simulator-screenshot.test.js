@@ -89,6 +89,23 @@ test("iOS simulator screenshot check reports screenshot command failures", () =>
   assert.match(result.simctl, /screenshot failed/);
 });
 
+test("iOS simulator screenshot check preserves explicit output path", () => {
+  const result = iosSimulatorScreenshotCheck({
+    outputPath: "/tmp/hovvi-ios-shot-output/custom.png",
+    waitMs: 0,
+    installCheckFn: () => ({
+      status: "installed",
+      simulator: { name: "iPhone 17", udid: "SIM-1" },
+    }),
+    waitFn: () => {},
+    readPngStatsFn: () => ({ width: 2, height: 2, pixels: 4, uniqueColors: 2, nonBlank: true }),
+    runTextFn: () => ok(""),
+  });
+
+  assert.equal(result.status, "captured");
+  assert.equal(result.screenshot, "/tmp/hovvi-ios-shot-output/custom.png");
+});
+
 function ok(text) {
   return {
     ok: true,

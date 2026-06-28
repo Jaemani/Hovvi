@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { iosSimulatorInstallCheck } from "./ios-simulator-install.js";
@@ -12,6 +12,7 @@ import { runText } from "./shell.js";
 export function iosSimulatorScreenshotCheck({
   fixture = "attached-coding-agent",
   keepScreenshot = false,
+  outputPath,
   waitMs = 1000,
   installCheckFn = iosSimulatorInstallCheck,
   runTextFn = runText,
@@ -54,8 +55,12 @@ export function iosSimulatorScreenshotCheck({
     };
   }
 
-  const screenshotRoot = tempDirFn();
-  const screenshotPath = path.join(screenshotRoot, "hovvi-ios-screenshot.png");
+  const screenshotRoot = outputPath ? path.dirname(path.resolve(outputPath)) : tempDirFn();
+  const screenshotPath = outputPath
+    ? path.resolve(outputPath)
+    : path.join(screenshotRoot, "hovvi-ios-screenshot.png");
+  const preserveScreenshot = keepScreenshot || Boolean(outputPath);
+  mkdirSync(screenshotRoot, { recursive: true });
   try {
     waitFn(waitMs);
     const screenshot = runTextFn(
@@ -78,7 +83,7 @@ export function iosSimulatorScreenshotCheck({
         status: "failed",
         reason: "iOS simulator screenshot was blank.",
         simulator: install.simulator,
-        screenshot: keepScreenshot ? screenshotPath : undefined,
+        screenshot: preserveScreenshot ? screenshotPath : undefined,
         image: stats,
       };
     }
@@ -88,7 +93,7 @@ export function iosSimulatorScreenshotCheck({
       simulator: install.simulator,
       bundleId: HOVVI_IOS_BUNDLE_ID,
       fixture,
-      screenshot: keepScreenshot ? screenshotPath : undefined,
+      screenshot: preserveScreenshot ? screenshotPath : undefined,
       image: stats,
     };
   } catch (error) {
@@ -96,11 +101,11 @@ export function iosSimulatorScreenshotCheck({
       status: "failed",
       reason: `Could not validate iOS simulator screenshot: ${error.message}`,
       simulator: install.simulator,
-      screenshot: keepScreenshot ? screenshotPath : undefined,
+      screenshot: preserveScreenshot ? screenshotPath : undefined,
     };
   } finally {
     terminateApp(runTextFn, udid);
-    if (!keepScreenshot) {
+    if (!preserveScreenshot) {
       rmSync(screenshotRoot, { recursive: true, force: true });
     }
   }

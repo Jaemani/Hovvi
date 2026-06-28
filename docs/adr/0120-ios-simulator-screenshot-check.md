@@ -27,7 +27,9 @@ The check:
   in Node without adding an npm dependency;
 - fails if the PNG is malformed, empty, unsupported, or single-color blank;
 - terminates the app and removes temporary screenshots unless
-  `--keep-screenshot` is used.
+  `--keep-screenshot` or `--output=<path>` is used.
+- uploads the CI screenshot artifact when the GitHub Actions simulator gate
+  produces one.
 
 This is a simulator smoke gate, not a signed app distribution step and not a
 golden visual approval process.
