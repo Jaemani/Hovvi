@@ -54,6 +54,10 @@ prepares the mosh attach manifest, starts `MoshAttachSession`, applies live
 terminal output into `TerminalScreen`, and exposes redacted user-facing error
 state for SwiftUI screens. Live mosh bytes are not appended to tmux-native
 scrollback history.
+`refreshScrollback(lines:timeout:)` can replace the selected session's
+tmux-native history while preserving the active live terminal screen and mosh
+attach session. Refresh failures surface as recoverable redacted errors without
+dropping the attached phase.
 Failures carry a recovery action so the app can distinguish relay reconnect
 from session reattach, while preserving the selected Mac/session and last
 terminal state after an interrupted attach.
@@ -61,7 +65,7 @@ terminal state after an interrupted attach.
 `HovviAttachShellView`, `DeviceSidebar`, `TerminalSurfaceView`, and related row
 views are presentational SwiftUI surfaces. They do not own relay or mosh state;
 they render `AttachShellSnapshot` and emit closures for connect, select, attach,
-input, resize, and retry actions.
+input, resize, retry, and scrollback refresh actions.
 
 `TerminalInputCommand` encodes text, paste-sized text, Return, Tab, Escape,
 Ctrl-C, backspace, ANSI arrow keys, Home, End, Page Up, Page Down, and forward

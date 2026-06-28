@@ -236,6 +236,9 @@ Current status:
   output. The terminal surface composes scrollback rows above live screen rows
   with collision-free IDs instead of appending live escape streams into
   scrollback history.
+- Swift mobile can refresh tmux-native scrollback for the selected session while
+  attached, replacing only the scrollback buffer and preserving the live mosh
+  terminal screen, attach session, and recoverable error state.
 - Swift mobile terminal surface projection is now public and smoke-tested, so
   scrollback/live row order, row sources, and stable render IDs are validated
   before simulator/device screenshot coverage is added.

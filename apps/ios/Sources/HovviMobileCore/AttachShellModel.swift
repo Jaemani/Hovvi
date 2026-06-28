@@ -336,6 +336,56 @@ public actor AttachShellModel {
     }
 
     @discardableResult
+    public func refreshScrollback(lines: Int = 2000, timeout: Duration = .seconds(5)) async -> AttachShellSnapshot {
+        guard let deviceId = snapshot.selectedDeviceId else {
+            reportError(
+                title: "Choose a Mac",
+                message: "Select a connected Mac before refreshing scrollback.",
+                recoveryAction: .connectRelay
+            )
+            return snapshot
+        }
+        guard let sessionName = snapshot.selectedSessionName else {
+            reportError(
+                title: "Choose a session",
+                message: "Select a session before refreshing scrollback.",
+                recoveryAction: .connectRelay
+            )
+            return snapshot
+        }
+        do {
+            let result = try await relay.fetchScrollbackResult(
+                deviceId: deviceId,
+                sessionName: sessionName,
+                lines: lines,
+                timeout: timeout
+            )
+            var buffer = snapshot.scrollback ?? ScrollbackBuffer(sessionName: result.sessionName)
+            buffer.replace(with: result)
+            snapshot = AttachShellSnapshot(
+                phase: snapshot.phase,
+                devices: snapshot.devices,
+                selectedDeviceId: snapshot.selectedDeviceId,
+                selectedSessionName: snapshot.selectedSessionName,
+                manifest: snapshot.manifest,
+                scrollback: buffer,
+                terminalScreen: snapshot.terminalScreen,
+                terminalOutput: snapshot.terminalOutput,
+                terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
+                nextTickAfterMs: snapshot.nextTickAfterMs,
+                cleanShutdown: snapshot.cleanShutdown
+            )
+        } catch {
+            reportError(
+                title: "Could not refresh scrollback",
+                error: error,
+                recoveryAction: snapshot.phase == .attached ? .reattachSession : .connectRelay
+            )
+        }
+        return snapshot
+    }
+
+    @discardableResult
     public func tick(nowMs: UInt64) async -> AttachShellSnapshot {
         guard let attachSession else {
             return snapshot
@@ -436,6 +486,28 @@ public actor AttachShellModel {
             scrollback: snapshot.scrollback,
             terminalScreen: snapshot.terminalScreen,
             terminalOutput: snapshot.terminalOutput,
+            nextTickAfterMs: snapshot.nextTickAfterMs,
+            cleanShutdown: snapshot.cleanShutdown,
+            error: AttachShellError(title: title, message: message),
+            recoveryAction: recoveryAction
+        )
+    }
+
+    private func reportError(title: String, error: Error, recoveryAction: AttachShellRecoveryAction?) {
+        reportError(title: title, message: String(describing: error), recoveryAction: recoveryAction)
+    }
+
+    private func reportError(title: String, message: String, recoveryAction: AttachShellRecoveryAction?) {
+        snapshot = AttachShellSnapshot(
+            phase: snapshot.phase,
+            devices: snapshot.devices,
+            selectedDeviceId: snapshot.selectedDeviceId,
+            selectedSessionName: snapshot.selectedSessionName,
+            manifest: snapshot.manifest,
+            scrollback: snapshot.scrollback,
+            terminalScreen: snapshot.terminalScreen,
+            terminalOutput: snapshot.terminalOutput,
+            terminalViewportLineLimit: snapshot.terminalViewportLineLimit,
             nextTickAfterMs: snapshot.nextTickAfterMs,
             cleanShutdown: snapshot.cleanShutdown,
             error: AttachShellError(title: title, message: message),

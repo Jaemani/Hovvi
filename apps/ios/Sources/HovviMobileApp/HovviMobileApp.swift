@@ -18,7 +18,8 @@ struct HovviMobileApp: App {
                 onAttach: { controller.attach() },
                 onRetry: { controller.retry() },
                 onSendInput: { controller.sendInput($0) },
-                onResize: { controller.resize(to: $0) }
+                onResize: { controller.resize(to: $0) },
+                onRefreshScrollback: { controller.refreshScrollback() }
             )
             .task {
                 controller.connect()
@@ -124,6 +125,13 @@ final class HovviAppController: ObservableObject {
             if snapshot.phase == .attached {
                 startTickLoop()
             }
+        }
+    }
+
+    func refreshScrollback() {
+        guard fixtureSnapshot == nil else { return }
+        Task {
+            snapshot = await model.refreshScrollback()
         }
     }
 

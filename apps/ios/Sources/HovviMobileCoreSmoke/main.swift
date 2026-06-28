@@ -994,17 +994,45 @@ shellSnapshot = await shell.sendInput(Data("hi".utf8))
 try require((shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before"], "attach shell should keep live output out of tmux scrollback")
 try require(shellSnapshot.terminalScreen?.visibleLines.first?.text == "local", "attach shell should update live terminal screen")
 try require(shellSnapshot.terminalOutput == Data("local".utf8), "attach shell should expose latest terminal output")
+await shellRelay.setScrollback(ScrollbackResult(sessionName: "main", lines: 2, text: "newer\nhistory\n"))
+shellSnapshot = await shell.refreshScrollback(lines: 2, timeout: Duration.seconds(1))
+try require(shellSnapshot.phase == AttachShellPhase.attached, "attach shell scrollback refresh should keep attached phase")
+try require(
+    shellSnapshot.scrollback?.visibleLines.map(\.text) == ["newer", "history"],
+    "attach shell scrollback refresh should replace tmux-native history"
+)
+try require(
+    shellSnapshot.terminalScreen?.visibleLines.first?.text == "local",
+    "attach shell scrollback refresh should not mutate the live terminal screen"
+)
+try require(
+    await shellRelay.scrollbackRequests == ["dev_1:main:40", "dev_1:main:2"],
+    "attach shell scrollback refresh should fetch selected session history"
+)
+await shellRelay.setScrollbackFailure(SmokeError("scrollback token=secret-token"))
+shellSnapshot = await shell.refreshScrollback(lines: 2, timeout: Duration.seconds(1))
+try require(shellSnapshot.phase == AttachShellPhase.attached, "attach shell scrollback refresh failure should preserve attached phase")
+try require(shellSnapshot.error?.title == "Could not refresh scrollback", "attach shell scrollback refresh failure should surface a user-facing error")
+try require(
+    shellSnapshot.error?.message.contains("secret-token") == false,
+    "attach shell scrollback refresh failure should redact token text"
+)
+try require(
+    shellSnapshot.terminalScreen?.visibleLines.first?.text == "local",
+    "attach shell scrollback refresh failure should keep the live terminal screen"
+)
+await shellRelay.setScrollbackFailure(nil)
 let composedSurface = TerminalSurfaceProjection.lines(for: shellSnapshot)
 try require(
-    Array(composedSurface.map(\.id).prefix(2)) == ["scrollback-line-0", "live-screen-0"],
+    composedSurface.map(\.id).prefix(3) == ["scrollback-line-0", "scrollback-line-1", "live-screen-0"],
     "terminal surface should compose scrollback rows before live screen rows"
 )
 try require(
-    Array(composedSurface.map(\.source).prefix(2)) == [.scrollback, .live],
+    composedSurface.map(\.source).prefix(3) == [.scrollback, .scrollback, .live],
     "terminal surface should keep row sources distinct"
 )
 try require(
-    composedSurface[1].runs.map(\.text).joined() == "local",
+    composedSurface[2].runs.map(\.text).joined() == "local",
     "terminal surface live row should preserve terminal screen runs"
 )
 try require(
@@ -1012,7 +1040,7 @@ try require(
     "terminal surface should never project cursors onto scrollback rows"
 )
 try require(
-    composedSurface[1].cursorColumn == 5,
+    composedSurface[2].cursorColumn == 5,
     "terminal surface should project the visible cursor column on the live cursor row"
 )
 var hiddenCursorScreen = TerminalScreen(columns: 8, rows: 2)
@@ -1163,7 +1191,7 @@ try require(
 await shellRelay.enqueue(frame: RelayDatagramFrame.data(Data([0xB0]), sequence: 9))
 shellSnapshot = await shell.receiveNext(timeout: Duration.seconds(1))
 try require(
-    (shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["before"],
+    (shellSnapshot.scrollback?.visibleLines.map { $0.text } ?? []) == ["newer", "history"],
     "attach shell should keep remote live output out of tmux scrollback"
 )
 try require(
@@ -1411,7 +1439,8 @@ actor FakeMoshCoreEngine: MoshCoreEngine {
 actor FakeAttachShellRelay: AttachShellRelaying {
     private var devices: [Device]
     private let manifest: AttachManifest
-    private let scrollback: ScrollbackResult
+    private var scrollback: ScrollbackResult
+    private var scrollbackFailure: (any Error)?
     private var frames: [RelayDatagramFrame] = []
     private(set) var connectCalled = false
     private(set) var scrollbackRequests: [String] = []
@@ -1441,6 +1470,14 @@ actor FakeAttachShellRelay: AttachShellRelaying {
         self.devices = devices
     }
 
+    func setScrollback(_ scrollback: ScrollbackResult) {
+        self.scrollback = scrollback
+    }
+
+    func setScrollbackFailure(_ error: (any Error)?) {
+        self.scrollbackFailure = error
+    }
+
     func prepareAttachManifest(
         deviceId: String,
         sessionName: String,
@@ -1459,6 +1496,9 @@ actor FakeAttachShellRelay: AttachShellRelaying {
         timeout: Duration
     ) async throws -> ScrollbackResult {
         scrollbackRequests.append("\(deviceId):\(sessionName):\(lines)")
+        if let scrollbackFailure {
+            throw scrollbackFailure
+        }
         return scrollback
     }
 

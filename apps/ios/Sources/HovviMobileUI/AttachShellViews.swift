@@ -223,6 +223,7 @@ public struct HovviAttachShellView: View {
     public let onRetry: () -> Void
     public let onSendInput: (Data) -> Void
     public let onResize: (MoshCoreTerminalSize) -> Void
+    public let onRefreshScrollback: () -> Void
 
     public init(
         snapshot: AttachShellSnapshot,
@@ -232,7 +233,8 @@ public struct HovviAttachShellView: View {
         onAttach: @escaping () -> Void = {},
         onRetry: @escaping () -> Void = {},
         onSendInput: @escaping (Data) -> Void = { _ in },
-        onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }
+        onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in },
+        onRefreshScrollback: @escaping () -> Void = {}
     ) {
         self.snapshot = snapshot
         self.onConnect = onConnect
@@ -242,6 +244,7 @@ public struct HovviAttachShellView: View {
         self.onRetry = onRetry
         self.onSendInput = onSendInput
         self.onResize = onResize
+        self.onRefreshScrollback = onRefreshScrollback
     }
 
     public var body: some View {
@@ -258,7 +261,8 @@ public struct HovviAttachShellView: View {
             TerminalDetail(
                 snapshot: snapshot,
                 onSendInput: onSendInput,
-                onResize: onResize
+                onResize: onResize,
+                onRefreshScrollback: onRefreshScrollback
             )
         }
     }
@@ -497,21 +501,28 @@ public struct TerminalDetail: View {
     public let snapshot: AttachShellSnapshot
     public let onSendInput: (Data) -> Void
     public let onResize: (MoshCoreTerminalSize) -> Void
+    public let onRefreshScrollback: () -> Void
     @State private var inputText = ""
 
     public init(
         snapshot: AttachShellSnapshot,
         onSendInput: @escaping (Data) -> Void = { _ in },
-        onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }
+        onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in },
+        onRefreshScrollback: @escaping () -> Void = {}
     ) {
         self.snapshot = snapshot
         self.onSendInput = onSendInput
         self.onResize = onResize
+        self.onRefreshScrollback = onRefreshScrollback
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            TerminalSurfaceView(snapshot: snapshot, onResize: onResize)
+            TerminalSurfaceView(
+                snapshot: snapshot,
+                onResize: onResize,
+                onRefreshScrollback: onRefreshScrollback
+            )
             Divider()
             VStack(spacing: 8) {
                 TextField("Input", text: $inputText, axis: .vertical)
@@ -581,19 +592,31 @@ public struct TerminalDetail: View {
 public struct TerminalSurfaceView: View {
     public let snapshot: AttachShellSnapshot
     public let onResize: (MoshCoreTerminalSize) -> Void
+    public let onRefreshScrollback: () -> Void
     @State private var followsLiveOutput = true
 
-    public init(snapshot: AttachShellSnapshot, onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in }) {
+    public init(
+        snapshot: AttachShellSnapshot,
+        onResize: @escaping (MoshCoreTerminalSize) -> Void = { _ in },
+        onRefreshScrollback: @escaping () -> Void = {}
+    ) {
         self.snapshot = snapshot
         self.onResize = onResize
+        self.onRefreshScrollback = onRefreshScrollback
     }
 
     public var body: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                if viewport.lines.isEmpty == false {
+                if shouldShowToolbar {
                     HStack {
                         Spacer()
+                        Button(action: onRefreshScrollback) {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(snapshot.selectedDeviceId == nil || snapshot.selectedSessionName == nil)
                         Button {
                             followsLiveOutput.toggle()
                         } label: {
@@ -656,6 +679,10 @@ public struct TerminalSurfaceView: View {
 
     private var viewport: TerminalSurfaceViewport {
         TerminalSurfaceProjection.viewport(for: snapshot)
+    }
+
+    private var shouldShowToolbar: Bool {
+        viewport.lines.isEmpty == false || snapshot.phase == .attached
     }
 
     private var emptyDescription: String {
