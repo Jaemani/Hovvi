@@ -142,6 +142,9 @@ cursor to the right edge.
 OSC sequences (`ESC ] ... BEL` and `ESC ] ... ESC \`) are skipped, including
 when split across receive frames, so title and terminal-integration metadata do
 not corrupt live terminal text.
+DCS, PM, APC, and SOS string controls are also skipped until ST, including C1
+forms and split receive frames, so tmux passthrough or integration payloads do
+not render as terminal text.
 G0 character set designations consume `ESC ( B` for ASCII and `ESC ( 0` for DEC
 special graphics, mapping common line-drawing bytes to Unicode box drawing
 characters.

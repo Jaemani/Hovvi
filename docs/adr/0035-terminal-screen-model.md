@@ -50,6 +50,7 @@ The initial model supports:
 - C1 CSI/OSC/ST control handling was added in ADR 0156.
 - IND/NEL/HTS/RI control handling was added in ADR 0157.
 - Combined DEC private-mode handling was added in ADR 0158.
+- DCS/PM/APC/SOS string-control skipping was added in ADR 0159.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. ADR 0055 keeps live terminal output out of the scrollback

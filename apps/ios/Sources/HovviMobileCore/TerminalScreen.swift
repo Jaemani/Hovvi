@@ -128,7 +128,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var savedCursor: TerminalSavedCursor?
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
     private var tabStops: Set<Int>
-    private var operatingSystemCommandSkipState = TerminalOperatingSystemCommandSkipState.none
+    private var stringControlSkipState = TerminalStringControlSkipState.none
     private var characterSet = TerminalCharacterSet.ascii
 
     public init(columns: Int = 80, rows: Int = 24) {
@@ -193,7 +193,7 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     public mutating func apply(_ text: String) {
-        guard let parseableText = consumePendingOperatingSystemCommandPrefix(from: text) else { return }
+        guard let parseableText = consumePendingStringControlPrefix(from: text) else { return }
         var parser = TerminalEscapeParser(parseableText)
         while let token = parser.nextToken() {
             switch token {
@@ -283,7 +283,7 @@ public struct TerminalScreen: Equatable, Sendable {
                 }
             }
         }
-        operatingSystemCommandSkipState = parser.operatingSystemCommandSkipState
+        stringControlSkipState = parser.stringControlSkipState
     }
 
     private mutating func reset() {
@@ -300,7 +300,7 @@ public struct TerminalScreen: Equatable, Sendable {
         savedCursor = nil
         primarySnapshotBeforeAlternate = nil
         tabStops = Self.defaultTabStops(columns: columns)
-        operatingSystemCommandSkipState = .none
+        stringControlSkipState = .none
         characterSet = .ascii
     }
 
@@ -770,49 +770,48 @@ public struct TerminalScreen: Equatable, Sendable {
         return resized
     }
 
-    private mutating func consumePendingOperatingSystemCommandPrefix(from text: String) -> String? {
-        guard operatingSystemCommandSkipState != .none else { return text }
+    private mutating func consumePendingStringControlPrefix(from text: String) -> String? {
+        guard stringControlSkipState != .none else { return text }
         var index = text.startIndex
-        if operatingSystemCommandSkipState == .sawEscape {
+        if stringControlSkipState == .oscSawEscape || stringControlSkipState == .stSawEscape {
             guard index < text.endIndex else { return nil }
             if text[index] == "\\" {
                 index = text.index(after: index)
-                operatingSystemCommandSkipState = .none
+                stringControlSkipState = .none
                 return String(text[index...])
             }
-            operatingSystemCommandSkipState = .inside
+            stringControlSkipState = stringControlSkipState == .oscSawEscape ? .oscInside : .stInside
         }
         while index < text.endIndex {
             guard let scalar = text[index].unicodeScalars.first else {
                 index = text.index(after: index)
                 continue
             }
-            if scalar.value == 0x07 {
+            if scalar.value == 0x07, stringControlSkipState == .oscInside {
                 index = text.index(after: index)
-                operatingSystemCommandSkipState = .none
+                stringControlSkipState = .none
                 return String(text[index...])
             }
             if scalar.value == 0x9C {
                 index = text.index(after: index)
-                operatingSystemCommandSkipState = .none
+                stringControlSkipState = .none
                 return String(text[index...])
             }
             if scalar.value == 0x1B {
                 index = text.index(after: index)
                 guard index < text.endIndex else {
-                    operatingSystemCommandSkipState = .sawEscape
+                    stringControlSkipState = stringControlSkipState == .oscInside ? .oscSawEscape : .stSawEscape
                     return nil
                 }
                 if text[index] == "\\" {
                     index = text.index(after: index)
-                    operatingSystemCommandSkipState = .none
+                    stringControlSkipState = .none
                     return String(text[index...])
                 }
                 continue
             }
             index = text.index(after: index)
         }
-        operatingSystemCommandSkipState = .inside
         return nil
     }
 }
@@ -861,7 +860,7 @@ private struct TerminalEscapeParser {
     private let text: String
     private var index: String.Index
     private var pendingTokens: [TerminalToken] = []
-    private(set) var operatingSystemCommandSkipState = TerminalOperatingSystemCommandSkipState.none
+    private(set) var stringControlSkipState = TerminalStringControlSkipState.none
 
     init(_ text: String) {
         self.text = text
@@ -907,12 +906,16 @@ private struct TerminalEscapeParser {
         case 0x8D:
             advanceOneScalar()
             return .reverseIndex
+        case 0x90, 0x98, 0x9E, 0x9F:
+            advanceOneScalar()
+            stringControlSkipState = consumeStTerminatedStringControl()
+            return .ignored
         case 0x9B:
             advanceOneScalar()
             return parseControlSequenceIntroducer()
         case 0x9D:
             advanceOneScalar()
-            operatingSystemCommandSkipState = consumeOperatingSystemCommand()
+            stringControlSkipState = consumeOperatingSystemCommand()
             return .ignored
         case 0x1B:
             advanceOneScalar()
@@ -960,7 +963,12 @@ private struct TerminalEscapeParser {
         }
         if text[index] == "]" {
             index = text.index(after: index)
-            operatingSystemCommandSkipState = consumeOperatingSystemCommand()
+            stringControlSkipState = consumeOperatingSystemCommand()
+            return .ignored
+        }
+        if text[index] == "P" || text[index] == "X" || text[index] == "^" || text[index] == "_" {
+            index = text.index(after: index)
+            stringControlSkipState = consumeStTerminatedStringControl()
             return .ignored
         }
         guard text[index] == "[" else { return nil }
@@ -991,7 +999,7 @@ private struct TerminalEscapeParser {
         index = nextScalarIndex.samePosition(in: text) ?? text.index(after: index)
     }
 
-    private mutating func consumeOperatingSystemCommand() -> TerminalOperatingSystemCommandSkipState {
+    private mutating func consumeOperatingSystemCommand() -> TerminalStringControlSkipState {
         while index < text.endIndex {
             guard let scalar = text[index].unicodeScalars.first else {
                 index = text.index(after: index)
@@ -1007,7 +1015,7 @@ private struct TerminalEscapeParser {
             }
             if scalar.value == 0x1B {
                 advanceOneScalar()
-                guard index < text.endIndex else { return .sawEscape }
+                guard index < text.endIndex else { return .oscSawEscape }
                 if index < text.endIndex, text[index] == "\\" {
                     index = text.index(after: index)
                     return .none
@@ -1016,7 +1024,31 @@ private struct TerminalEscapeParser {
             }
             index = text.index(after: index)
         }
-        return .inside
+        return .oscInside
+    }
+
+    private mutating func consumeStTerminatedStringControl() -> TerminalStringControlSkipState {
+        while index < text.endIndex {
+            guard let scalar = text[index].unicodeScalars.first else {
+                index = text.index(after: index)
+                continue
+            }
+            if scalar.value == 0x9C {
+                advanceOneScalar()
+                return .none
+            }
+            if scalar.value == 0x1B {
+                advanceOneScalar()
+                guard index < text.endIndex else { return .stSawEscape }
+                if index < text.endIndex, text[index] == "\\" {
+                    index = text.index(after: index)
+                    return .none
+                }
+                continue
+            }
+            index = text.index(after: index)
+        }
+        return .stInside
     }
 
     private mutating func parseG0CharacterSet() -> TerminalToken? {
@@ -1143,10 +1175,12 @@ private struct TerminalEscapeParser {
     }
 }
 
-private enum TerminalOperatingSystemCommandSkipState {
+private enum TerminalStringControlSkipState: Equatable {
     case none
-    case inside
-    case sawEscape
+    case oscInside
+    case oscSawEscape
+    case stInside
+    case stSawEscape
 }
 
 private enum TerminalCharacterSet: Equatable {

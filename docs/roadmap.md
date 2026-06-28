@@ -430,6 +430,9 @@ Current status:
   DEC private-mode CSI sequences, keeping cursor visibility, bracketed paste,
   application cursor keys, autowrap, origin mode, and alternate-screen state
   aligned when terminal applications group modes in one sequence.
+- Swift mobile terminal parsing now skips DCS, PM, APC, and SOS string-control
+  payloads, including C1 forms and payloads split across receive frames, so
+  tmux passthrough or terminal-integration metadata cannot corrupt live text.
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.

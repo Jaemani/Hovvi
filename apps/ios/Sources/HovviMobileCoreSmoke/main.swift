@@ -688,6 +688,43 @@ try require(
     splitOscStScreen.visibleLines[0].text == "xy",
     "terminal screen should keep skipping split OSC sequences until ST"
 )
+var dcsScreen = TerminalScreen(columns: 16, rows: 1)
+dcsScreen.apply("a\u{001B}Ptmux;ignored\u{001B}\\b")
+try require(
+    dcsScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip DCS sequences terminated by ST"
+)
+var splitDcsScreen = TerminalScreen(columns: 16, rows: 1)
+splitDcsScreen.apply("a\u{001B}Psplit")
+splitDcsScreen.apply(" still ignored\u{001B}\\b")
+try require(
+    splitDcsScreen.visibleLines[0].text == "ab",
+    "terminal screen should keep skipping split DCS sequences until ST"
+)
+var dcsBelScreen = TerminalScreen(columns: 16, rows: 1)
+dcsBelScreen.apply("a\u{001B}Pignored\u{0007}still ignored\u{001B}\\b")
+try require(
+    dcsBelScreen.visibleLines[0].text == "ab",
+    "terminal screen should not terminate DCS sequences on BEL"
+)
+var startOfStringScreen = TerminalScreen(columns: 16, rows: 1)
+startOfStringScreen.apply("a\u{001B}Xmetadata\u{001B}\\b")
+try require(
+    startOfStringScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip SOS sequences terminated by ST"
+)
+var privacyMessageScreen = TerminalScreen(columns: 16, rows: 1)
+privacyMessageScreen.apply("a\u{001B}^metadata\u{001B}\\b")
+try require(
+    privacyMessageScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip PM sequences terminated by ST"
+)
+var applicationProgramCommandScreen = TerminalScreen(columns: 16, rows: 1)
+applicationProgramCommandScreen.apply("a\u{001B}_metadata\u{001B}\\b")
+try require(
+    applicationProgramCommandScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip APC sequences terminated by ST"
+)
 var c1ControlScreen = TerminalScreen(columns: 16, rows: 1)
 c1ControlScreen.apply("abc\u{009B}1;1HZ")
 try require(
@@ -730,6 +767,19 @@ splitC1OscScreen.apply(" metadata\u{009C}y")
 try require(
     splitC1OscScreen.visibleLines[0].text == "xy",
     "terminal screen should keep skipping split C1 OSC sequences until C1 ST"
+)
+var c1DcsScreen = TerminalScreen(columns: 16, rows: 1)
+c1DcsScreen.apply("a\u{0090}c1 dcs\u{009C}b")
+try require(
+    c1DcsScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip C1 DCS sequences terminated by C1 ST"
+)
+var splitC1DcsScreen = TerminalScreen(columns: 16, rows: 1)
+splitC1DcsScreen.apply("a\u{0090}split")
+splitC1DcsScreen.apply(" c1 dcs\u{009C}b")
+try require(
+    splitC1DcsScreen.visibleLines[0].text == "ab",
+    "terminal screen should keep skipping split C1 DCS sequences until C1 ST"
 )
 var asciiCharsetScreen = TerminalScreen(columns: 16, rows: 1)
 asciiCharsetScreen.apply("a\u{001B}(Bb")
