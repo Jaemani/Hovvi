@@ -129,6 +129,7 @@ public struct TerminalScreen: Equatable, Sendable {
     private var primarySnapshotBeforeAlternate: TerminalScreenSnapshot?
     private var tabStops: Set<Int>
     private var stringControlSkipState = TerminalStringControlSkipState.none
+    private var pendingUtf8Bytes = Data()
     private var characterSet = TerminalCharacterSet.ascii
 
     public init(columns: Int = 80, rows: Int = 24) {
@@ -188,7 +189,8 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     public mutating func apply(_ data: Data) {
-        guard let text = String(data: data, encoding: .utf8) else { return }
+        let text = decodedTerminalText(from: data)
+        guard text.isEmpty == false else { return }
         apply(text)
     }
 
@@ -301,7 +303,81 @@ public struct TerminalScreen: Equatable, Sendable {
         primarySnapshotBeforeAlternate = nil
         tabStops = Self.defaultTabStops(columns: columns)
         stringControlSkipState = .none
+        pendingUtf8Bytes.removeAll(keepingCapacity: true)
         characterSet = .ascii
+    }
+
+    private mutating func decodedTerminalText(from data: Data) -> String {
+        var text = ""
+        for byte in data {
+            decodeTerminalByte(byte, into: &text)
+        }
+        return text
+    }
+
+    private mutating func decodeTerminalByte(_ byte: UInt8, into text: inout String) {
+        if pendingUtf8Bytes.isEmpty == false {
+            guard Self.isUtf8Continuation(byte) else {
+                appendReplacementCharacter(to: &text)
+                pendingUtf8Bytes.removeAll(keepingCapacity: true)
+                decodeTerminalByte(byte, into: &text)
+                return
+            }
+            pendingUtf8Bytes.append(byte)
+            if let expectedLength = Self.expectedUtf8SequenceLength(firstByte: pendingUtf8Bytes[0]),
+               pendingUtf8Bytes.count == expectedLength {
+                appendPendingUtf8(to: &text)
+            }
+            return
+        }
+
+        switch byte {
+        case 0x00...0x7F:
+            appendScalar(UInt32(byte), to: &text)
+        case 0x80...0x9F:
+            appendScalar(UInt32(byte), to: &text)
+        case 0xC2...0xF4:
+            pendingUtf8Bytes.append(byte)
+        default:
+            appendReplacementCharacter(to: &text)
+        }
+    }
+
+    private mutating func appendPendingUtf8(to text: inout String) {
+        if let decoded = String(data: pendingUtf8Bytes, encoding: .utf8) {
+            text.append(decoded)
+        } else {
+            appendReplacementCharacter(to: &text)
+        }
+        pendingUtf8Bytes.removeAll(keepingCapacity: true)
+    }
+
+    private func appendScalar(_ value: UInt32, to text: inout String) {
+        guard let scalar = UnicodeScalar(value) else { return }
+        text.append(String(scalar))
+    }
+
+    private func appendReplacementCharacter(to text: inout String) {
+        text.append("\u{FFFD}")
+    }
+
+    private static func isUtf8Continuation(_ byte: UInt8) -> Bool {
+        byte >= 0x80 && byte <= 0xBF
+    }
+
+    private static func expectedUtf8SequenceLength(firstByte byte: UInt8) -> Int? {
+        switch byte {
+        case 0x00...0x7F:
+            return 1
+        case 0xC2...0xDF:
+            return 2
+        case 0xE0...0xEF:
+            return 3
+        case 0xF0...0xF4:
+            return 4
+        default:
+            return nil
+        }
     }
 
     private mutating func put(_ character: Character) {

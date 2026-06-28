@@ -781,6 +781,55 @@ try require(
     splitC1DcsScreen.visibleLines[0].text == "ab",
     "terminal screen should keep skipping split C1 DCS sequences until C1 ST"
 )
+var splitUtf8DataScreen = TerminalScreen(columns: 8, rows: 2)
+let koreanBytes = Array("한".utf8)
+splitUtf8DataScreen.apply(Data([koreanBytes[0]]))
+try require(
+    splitUtf8DataScreen.visibleLines[0].text == "",
+    "terminal screen should buffer incomplete UTF-8 from relay data frames"
+)
+var koreanTail = Data()
+koreanTail.append(contentsOf: koreanBytes.dropFirst())
+koreanTail.append(contentsOf: "a".utf8)
+splitUtf8DataScreen.apply(koreanTail)
+try require(
+    splitUtf8DataScreen.visibleLines[0].text == "한a",
+    "terminal screen should decode split UTF-8 before applying following data bytes"
+)
+var splitEmojiDataScreen = TerminalScreen(columns: 8, rows: 2)
+let emojiBytes = Array("👍".utf8)
+splitEmojiDataScreen.apply(Data(emojiBytes.prefix(2)))
+splitEmojiDataScreen.apply(Data(emojiBytes.dropFirst(2)))
+try require(
+    splitEmojiDataScreen.visibleLines[0].text == "👍",
+    "terminal screen should buffer four-byte UTF-8 across relay data frames"
+)
+var rawC1DataCsiScreen = TerminalScreen(columns: 8, rows: 1)
+rawC1DataCsiScreen.apply(Data("abc".utf8))
+var rawC1CsiBytes = Data([0x9B])
+rawC1CsiBytes.append(contentsOf: "1;1HZ".utf8)
+rawC1DataCsiScreen.apply(rawC1CsiBytes)
+try require(
+    rawC1DataCsiScreen.visibleLines[0].text == "Zbc",
+    "terminal screen should parse raw C1 CSI bytes from relay data frames"
+)
+var encodedC1DataCsiScreen = TerminalScreen(columns: 8, rows: 1)
+encodedC1DataCsiScreen.apply(Data("abc\u{009B}1;1HZ".utf8))
+try require(
+    encodedC1DataCsiScreen.visibleLines[0].text == "Zbc",
+    "terminal screen should preserve UTF-8 encoded C1 CSI bytes from relay data frames"
+)
+var rawC1DataOscScreen = TerminalScreen(columns: 8, rows: 1)
+var rawC1OscBytes = Data("a".utf8)
+rawC1OscBytes.append(0x9D)
+rawC1OscBytes.append(contentsOf: "0;title".utf8)
+rawC1OscBytes.append(0x9C)
+rawC1OscBytes.append(contentsOf: "b".utf8)
+rawC1DataOscScreen.apply(rawC1OscBytes)
+try require(
+    rawC1DataOscScreen.visibleLines[0].text == "ab",
+    "terminal screen should skip raw C1 OSC bytes from relay data frames"
+)
 var asciiCharsetScreen = TerminalScreen(columns: 16, rows: 1)
 asciiCharsetScreen.apply("a\u{001B}(Bb")
 try require(

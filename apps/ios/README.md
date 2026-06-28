@@ -110,6 +110,9 @@ movement, erase display/line modes, resize, basic SGR text attributes,
 256-color/truecolor foreground/background colors, and alternate-screen restore.
 Extended SGR colors support both semicolon and xterm-style colon parameter
 forms.
+Incoming terminal `Data` is decoded incrementally so relay/mosh frame
+boundaries can split UTF-8 scalars, and raw C1 control bytes still reach the
+terminal parser.
 Printable parsing preserves Swift grapheme clusters and advances common CJK and
 emoji output as wide terminal cells.
 Inverse SGR runs render with swapped effective foreground/background colors.

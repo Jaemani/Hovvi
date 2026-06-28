@@ -240,6 +240,9 @@ Current status:
   `CSI e`, and `CSI d`) with the same origin-mode bounds as existing movement.
 - Swift mobile terminal parsing now supports cursor tabulation (`CSI I/Z`)
   against the same default/custom tab-stop model used by horizontal tabs.
+- Swift mobile terminal byte decoding now buffers split UTF-8 across relay data
+  frames and accepts raw C1 control bytes before they reach the live-screen
+  parser.
 - Swift mobile terminal text input routes single-line input as text and
   multi-line input as paste through a smoke-tested core helper before UI sends
   bytes to the mosh path.
