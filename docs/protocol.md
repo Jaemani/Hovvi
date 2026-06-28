@@ -207,6 +207,11 @@ serializing or sending a `datagram.data` envelope. `datagram.error` rejects
 pending opens or pending reads and `datagram.close` marks the channel closed.
 The relay and client must release channel state after either peer closes.
 
+The relay also enforces each channel's `maxDatagramBytes` against inbound
+`datagram.data` messages from either peer. Oversized data is not forwarded; the
+sender receives `datagram.error`, the peer receives `datagram.close`, and the
+relay releases the channel.
+
 For attach flows, the JavaScript relay client also exposes
 `prepareMoshDatagramAttach(...)`. It requests an attach manifest, selects the
 highest-priority available `mosh` method with `relay-datagram` transport,

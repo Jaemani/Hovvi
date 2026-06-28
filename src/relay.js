@@ -543,6 +543,7 @@ function datagramOpen(state, ws, message) {
     clientWs: ws,
     agentWs: agent.ws,
     lastSeenMs: Date.now(),
+    maxDatagramBytes: Number(message.maxDatagramBytes || 1200),
   });
   state.log.record({
     type: "relay.datagram.open",
@@ -560,6 +561,23 @@ function datagramMessage(state, ws, message) {
   if (!channel) return;
   channel.lastSeenMs = Date.now();
   const target = ws === channel.clientWs ? channel.agentWs : channel.clientWs;
+  if (message.type === "datagram.data") {
+    const payloadSize = Buffer.from(message.data || "", "base64").length;
+    if (payloadSize > channel.maxDatagramBytes) {
+      const reason = `datagram exceeds maxDatagramBytes (${payloadSize} > ${channel.maxDatagramBytes})`;
+      state.log.record({
+        type: "relay.datagram.close",
+        channelId: message.channelId,
+        reason: "max_datagram_bytes",
+      });
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(serialize(envelope("datagram.error", { channelId: message.channelId, message: reason })));
+      }
+      notifyDatagramClose(target, message.channelId);
+      state.datagrams.delete(message.channelId);
+      return;
+    }
+  }
   if (target.readyState === WebSocket.OPEN) {
     target.send(serialize(message));
   }

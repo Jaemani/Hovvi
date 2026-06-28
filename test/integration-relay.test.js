@@ -115,10 +115,10 @@ test("client datagram channel rejects oversize payloads before relay send", asyn
       deviceId: device.id,
       remoteHost: "127.0.0.1",
       remotePort: udp.port,
-      maxDatagramBytes: 4,
+      maxDatagramBytes: 9,
     });
 
-    assert.throws(() => channel.send(Buffer.from("hello")), /datagram exceeds maxDatagramBytes \(5 > 4\)/);
+    assert.throws(() => channel.send(Buffer.from("0123456789")), /datagram exceeds maxDatagramBytes \(10 > 9\)/);
     assert.equal(relay.state.datagrams.size, 1);
 
     channel.send(Buffer.from("pong"));

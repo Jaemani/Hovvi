@@ -194,6 +194,9 @@ Current status:
 - JavaScript relay datagram clients now enforce `maxDatagramBytes` before
   serializing or sending `datagram.data`, matching the Swift mobile fail-fast
   packet-size contract.
+- The relay server now enforces each channel's `maxDatagramBytes` against
+  inbound `datagram.data` from either peer, returning structured errors and
+  releasing channel state instead of forwarding oversized payloads.
 - JavaScript and Swift attach paths reject unsupported attach manifest
   `kind`/`version` values before selecting a mosh relay datagram transport.
 - `npm run native:relay-attach-check` runs the repository-only native mosh probe

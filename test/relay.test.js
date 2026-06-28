@@ -367,6 +367,86 @@ test("relay routes datagram channel messages", () => {
   assert.equal(state.datagrams.has("dg-1"), false);
 });
 
+test("relay rejects oversize client datagrams without forwarding them", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("datagram.open", { channelId: "dg-limit", deviceId: "mac-1", maxDatagramBytes: 4 })),
+  );
+  handleRelayMessage(state, agent, serialize(envelope("datagram.ready", { channelId: "dg-limit" })));
+
+  const agentMessageCount = agent.messages.length;
+  handleRelayMessage(state, client, serialize(envelope("datagram.data", { channelId: "dg-limit", data: "aGVsbG8=" })));
+
+  const clientError = client.messages.map(JSON.parse).find((message) => message.type === "datagram.error");
+  const agentClose = agent.messages
+    .slice(agentMessageCount)
+    .map(JSON.parse)
+    .find((message) => message.type === "datagram.close");
+  assert.match(clientError.message, /datagram exceeds maxDatagramBytes \(5 > 4\)/);
+  assert.equal(agentClose.channelId, "dg-limit");
+  assert.equal(
+    agent.messages
+      .slice(agentMessageCount)
+      .map(JSON.parse)
+      .some((message) => message.type === "datagram.data"),
+    false,
+  );
+  assert.equal(state.datagrams.has("dg-limit"), false);
+});
+
+test("relay rejects oversize agent datagrams without forwarding them", () => {
+  const state = createRelayState({ token: "dev" });
+  const agent = fakeSocket();
+  const client = fakeSocket();
+
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("hello", { role: "agent", token: "dev", device: { id: "mac-1" } })),
+  );
+  handleRelayMessage(state, client, serialize(envelope("hello", { role: "client", token: "dev" })));
+  handleRelayMessage(
+    state,
+    client,
+    serialize(envelope("datagram.open", { channelId: "dg-agent-limit", deviceId: "mac-1", maxDatagramBytes: 4 })),
+  );
+  handleRelayMessage(state, agent, serialize(envelope("datagram.ready", { channelId: "dg-agent-limit" })));
+
+  const clientMessageCount = client.messages.length;
+  handleRelayMessage(
+    state,
+    agent,
+    serialize(envelope("datagram.data", { channelId: "dg-agent-limit", data: "aGVsbG8=", sequence: 1 })),
+  );
+
+  const agentError = agent.messages.map(JSON.parse).find((message) => message.type === "datagram.error");
+  const clientClose = client.messages
+    .slice(clientMessageCount)
+    .map(JSON.parse)
+    .find((message) => message.type === "datagram.close");
+  assert.match(agentError.message, /datagram exceeds maxDatagramBytes \(5 > 4\)/);
+  assert.equal(clientClose.channelId, "dg-agent-limit");
+  assert.equal(
+    client.messages
+      .slice(clientMessageCount)
+      .map(JSON.parse)
+      .some((message) => message.type === "datagram.data"),
+    false,
+  );
+  assert.equal(state.datagrams.has("dg-agent-limit"), false);
+});
+
 test("relay closes datagram channels when a peer disconnects", () => {
   const state = createRelayState({ token: "dev" });
   const agent = fakeSocket();
