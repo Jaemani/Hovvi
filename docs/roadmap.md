@@ -518,6 +518,9 @@ Current status:
 - `hovvi service logs` now reports missing and empty LaunchAgent logs with file
   paths, supports `--stream both`, and keeps relay tokens, URL credentials,
   bearer tokens, and printable mosh keys redacted.
+- `hovvi service status --json` now emits deterministic structured LaunchAgent
+  lifecycle fields without raw `launchctl` detail text, keeping machine
+  diagnostics stable and avoiding accidental credential exposure.
 - Attach manifests are explicitly versioned as v1 `mosh-tmux`, and both the
   JavaScript relay client and Swift mobile attach path reject unsupported
   manifest schema values.

@@ -12,6 +12,7 @@ import {
   formatServiceStatus,
   parseLaunchAgentConfigPath,
   parseLaunchctlPrint,
+  serviceStatusJson,
   serviceLogPath,
   validateLaunchAgentConfigPath,
   validateServiceRuntimeConfig,
@@ -201,6 +202,40 @@ test("service status formatter summarizes launchd lifecycle state", () => {
   });
 
   assert.equal(summary, "config=/Users/me/.hovvi/config.json state=running pid=123 lastExitCode=0 throttleInterval=10s");
+});
+
+test("service status json exposes structured lifecycle fields without raw launchctl detail", () => {
+  const json = serviceStatusJson({
+    label: "dev.hovvi.agent",
+    loaded: false,
+    plistPath: "/Users/me/Library/LaunchAgents/dev.hovvi.agent.plist",
+    configPath: "/Users/me/.hovvi/config.json",
+    detail: "launchctl output with HOVVI_RELAY_TOKEN=secret-token",
+    launchctl: {
+      state: "waiting",
+      pid: 123,
+      lastExitCode: 78,
+      lastTerminationReason: "namespace SIGNAL, code 15 Terminated",
+      throttleInterval: 10,
+      healthy: false,
+    },
+  });
+
+  assert.deepEqual(json, {
+    label: "dev.hovvi.agent",
+    loaded: false,
+    plistPath: "/Users/me/Library/LaunchAgents/dev.hovvi.agent.plist",
+    configPath: "/Users/me/.hovvi/config.json",
+    launchctl: {
+      state: "waiting",
+      pid: 123,
+      lastExitCode: 78,
+      lastTerminationReason: "namespace SIGNAL, code 15 Terminated",
+      throttleInterval: 10,
+      healthy: false,
+    },
+  });
+  assert.doesNotMatch(JSON.stringify(json), /secret-token|detail/);
 });
 
 test("service start preflight rejects missing LaunchAgent config path", () => {

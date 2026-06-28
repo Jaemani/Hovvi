@@ -14,6 +14,7 @@ import {
   readServiceLog,
   restartService,
   formatServiceStatus,
+  serviceStatusJson,
   serviceStatus,
   startService,
   stopService,
@@ -548,7 +549,12 @@ async function serviceCommand(args) {
       return;
     }
     case "status": {
+      const json = readFlag(args, "--json");
       const result = serviceStatus({ label });
+      if (json) {
+        process.stdout.write(`${JSON.stringify(serviceStatusJson(result), null, 2)}\n`);
+        return;
+      }
       process.stdout.write(`${result.loaded ? "loaded" : "not loaded"} ${label}\n`);
       const summary = formatServiceStatus(result);
       if (summary) process.stdout.write(`${summary}\n`);

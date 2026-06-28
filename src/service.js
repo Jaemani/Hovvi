@@ -266,6 +266,23 @@ export function formatServiceStatus(status) {
   return parts.join(" ");
 }
 
+export function serviceStatusJson(status) {
+  return {
+    label: status.label,
+    loaded: Boolean(status.loaded),
+    plistPath: status.plistPath,
+    configPath: status.configPath,
+    launchctl: {
+      state: status.launchctl?.state,
+      pid: status.launchctl?.pid,
+      lastExitCode: status.launchctl?.lastExitCode,
+      lastTerminationReason: status.launchctl?.lastTerminationReason,
+      throttleInterval: status.launchctl?.throttleInterval,
+      healthy: status.launchctl?.healthy,
+    },
+  };
+}
+
 function launchTarget(label) {
   const uid = userInfo().uid;
   return {
