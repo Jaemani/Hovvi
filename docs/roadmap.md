@@ -422,6 +422,9 @@ Current status:
 - Swift mobile terminal parsing now consumes ASCII and DEC special graphics G0
   character set designations, preventing stray charset control bytes and mapping
   common tmux/ncurses line drawing to Unicode box characters.
+- Swift mobile saved cursor handling now preserves and restores the active
+  ASCII/DEC special graphics character set across both DEC and CSI save/restore
+  sequences, keeping tmux/ncurses line drawing stable after cursor restore.
 - Swift mobile terminal state now tracks DEC cursor visibility mode
   (`CSI ? 25 h/l`) separately from terminal text so future cursor rendering does
   not corrupt scrollback or line content.

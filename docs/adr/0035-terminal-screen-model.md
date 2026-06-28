@@ -46,6 +46,7 @@ The initial model supports:
 - OSC control-sequence skipping was added in ADR 0105.
 - DEC character set handling was added in ADR 0106.
 - Cursor visibility state was added in ADR 0107.
+- Saved cursor character-set restoration was added in ADR 0155.
 
 `AttachShellModel` now maintains `terminalScreen` alongside tmux
 `ScrollbackBuffer`. ADR 0055 keeps live terminal output out of the scrollback
@@ -57,8 +58,9 @@ screen rows for display.
 The iOS shell now has a distinct live-screen surface, which is the right boundary
 for future ANSI parsing, keyboard, paste, and simulator screenshot validation.
 This is not yet a complete terminal emulator. Full ANSI/VT behavior,
-ambiguous-width parity, selection, saved character sets, theme-aware default
-colors, wide-character edge repair, and performance profiling remain pending.
+ambiguous-width parity, selection, full multi-bank character sets, theme-aware
+default colors, wide-character edge repair, and performance profiling remain
+pending.
 
 ## Validation
 

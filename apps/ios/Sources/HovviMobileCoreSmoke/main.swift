@@ -823,6 +823,12 @@ try require(
     savedCursorScreen.visibleLines[1].runs.last?.attributes.foreground == .red,
     "terminal screen should restore DEC saved cursor attributes"
 )
+var savedCharacterSetScreen = TerminalScreen(columns: 12, rows: 1)
+savedCharacterSetScreen.apply("\u{001B}(0 \u{001B}7\u{001B}(B\rq\u{001B}8q")
+try require(
+    savedCharacterSetScreen.visibleLines[0].text == "q─",
+    "terminal screen should restore DEC saved cursor character set"
+)
 var csiSavedCursorScreen = TerminalScreen(columns: 12, rows: 3)
 csiSavedCursorScreen.apply("\u{001B}[3;4H\u{001B}[1m\u{001B}[s\u{001B}[1;1Htop\u{001B}[0m\u{001B}[uB")
 try require(
@@ -832,6 +838,12 @@ try require(
 try require(
     csiSavedCursorScreen.visibleLines[2].runs.last?.attributes.bold == true,
     "terminal screen should restore CSI saved cursor attributes"
+)
+var csiSavedCharacterSetScreen = TerminalScreen(columns: 12, rows: 1)
+csiSavedCharacterSetScreen.apply("\u{001B}(0 \u{001B}[s\u{001B}(B\rq\u{001B}[uq")
+try require(
+    csiSavedCharacterSetScreen.visibleLines[0].text == "q─",
+    "terminal screen should restore CSI saved cursor character set"
 )
 var lineEditScreen = TerminalScreen(columns: 10, rows: 6)
 lineEditScreen.apply("\u{001B}[1;1Htop")

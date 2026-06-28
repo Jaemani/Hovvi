@@ -490,7 +490,8 @@ public struct TerminalScreen: Equatable, Sendable {
         savedCursor = TerminalSavedCursor(
             column: cursorColumn,
             row: cursorRow,
-            attributes: currentAttributes
+            attributes: currentAttributes,
+            characterSet: characterSet
         )
     }
 
@@ -499,6 +500,7 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorColumn = min(savedCursor.column, columns - 1)
         cursorRow = min(savedCursor.row, rows - 1)
         currentAttributes = savedCursor.attributes
+        characterSet = savedCursor.characterSet
     }
 
     private mutating func insertLines(_ count: Int) {
@@ -1240,12 +1242,14 @@ private struct TerminalSavedCursor: Equatable {
     var column: Int
     var row: Int
     var attributes: TerminalTextAttributes
+    var characterSet: TerminalCharacterSet
 
     func resized(columns: Int, rows: Int) -> TerminalSavedCursor {
         TerminalSavedCursor(
             column: min(column, columns - 1),
             row: min(row, rows - 1),
-            attributes: attributes
+            attributes: attributes,
+            characterSet: characterSet
         )
     }
 }
