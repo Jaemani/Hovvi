@@ -860,6 +860,12 @@ try require(
     asciiCharsetScreen.visibleLines[0].text == "ab",
     "terminal screen should consume ASCII charset designation without printing control bytes"
 )
+var utf8DesignationScreen = TerminalScreen(columns: 16, rows: 1)
+utf8DesignationScreen.apply("a\u{001B}%Gb")
+try require(
+    utf8DesignationScreen.visibleLines[0].text == "ab",
+    "terminal screen should consume UTF-8 designation controls without printing control bytes"
+)
 var splitCharsetScreen = TerminalScreen(columns: 16, rows: 1)
 splitCharsetScreen.apply("\u{001B}(")
 splitCharsetScreen.apply("0q")
@@ -872,6 +878,30 @@ decLineDrawingScreen.apply("\u{001B}(0lqkxmj\u{001B}(B!")
 try require(
     decLineDrawingScreen.visibleLines[0].text == "┌─┐│└┘!",
     "terminal screen should map DEC special graphics line drawing characters"
+)
+var g1LineDrawingScreen = TerminalScreen(columns: 16, rows: 1)
+g1LineDrawingScreen.apply("\u{001B})0a\u{000E}lqk\u{000F}b")
+try require(
+    g1LineDrawingScreen.visibleLines[0].text == "a┌─┐b",
+    "terminal screen should select G1 DEC special graphics with SO and return to G0 with SI"
+)
+var splitG1CharsetScreen = TerminalScreen(columns: 16, rows: 1)
+splitG1CharsetScreen.apply("\u{001B})")
+splitG1CharsetScreen.apply("0\u{000E}x\u{000F}x")
+try require(
+    splitG1CharsetScreen.visibleLines[0].text == "│x",
+    "terminal screen should buffer split G1 character set designation"
+)
+var rawShiftCharsetScreen = TerminalScreen(columns: 16, rows: 1)
+var rawShiftBytes = Data("\u{001B})0".utf8)
+rawShiftBytes.append(0x0E)
+rawShiftBytes.append(contentsOf: "q".utf8)
+rawShiftBytes.append(0x0F)
+rawShiftBytes.append(contentsOf: "q".utf8)
+rawShiftCharsetScreen.apply(rawShiftBytes)
+try require(
+    rawShiftCharsetScreen.visibleLines[0].text == "─q",
+    "terminal screen should parse raw SI/SO bytes from relay data frames"
 )
 var repeatPrecedingCharacterScreen = TerminalScreen(columns: 8, rows: 2)
 repeatPrecedingCharacterScreen.apply("A\u{001B}[3b")
@@ -1091,6 +1121,12 @@ csiSavedCharacterSetScreen.apply("\u{001B}(0 \u{001B}[s\u{001B}(B\rq\u{001B}[uq"
 try require(
     csiSavedCharacterSetScreen.visibleLines[0].text == "q─",
     "terminal screen should restore CSI saved cursor character set"
+)
+var savedG1CharacterSetScreen = TerminalScreen(columns: 12, rows: 1)
+savedG1CharacterSetScreen.apply("\u{001B})0\u{000E} \u{001B}7\u{000F}\rq\u{001B}8q")
+try require(
+    savedG1CharacterSetScreen.visibleLines[0].text == "q─",
+    "terminal screen should restore saved G1 character set and active SI/SO bank"
 )
 var decPrivateSavedCursorScreen = TerminalScreen(columns: 12, rows: 3)
 decPrivateSavedCursorScreen.apply("\u{001B}[2;3H\u{001B}[1m\u{001B}[?1048h\u{001B}[1;1Htop\u{001B}[0m\u{001B}[?1048lB")

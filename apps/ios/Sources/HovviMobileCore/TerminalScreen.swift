@@ -137,7 +137,9 @@ public struct TerminalScreen: Equatable, Sendable {
     private var stringControlSkipState = TerminalStringControlSkipState.none
     private var pendingControlPrefix = ""
     private var pendingUtf8Bytes = Data()
-    private var characterSet = TerminalCharacterSet.ascii
+    private var g0CharacterSet = TerminalCharacterSet.ascii
+    private var g1CharacterSet = TerminalCharacterSet.ascii
+    private var activeCharacterSetBank = TerminalCharacterSetBank.g0
     private var lastGraphicCharacter: Character?
 
     public init(columns: Int = 80, rows: Int = 24) {
@@ -218,8 +220,10 @@ public struct TerminalScreen: Equatable, Sendable {
                 reset()
             case .character(let character):
                 put(character)
-            case .characterSet(let characterSet):
-                self.characterSet = characterSet
+            case .characterSet(let bank, let characterSet):
+                setCharacterSet(characterSet, for: bank)
+            case .selectCharacterSetBank(let bank):
+                activeCharacterSetBank = bank
             case .lineFeed:
                 lineFeed()
             case .reverseIndex:
@@ -321,7 +325,9 @@ public struct TerminalScreen: Equatable, Sendable {
         stringControlSkipState = .none
         pendingControlPrefix.removeAll(keepingCapacity: true)
         pendingUtf8Bytes.removeAll(keepingCapacity: true)
-        characterSet = .ascii
+        g0CharacterSet = .ascii
+        g1CharacterSet = .ascii
+        activeCharacterSetBank = .g0
         lastGraphicCharacter = nil
     }
 
@@ -399,7 +405,7 @@ public struct TerminalScreen: Equatable, Sendable {
     }
 
     private mutating func put(_ character: Character) {
-        let character = characterSet.mapped(character)
+        let character = activeCharacterSet.mapped(character)
         let width = character.terminalCellWidth
         if width == 0 {
             appendCombiningCharacter(character)
@@ -572,7 +578,9 @@ public struct TerminalScreen: Equatable, Sendable {
             column: cursorColumn,
             row: cursorRow,
             attributes: currentAttributes,
-            characterSet: characterSet
+            g0CharacterSet: g0CharacterSet,
+            g1CharacterSet: g1CharacterSet,
+            activeCharacterSetBank: activeCharacterSetBank
         )
     }
 
@@ -581,7 +589,9 @@ public struct TerminalScreen: Equatable, Sendable {
         cursorColumn = min(savedCursor.column, columns - 1)
         cursorRow = min(savedCursor.row, rows - 1)
         currentAttributes = savedCursor.attributes
-        characterSet = savedCursor.characterSet
+        g0CharacterSet = savedCursor.g0CharacterSet
+        g1CharacterSet = savedCursor.g1CharacterSet
+        activeCharacterSetBank = savedCursor.activeCharacterSetBank
     }
 
     private mutating func insertLines(_ count: Int) {
@@ -652,6 +662,24 @@ public struct TerminalScreen: Equatable, Sendable {
         guard let lastGraphicCharacter else { return }
         for _ in 0..<max(1, count) {
             put(lastGraphicCharacter)
+        }
+    }
+
+    private var activeCharacterSet: TerminalCharacterSet {
+        switch activeCharacterSetBank {
+        case .g0:
+            return g0CharacterSet
+        case .g1:
+            return g1CharacterSet
+        }
+    }
+
+    private mutating func setCharacterSet(_ characterSet: TerminalCharacterSet, for bank: TerminalCharacterSetBank) {
+        switch bank {
+        case .g0:
+            g0CharacterSet = characterSet
+        case .g1:
+            g1CharacterSet = characterSet
         }
     }
 
@@ -827,7 +855,9 @@ public struct TerminalScreen: Equatable, Sendable {
                 originMode: originMode,
                 savedCursor: savedCursor,
                 tabStops: tabStops,
-                characterSet: characterSet,
+                g0CharacterSet: g0CharacterSet,
+                g1CharacterSet: g1CharacterSet,
+                activeCharacterSetBank: activeCharacterSetBank,
                 lastGraphicCharacter: lastGraphicCharacter
             )
         }
@@ -839,7 +869,9 @@ public struct TerminalScreen: Equatable, Sendable {
         originMode = false
         savedCursor = nil
         tabStops = Self.defaultTabStops(columns: columns)
-        characterSet = .ascii
+        g0CharacterSet = .ascii
+        g1CharacterSet = .ascii
+        activeCharacterSetBank = .g0
         lastGraphicCharacter = nil
     }
 
@@ -853,7 +885,9 @@ public struct TerminalScreen: Equatable, Sendable {
         originMode = snapshot.originMode
         savedCursor = snapshot.savedCursor?.resized(columns: columns, rows: rows)
         tabStops = Set(snapshot.tabStops.filter { $0 < columns })
-        characterSet = snapshot.characterSet
+        g0CharacterSet = snapshot.g0CharacterSet
+        g1CharacterSet = snapshot.g1CharacterSet
+        activeCharacterSetBank = snapshot.activeCharacterSetBank
         lastGraphicCharacter = snapshot.lastGraphicCharacter
         primarySnapshotBeforeAlternate = nil
     }
@@ -938,7 +972,8 @@ private enum TerminalToken {
     case ignored
     case reset
     case character(Character)
-    case characterSet(TerminalCharacterSet)
+    case characterSet(TerminalCharacterSetBank, TerminalCharacterSet)
+    case selectCharacterSetBank(TerminalCharacterSetBank)
     case lineFeed
     case reverseIndex
     case carriageReturn
@@ -1014,6 +1049,12 @@ private struct TerminalEscapeParser {
         case 0x09:
             advanceOneScalar()
             return .horizontalTab
+        case 0x0E:
+            advanceOneScalar()
+            return .selectCharacterSetBank(.g1)
+        case 0x0F:
+            advanceOneScalar()
+            return .selectCharacterSetBank(.g0)
         case 0x84:
             advanceOneScalar()
             return .lineFeed
@@ -1083,7 +1124,15 @@ private struct TerminalEscapeParser {
         }
         if text[index] == "(" {
             index = text.index(after: index)
-            return parseG0CharacterSet(sequenceStart: sequenceStart)
+            return parseCharacterSet(bank: .g0, sequenceStart: sequenceStart)
+        }
+        if text[index] == ")" {
+            index = text.index(after: index)
+            return parseCharacterSet(bank: .g1, sequenceStart: sequenceStart)
+        }
+        if text[index] == "%" {
+            index = text.index(after: index)
+            return parseUtf8Designation(sequenceStart: sequenceStart)
         }
         if text[index] == "]" {
             index = text.index(after: index)
@@ -1176,7 +1225,7 @@ private struct TerminalEscapeParser {
         return .stInside
     }
 
-    private mutating func parseG0CharacterSet(sequenceStart: String.Index) -> TerminalToken? {
+    private mutating func parseCharacterSet(bank: TerminalCharacterSetBank, sequenceStart: String.Index) -> TerminalToken? {
         guard index < text.endIndex else {
             markIncompleteControl(from: sequenceStart)
             return nil
@@ -1185,9 +1234,24 @@ private struct TerminalEscapeParser {
         index = text.index(after: index)
         switch designator {
         case "0":
-            return .characterSet(.decSpecialGraphics)
+            return .characterSet(bank, .decSpecialGraphics)
         case "B":
-            return .characterSet(.ascii)
+            return .characterSet(bank, .ascii)
+        default:
+            return .ignored
+        }
+    }
+
+    private mutating func parseUtf8Designation(sequenceStart: String.Index) -> TerminalToken? {
+        guard index < text.endIndex else {
+            markIncompleteControl(from: sequenceStart)
+            return nil
+        }
+        let designator = text[index]
+        index = text.index(after: index)
+        switch designator {
+        case "@", "G":
+            return .ignored
         default:
             return .ignored
         }
@@ -1402,6 +1466,11 @@ private enum TerminalCharacterSet: Equatable {
     }
 }
 
+private enum TerminalCharacterSetBank: Equatable {
+    case g0
+    case g1
+}
+
 private enum TerminalTabClearMode {
     case current
     case all
@@ -1451,7 +1520,9 @@ private struct TerminalScreenSnapshot: Equatable {
     var originMode: Bool
     var savedCursor: TerminalSavedCursor?
     var tabStops: Set<Int>
-    var characterSet: TerminalCharacterSet
+    var g0CharacterSet: TerminalCharacterSet
+    var g1CharacterSet: TerminalCharacterSet
+    var activeCharacterSetBank: TerminalCharacterSetBank
     var lastGraphicCharacter: Character?
 }
 
@@ -1459,14 +1530,18 @@ private struct TerminalSavedCursor: Equatable {
     var column: Int
     var row: Int
     var attributes: TerminalTextAttributes
-    var characterSet: TerminalCharacterSet
+    var g0CharacterSet: TerminalCharacterSet
+    var g1CharacterSet: TerminalCharacterSet
+    var activeCharacterSetBank: TerminalCharacterSetBank
 
     func resized(columns: Int, rows: Int) -> TerminalSavedCursor {
         TerminalSavedCursor(
             column: min(column, columns - 1),
             row: min(row, rows - 1),
             attributes: attributes,
-            characterSet: characterSet
+            g0CharacterSet: g0CharacterSet,
+            g1CharacterSet: g1CharacterSet,
+            activeCharacterSetBank: activeCharacterSetBank
         )
     }
 }
