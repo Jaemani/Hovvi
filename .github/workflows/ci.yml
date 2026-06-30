@@ -43,7 +43,7 @@ jobs:
         timeout-minutes: 4
       - run: node scripts/ios-simulator-screenshot-matrix-check.js --output-dir=.artifacts/ios/screenshots --metadata=.artifacts/ios/hovvi-ios-screenshot-matrix.json --require-captured
         timeout-minutes: 5
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: hovvi-ios-simulator-screenshot
