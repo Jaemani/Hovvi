@@ -854,6 +854,25 @@ try require(
     rawC1DataOscScreen.visibleLines[0].text == "ab",
     "terminal screen should skip raw C1 OSC bytes from relay data frames"
 )
+var unsupportedCsiScreen = TerminalScreen(columns: 16, rows: 1)
+unsupportedCsiScreen.apply("a\u{001B}[2qb")
+try require(
+    unsupportedCsiScreen.visibleLines[0].text == "ab",
+    "terminal screen should ignore complete unsupported CSI sequences without dropping later text"
+)
+var intermediateCsiScreen = TerminalScreen(columns: 16, rows: 1)
+intermediateCsiScreen.apply("a\u{001B}[2 qb")
+try require(
+    intermediateCsiScreen.visibleLines[0].text == "ab",
+    "terminal screen should consume xterm cursor-style CSI intermediates without printing control bytes"
+)
+var splitIntermediateCsiScreen = TerminalScreen(columns: 16, rows: 1)
+splitIntermediateCsiScreen.apply("a\u{001B}[! ")
+splitIntermediateCsiScreen.apply("pb")
+try require(
+    splitIntermediateCsiScreen.visibleLines[0].text == "ab",
+    "terminal screen should buffer split CSI intermediate sequences before ignoring unsupported controls"
+)
 var asciiCharsetScreen = TerminalScreen(columns: 16, rows: 1)
 asciiCharsetScreen.apply("a\u{001B}(Bb")
 try require(

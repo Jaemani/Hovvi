@@ -1151,12 +1151,17 @@ private struct TerminalEscapeParser {
 
     private mutating func parseControlSequenceIntroducer(sequenceStart: String.Index) -> TerminalToken? {
         var parameters = ""
+        var intermediates = ""
         while index < text.endIndex {
             let character = text[index]
             index = text.index(after: index)
             guard let scalar = character.unicodeScalars.first else { continue }
             if scalar.value >= 0x40, scalar.value <= 0x7E {
-                return csiToken(final: scalar, parameters: parameters)
+                return csiToken(final: scalar, parameters: parameters, intermediates: intermediates) ?? .ignored
+            }
+            if scalar.value >= 0x20, scalar.value <= 0x2F {
+                intermediates.append(character)
+                continue
             }
             parameters.append(character)
         }
@@ -1262,7 +1267,8 @@ private struct TerminalEscapeParser {
         index = text.endIndex
     }
 
-    private func csiToken(final: UnicodeScalar, parameters: String) -> TerminalToken? {
+    private func csiToken(final: UnicodeScalar, parameters: String, intermediates: String) -> TerminalToken? {
+        guard intermediates.isEmpty else { return nil }
         let values = parameters
             .split(separator: ";", omittingEmptySubsequences: false)
             .map { Int($0) ?? 0 }

@@ -464,6 +464,10 @@ Current status:
   designations, SI/SO bank switching, raw SI/SO relay bytes, and UTF-8
   designation controls, keeping ncurses/tmux line drawing stable when streams
   use the alternate GL bank instead of only G0.
+- Swift mobile terminal parsing now separates CSI parameter and intermediate
+  bytes, consumes complete unsupported CSI controls without dropping following
+  relay-frame text, and buffers split intermediate CSI controls until their
+  final byte arrives.
 - Swift mobile saved cursor handling now preserves and restores the active
   ASCII/DEC special graphics character set across both DEC and CSI save/restore
   sequences, keeping tmux/ncurses line drawing stable after cursor restore.
